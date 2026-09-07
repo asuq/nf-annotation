@@ -44,6 +44,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Directory containing staged process versions.yml files.",
     )
     parser.add_argument(
+        "--inherited-version-dir",
+        type=Path,
+        help="Directory of provenance TSVs from explicitly reused published results.",
+    )
+    parser.add_argument(
         "--container-ref",
         action="append",
         default=[],
@@ -435,6 +440,25 @@ def run_collect_versions(args: argparse.Namespace) -> None:
     rows = build_runtime_rows(args)
     version_files = discover_version_files(args.version_file, args.version_dir)
     rows.extend(collect_canonical_version_rows(version_files))
+    if args.inherited_version_dir is not None:
+        paths = sorted(args.inherited_version_dir.glob("*.tsv"))
+        if not paths:
+            raise CollectVersionsError(
+                f"No inherited provenance reports in {args.inherited_version_dir}"
+            )
+        for path in paths:
+            with path.open(encoding="utf-8", newline="") as handle:
+                reader = csv.DictReader(handle, delimiter="\t")
+                if reader.fieldnames != list(OUTPUT_COLUMNS):
+                    raise CollectVersionsError(
+                        f"Invalid inherited provenance header: {path}"
+                    )
+                for row in reader:
+                    if None in row or any(value is None for value in row.values()):
+                        raise CollectVersionsError(
+                            f"Malformed inherited provenance row: {path}"
+                        )
+                    rows.append(row)
     write_tsv(args.output, deduplicate_rows(rows))
 
 

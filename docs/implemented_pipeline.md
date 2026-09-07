@@ -142,6 +142,7 @@ The most important implementation-level parameters are:
 | Parameter | Entrypoint | Role |
 | --- | --- | --- |
 | `sample_csv` | `main.nf` | Input manifest for all requested genomes. |
+| `update_from` | `main.nf` | Optional published source cohort; reuse retained samples, analyse additions, and rebuild all cohort reports in a separate output. |
 | `metadata` | `main.nf` | Metadata block preserved into the final master table. |
 | `taxdump` | `main.nf`, `prepare_databases.nf` | Resolved taxdump directory for taxonomy expansion or preparation target. |
 | `checkm2_db` | `main.nf`, `prepare_databases.nf` | CheckM2 database directory. |

@@ -76,6 +76,48 @@ def normalize_header(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", name.strip().casefold()).strip("_")
 
 
+def is_empty_ani_cohort(
+    metadata_path: Path,
+    matrix_path: Path,
+    *,
+    matrix_name_column: str = "matrix_name",
+    require_scoring: bool = False,
+) -> bool:
+    """Recognise an explicitly empty cohort without accepting missing inputs.
+
+    A header-only eligibility table and a zero-byte matrix are the pipeline's
+    empty-cohort contract. Matrix data without eligible metadata is an error.
+    """
+    if not metadata_path.is_file() or not matrix_path.is_file():
+        raise AniInputError("ANI metadata and matrix files must both exist.")
+    with metadata_path.open(encoding="utf-8", newline="") as handle:
+        reader = csv.reader(handle, delimiter="\t")
+        header = [normalize_header(column) for column in next(reader, [])]
+        required = {"accession", normalize_header(matrix_name_column)}
+        if require_scoring:
+            required.update(
+                normalize_header(column) for column in REQUIRED_SCORING_METADATA_COLS
+            )
+        if (
+            not header
+            or any(not column for column in header)
+            or len(header) != len(set(header))
+            or not required <= set(header)
+            or (
+                require_scoring
+                and sum(column.startswith("busco_") for column in header) != 1
+            )
+        ):
+            raise AniInputError(f"Invalid ANI metadata header: {metadata_path}")
+        if any(row for row in reader):
+            return False
+    if matrix_path.stat().st_size:
+        raise AniInputError(
+            "ANI matrix is non-empty but eligibility metadata has no samples."
+        )
+    return True
+
+
 def is_missing_value(value: Any) -> bool:
     """Return True when a scalar should be treated as missing."""
     return str(value).strip().upper() in {"", "NA"}

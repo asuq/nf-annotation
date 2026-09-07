@@ -25,7 +25,13 @@ def read_tsv(path: Path) -> list[dict[str, str]]:
 
 
 class ValidateInputsTestCase(unittest.TestCase):
-    """Exercise success and failure cases for input validation."""
+    """Cover the strict sample-manifest and metadata validation contract."""
+
+    def test_empty_manifest_is_rejected(self) -> None:
+        with self.assertRaisesRegex(validate_inputs.ValidationError, "at least one"):
+            validate_inputs.validate_samples(
+                validate_inputs.REQUIRED_SAMPLE_COLUMNS, [], {}
+            )
 
     def write_text_file(self, path: Path, content: str) -> Path:
         """Write a UTF-8 text file and return its path."""

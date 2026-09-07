@@ -26,6 +26,67 @@ def read_tsv(path: Path) -> list[dict[str, str]]:
 class CollectVersionsTestCase(unittest.TestCase):
     """Cover version-file parsing and runtime/context reporting."""
 
+    def test_inherited_versions_keep_their_origin_and_do_not_replace_current_versions(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(dir="/tmp") as directory:
+            root = Path(directory)
+            inherited = root / "inherited"
+            inherited.mkdir()
+            source = inherited / "report.tsv"
+            source.write_text(
+                "component\tkind\tversion\timage_or_path\tnotes\n"
+                "checkm2\ttool\told-version\tNA\treused source fixture\n"
+            )
+            current = root / "versions.yml"
+            current.write_text('"CHECKM2":\n  checkm2: "new-version"\n')
+            output = root / "versions.tsv"
+            self.assertEqual(
+                collect_versions.main(
+                    [
+                        "--version-file",
+                        str(current),
+                        "--inherited-version-dir",
+                        str(inherited),
+                        "--output",
+                        str(output),
+                    ]
+                ),
+                0,
+            )
+            rows = [
+                row
+                for row in read_tsv(output)
+                if row["component"] == "checkm2" and row["kind"] == "tool"
+            ]
+            self.assertEqual(
+                {row["version"] for row in rows}, {"old-version", "new-version"}
+            )
+            self.assertEqual(
+                next(row["notes"] for row in rows if row["version"] == "old-version"),
+                "reused source fixture",
+            )
+
+    def test_malformed_or_missing_inherited_provenance_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory(dir="/tmp") as directory:
+            root = Path(directory)
+            inherited = root / "inherited"
+            inherited.mkdir()
+            command = [
+                "--inherited-version-dir",
+                str(inherited),
+                "--output",
+                str(root / "out.tsv"),
+            ]
+            self.assertEqual(collect_versions.main(command), 1)
+            path = inherited / "report.tsv"
+            path.write_text("component\tversion\ncheckm2\t1\n")
+            self.assertEqual(collect_versions.main(command), 1)
+            path.write_text(
+                "component\tkind\tversion\timage_or_path\tnotes\ncheckm2\ttool\n"
+            )
+            self.assertEqual(collect_versions.main(command), 1)
+
     def write_text_file(self, path: Path, content: str) -> Path:
         """Write test text to a file and return its path."""
         path.parent.mkdir(parents=True, exist_ok=True)

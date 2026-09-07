@@ -127,9 +127,9 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         codetta_text = (MODULES_DIR / "codetta.nf").read_text(encoding="utf-8")
         eggnog_text = (MODULES_DIR / "eggnog.nf").read_text(encoding="utf-8")
 
-        self.assertIn("checkm2Db = Channel.fromPath(params.checkm2_db, checkIfExists: true)", main_text)
-        self.assertIn("codettaDb = Channel.fromPath(params.codetta_db, checkIfExists: true)", main_text)
-        self.assertIn("eggnogDb = Channel.fromPath(params.eggnog_db, checkIfExists: true)", main_text)
+        for database in ("checkm2", "codetta", "eggnog"):
+            self.assertIn(f"{database}Db = hasNewSamples.map", main_text)
+            self.assertIn(f"file(params.{database}_db, checkIfExists: true)", main_text)
         self.assertIn("PER_SAMPLE_QC(", main_text)
         self.assertIn("checkm2Db,", main_text)
         self.assertIn("PER_SAMPLE_ANNOTATION(", main_text)
@@ -360,11 +360,11 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         )
         self.assertIn("COHORT_16S(", main_text)
         self.assertIn(
-            "PER_SAMPLE_QC.out.sixteen_s_summaries,",
+            "allSixteenS = PER_SAMPLE_QC.out.sixteen_s_summaries.mix(INPUT_VALIDATION_AND_STAGING.out.reused_sixteen_s)",
             main_text,
         )
         self.assertIn(
-            "PER_SAMPLE_QC.out.gcode_qc_for_cohort_16s,",
+            "PER_SAMPLE_QC.out.gcode_qc_for_cohort_16s.mix(INPUT_VALIDATION_AND_STAGING.out.reused_gcode_qc_for_cohort_16s)",
             main_text,
         )
 
@@ -967,8 +967,9 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertNotIn("PROKKA(annotation_candidates.filter", workflow_text)
         self.assertNotIn("CCFINDER(annotation_candidates.filter", workflow_text)
         self.assertNotIn("PADLOC(PROKKA.out.padloc_inputs.filter", workflow_text)
-        self.assertIn("configuredEggnogOnlyAccessions = parseConfiguredAccessions.call(params.eggnog_only_accessions)", final_outputs_text)
-        self.assertIn("eggnog_short_circuit", final_outputs_text)
+        self.assertIn("eggnog_skips = eggnogSkippedRows", workflow_text)
+        self.assertIn(".concat(eggnog_skips)", final_outputs_text)
+        self.assertIn("eggnog_short_circuit", workflow_text)
 
     def test_collect_versions_stages_version_files_in_a_directory(self) -> None:
         """Require collected version files to be staged into one directory input."""

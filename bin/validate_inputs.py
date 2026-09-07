@@ -340,6 +340,9 @@ def validate_samples(
         seen_accessions.add(accession)
         accessions.append(accession)
 
+    if not accessions:
+        raise ValidationError("Sample manifest must contain at least one sample.")
+
     accession_map = add_collision_suffixes(accessions)
     warnings: list[ValidationWarning] = []
     collision_groups: dict[str, list[str]] = defaultdict(list)

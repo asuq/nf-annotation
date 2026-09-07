@@ -24,38 +24,48 @@ process FASTANI {
 
     script:
     """
-    set +e
-    fastANI \
-        --rl "${fastani_paths}" \
-        --ql "${fastani_paths}" \
-        --matrix \
-        -t ${task.cpus} \
-        -o fastani.tsv \
-        > fastani.log 2>&1
-    exit_code=\$?
-    set -e
-
-    matrix_file=\$(find . -maxdepth 1 -type f \\( -name 'fastani.tsv.matrix' -o -name '*.matrix' \\) | head -n 1 || true)
-    if [[ -n "\${matrix_file}" ]]; then
-        cp "\${matrix_file}" fastani.matrix
-    else
+    if [[ ! -s "${fastani_paths}" ]]; then
         : > fastani.matrix
-    fi
-
-    if [[ ! -f fastani.tsv ]]; then
         : > fastani.tsv
-    fi
+        echo 'No ANI-eligible genomes; FastANI was not run.' > fastani.log
+    else
+        set +e
+        fastANI \
+            --rl "${fastani_paths}" \
+            --ql "${fastani_paths}" \
+            --matrix \
+            -t ${task.cpus} \
+            -o fastani.tsv \
+            > fastani.log 2>&1
+        exit_code=\$?
+        set -e
 
-    if grep -q 'Could not open ' fastani.log; then
-        echo "FastANI could not open one or more staged inputs." >&2
-        sed -n '1,120p' fastani.log >&2
-        exit 1
-    fi
+        matrix_file=\$(find . -maxdepth 1 -type f \\( -name 'fastani.tsv.matrix' -o -name '*.matrix' \\) | head -n 1 || true)
+        if [[ -n "\${matrix_file}" ]]; then
+            cp "\${matrix_file}" fastani.matrix
+        else
+            : > fastani.matrix
+        fi
 
-    if [[ -s "${fastani_paths}" && ! -s fastani.matrix ]]; then
-        echo "FastANI did not produce a matrix for a non-empty input list." >&2
-        sed -n '1,120p' fastani.log >&2
-        exit 1
+        if [[ ! -f fastani.tsv ]]; then
+            : > fastani.tsv
+        fi
+
+        if grep -q 'Could not open ' fastani.log; then
+            echo "FastANI could not open one or more staged inputs." >&2
+            sed -n '1,120p' fastani.log >&2
+            exit 1
+        fi
+
+        if [[ -s "${fastani_paths}" && ! -s fastani.matrix ]]; then
+            echo "FastANI did not produce a matrix for a non-empty input list." >&2
+            sed -n '1,120p' fastani.log >&2
+            exit 1
+        fi
+        if [[ "\${exit_code}" -ne 0 ]]; then
+            echo "FastANI failed with exit code \${exit_code}; see fastani.log." >&2
+            exit "\${exit_code}"
+        fi
     fi
 
     cat <<EOF > versions.yml

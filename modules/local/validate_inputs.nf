@@ -8,6 +8,7 @@ process VALIDATE_INPUTS {
         "${params.outdir}/tables",
         mode: 'copy',
         overwrite: true,
+        enabled: !params.update_from,
         saveAs: { filename ->
             filename in ['validated_samples.tsv', 'accession_map.tsv', 'validation_warnings.tsv', 'sample_status.tsv']
                 ? filename

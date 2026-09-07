@@ -41,10 +41,7 @@ workflow BUSCO_DATASET_PREP {
 
     if (downloadEnabled) {
         def downloadRootValue = params.busco_db ?: "${params.outdir}/resources/busco"
-        def mountedDownloadTarget = buildMountedDownloadTarget.call(downloadRootValue)
-        def downloadRootFile = mountedDownloadTarget[0]
-        def downloadParent = mountedDownloadTarget[1]
-        def downloadName = mountedDownloadTarget[2]
+        def downloadRootFile = new File(downloadRootValue.toString()).canonicalFile
 
         if (params.busco_db) {
             reusableLineages = lineages.filter { lineage ->
@@ -66,6 +63,9 @@ workflow BUSCO_DATASET_PREP {
         }
 
         downloadJobs = downloadLineages.map { lineage ->
+            def mountedDownloadTarget = buildMountedDownloadTarget.call(downloadRootValue)
+            def downloadParent = mountedDownloadTarget[1]
+            def downloadName = mountedDownloadTarget[2]
             tuple(lineage, downloadParent, downloadName)
         }
 
@@ -74,20 +74,19 @@ workflow BUSCO_DATASET_PREP {
         logs = DOWNLOAD_BUSCO_DATASET.out.log
         versions = DOWNLOAD_BUSCO_DATASET.out.versions
     } else {
-        if (!params.busco_db) {
-            error "params.busco_db is required unless params.prepare_busco_datasets=true"
-        }
-
         def stubDatasetFallback = null
         if (workflow.stubRun) {
             stubDatasetFallback = buscoDbRoot
-                .listFiles()
+                ?.listFiles()
                 ?.findAll { it.isDirectory() }
                 ?.sort { it.name }
                 ?.findResult { datasetDir -> datasetDir.absolutePath }
         }
 
         datasets = lineages.map { lineage ->
+            if (!params.busco_db) {
+                error "params.busco_db is required unless params.prepare_busco_datasets=true"
+            }
             def datasetPath = new File(params.busco_db.toString(), lineage.toString()).absolutePath
             if (
                 workflow.stubRun

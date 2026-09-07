@@ -16,6 +16,7 @@ from typing import Any, NoReturn, Sequence
 from ani_common import (
     AniInputError,
     build_genome_from_row,
+    is_empty_ani_cohort,
     load_ani_metadata,
     load_cluster_metadata,
     load_matrix,
@@ -308,6 +309,13 @@ def run_pipeline(args: argparse.Namespace) -> None:
     """Run ANI complete-linkage clustering and write cluster memberships."""
     if not (0.0 < float(args.threshold) < 1.0):
         raise AniInputError(f"--threshold must be a fraction in (0,1). Got: {args.threshold}")
+
+    if is_empty_ani_cohort(
+        args.ani_metadata, args.ani_matrix, matrix_name_column=args.matrix_name_column
+    ):
+        write_clusters(args.outdir / "cluster.tsv", [])
+        logging.info("No ANI-eligible samples; wrote an empty cluster table.")
+        return
 
     names, ani, name_to_idx = load_matrix(args.ani_matrix)
     accession_by_matrix_name, eligible_names = load_cluster_metadata(

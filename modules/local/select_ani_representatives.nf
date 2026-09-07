@@ -27,7 +27,7 @@ process SELECT_ANI_REPRESENTATIVES {
     path 'versions.yml', emit: versions
 
     script:
-    def aniScoreProfile = params.ani_score_profile ?: 'default'
+    def aniScoreProfile = params.ani_score_profile
     """
     select_ani_representatives.py \
         --ani-clusters "${ani_clusters}" \

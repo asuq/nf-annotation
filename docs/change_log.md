@@ -1,5 +1,17 @@
 # Change Log
 
+## Cohort membership updates
+
+- Added `--update_from` to reuse validated published sample results, analyse
+  added accessions, and rebuild ANI and complete cohort reports without the
+  previous work directory or cache. Updates write independent result copies
+  with source/genome provenance and preserve retained internal IDs and tool
+  outcomes.
+- Added explicit empty-ANI outputs for revised cohorts with no eligible
+  genomes. Invalid or contradictory ANI inputs still fail.
+- Staging now uses a distinct input filename, preventing an input FASTA from
+  being overwritten when its basename matches the internal-ID output name.
+
 ## v0.3.0 - 2026-08-01
 
 - Added an ANI recovery CLI with detailed logging, reusable published assembly

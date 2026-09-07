@@ -96,6 +96,13 @@ workflow PER_SAMPLE_ANNOTATION {
 
     EGGNOG(eggnog_inputs.combine(eggnog_db))
 
+    eggnogSkippedRows = gcode_by_accession
+        .filter { item ->
+            item[1] in ['4', '11'] && eggnogOnlyAccessions != null &&
+                !eggnogOnlyAccessions.isEmpty() && !eggnogOnlyAccessions.contains(item[0])
+        }
+        .map { item -> "${item[0]}\tskipped\teggnog_short_circuit\t0\t0\t0" }
+
     versions = PROKKA.out.versions
         .mix(CODETTA.out.versions)
         .mix(SUMMARISE_CODETTA.out.versions)
@@ -112,5 +119,6 @@ workflow PER_SAMPLE_ANNOTATION {
     ccfinder_summary = SUMMARISE_CCFINDER.out.summaries
     padloc = PADLOC.out.results
     eggnog = EGGNOG.out.results
+    eggnog_skips = eggnogSkippedRows
     versions = versions
 }

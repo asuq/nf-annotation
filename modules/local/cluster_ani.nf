@@ -20,7 +20,7 @@ process CLUSTER_ANI {
     path 'versions.yml', emit: versions
 
     script:
-    def aniThreshold = params.ani_threshold ?: 0.95
+    def aniThreshold = params.ani_threshold
     """
     cluster_ani.py \
         --ani-matrix "${ani_matrix}" \

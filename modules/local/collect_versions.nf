@@ -15,6 +15,8 @@ process COLLECT_VERSIONS {
 
     input:
     path version_files, stageAs: 'version_files/versions??.yml'
+    path inherited_versions, stageAs: 'inherited_versions/report??.tsv'
+    val busco_lineages
     val nextflow_version
     val pipeline_version
     val git_commit
@@ -24,7 +26,7 @@ process COLLECT_VERSIONS {
     path 'tool_and_db_versions.tsv', emit: versions_table
 
     script:
-    def lineageArgs = (params.busco_lineages as List).collect {
+    def lineageArgs = (busco_lineages as List).collect {
         "--busco-lineage \"${it}\""
     }.join(' \\\n        ')
     def containerRefs = [
@@ -43,10 +45,12 @@ process COLLECT_VERSIONS {
     def containerArgs = containerRefs.collect { name, value ->
         "--container-ref \"${name}=${value}\""
     }.join(' \\\n        ')
+    def inheritedArgs = inherited_versions ? '--inherited-version-dir inherited_versions' : ''
     """
     script_path="\$(command -v collect_versions.py)"
     python3 "\${script_path}" \
         --version-dir version_files \
+        ${inheritedArgs} \
         --nextflow-version "${nextflow_version}" \
         --pipeline-version "${pipeline_version}" \
         --git-commit "${git_commit}" \

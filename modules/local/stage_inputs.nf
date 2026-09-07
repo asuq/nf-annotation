@@ -13,7 +13,7 @@ process STAGE_INPUTS {
     )
 
     input:
-    tuple val(meta), path(genome)
+    tuple val(meta), path(genome, name: 'input_genome')
 
     output:
     tuple val(meta), path("${meta.internal_id}.fasta"), emit: staged_fasta

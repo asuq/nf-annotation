@@ -21,6 +21,7 @@ workflow FINAL_OUTPUTS {
     prokka_results
     padloc_results
     eggnog_results
+    eggnog_skips
     ani_clusters
     ani_metadata
     assembly_stats
@@ -29,6 +30,7 @@ workflow FINAL_OUTPUTS {
     primary_busco_column
     ani_allow_incomplete_16s
     version_files
+    inherited_versions
     nextflow_version
     pipeline_version
     git_commit
@@ -55,31 +57,6 @@ workflow FINAL_OUTPUTS {
         return files == null ? 0 : files.count { file -> file.isFile() }
     }
 
-    parseConfiguredAccessions = { value ->
-        if (value == null) {
-            return null
-        }
-        def rawTokens = value instanceof Collection ? value : value.toString().split(',')
-        def cleaned = rawTokens
-            .collect { it.toString().trim() }
-            .findAll { !it.isEmpty() }
-        return cleaned ? cleaned as Set : null
-    }
-
-    extractSummaryValue = { summaryPath, columnName ->
-        def lines = summaryPath.toFile().readLines()
-        if (lines.size() < 2) {
-            return 'NA'
-        }
-        def header = lines[0].split('\t', -1)
-        def values = lines[1].split('\t', -1)
-        def columnIndex = header.findIndexOf { it == columnName }
-        if (columnIndex < 0 || columnIndex >= values.size()) {
-            return 'NA'
-        }
-        return values[columnIndex].trim()
-    }
-
     unpackTuple = { item, channelName, expectedSize ->
         if (!(item instanceof List)) {
             def actualType = item == null ? 'null' : item.getClass().getName()
@@ -96,8 +73,6 @@ workflow FINAL_OUTPUTS {
         }
         return item
     }
-
-    configuredEggnogOnlyAccessions = parseConfiguredAccessions.call(params.eggnog_only_accessions)
 
     combined_checkm2 = checkm2_seed
         .mix(checkm2_summaries.map { item ->
@@ -206,23 +181,7 @@ workflow FINAL_OUTPUTS {
                 "${meta.accession}\t${status}\t${warnings}\t${exitCode}\t${annotationsSize}\t${resultFileCount}"
             }
         )
-        .concat(
-            configuredEggnogOnlyAccessions == null
-                ? Channel.empty()
-                : checkm2_summaries
-                    .map { item ->
-                        def values = unpackTuple.call(item, 'checkm2_summaries', 2)
-                        def meta = values[0]
-                        def summary = values[1]
-                        def accession = meta.accession.toString()
-                        def gcode = extractSummaryValue.call(summary, 'Gcode')
-                        if (!['4', '11'].contains(gcode) || configuredEggnogOnlyAccessions.contains(accession)) {
-                            return null
-                        }
-                        return "${accession}\tskipped\teggnog_short_circuit\t0\t0\t0"
-                    }
-                    .filter { row -> row != null }
-        )
+        .concat(eggnog_skips)
         .collectFile(
             name: 'eggnog_manifest.tsv',
             newLine: true,
@@ -283,6 +242,8 @@ workflow FINAL_OUTPUTS {
 
     COLLECT_VERSIONS(
         collected_versions,
+        inherited_versions,
+        busco_lineages,
         nextflow_version,
         pipeline_version,
         git_commit,

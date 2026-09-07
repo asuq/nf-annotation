@@ -36,6 +36,7 @@ recommended first real server validation path, see
 - [Preparing metadata.tsv](#preparing-metadatatsv)
 - [Quick-start workflow](#quick-start-workflow)
 - [Main run examples](#main-run-examples)
+- [Updating a cohort](#updating-a-cohort)
 - [Output summary](#output-summary)
 - [Profiles](#profiles)
 - [Documentation map](#documentation-map)
@@ -455,6 +456,50 @@ nextflow run . -profile local,docker \
   --eggnog_db /path/to/eggnog-db \
   --outdir results
 ```
+
+## Updating a cohort
+
+Add `--update_from` to reuse published per-sample results when adding or
+removing samples. Supply the **complete revised sample CSV**, current metadata,
+and a fresh results directory:
+
+```bash
+nextflow run . -profile local,docker \
+  --update_from /path/to/results-v1 \
+  --sample_csv samples-v2.csv \
+  --metadata metadata-v2.tsv \
+  --taxdump /path/to/pinned-taxdump \
+  --checkm2_db /path/to/checkm2-db \
+  --codetta_db /path/to/codetta-db \
+  --busco_db /path/to/busco \
+  --eggnog_db /path/to/eggnog-db \
+  --outdir /path/to/results-v2
+```
+
+Samples present in the source manifest reuse their published QC and annotation
+results. Only accessions absent from that manifest receive new QC and
+annotation; the CSV's `is_new` column keeps its existing metadata meaning.
+Omitted samples are excluded from the revised cohort. ANI is recalculated
+all-vs-all for the eligible revised cohort, and the workflow rebuilds clusters,
+representatives, cohort 16S outputs, taxonomy and final reports.
+
+The original work directory and Nextflow cache are unnecessary. Retained sample
+files are copied into the new output, which can itself be used as the source
+of a later update. The source results remain unchanged. Allow storage for a
+complete copy of the retained sample artefacts.
+
+For removal-only updates, the per-sample database options can be omitted;
+`--taxdump` is still required for refreshed taxonomy. Retained FASTAs must be
+available through the revised CSV and match the published staged genomes.
+Paths and FASTA wrapping may change, but sequence content, case, record IDs
+and record order must match. If original inputs are no longer available,
+the CSV may point to their published `samples/<accession>/staged/*.fasta` files.
+
+Retained analyses keep their original results and provenance; per-sample tool
+settings apply only to additions. ANI options apply to the entire revised
+cohort. Cluster IDs and representatives may change with cohort membership.
+See [the update runbook](docs/runbook.md#updating-cohort-membership) for
+validation requirements, audit files and resume behaviour.
 
 ## Output summary
 

@@ -13,6 +13,7 @@ from typing import Sequence
 import master_table_contract
 from ani_common import (
     AniInputError,
+    is_empty_ani_cohort,
     load_ani_metadata,
     load_matrix,
     normalize_header,
@@ -198,6 +199,12 @@ def build_ani_outputs(
     cluster_members_by_accession = load_cluster_members(ani_clusters)
 
     try:
+        if is_empty_ani_cohort(ani_metadata, ani_matrix, require_scoring=True):
+            if cluster_members_by_accession:
+                raise RepresentativeSelectionError(
+                    "ANI clusters contain samples but eligibility metadata is empty."
+                )
+            return [], []
         names, ani, name_to_idx = load_matrix(ani_matrix)
         metadata_by_matrix_name, eligible_names = load_ani_metadata(
             ani_metadata=ani_metadata,

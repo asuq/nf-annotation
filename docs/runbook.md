@@ -245,6 +245,99 @@ nextflow run . -profile test -stub-run
 This validates the DSL wiring, channel contracts, publish locations, and final
 table/version outputs without requiring external databases or tool containers.
 
+## Updating cohort membership
+
+Use the main workflow's `--update_from <published-results-directory>` option
+for routine sample additions and removals. The sample CSV is the complete
+desired cohort, not a list of changes. An accession is reused only when it is
+in the source's `tables/validated_samples.tsv`; the `is_new` CSV flag does not
+control reuse. An accession absent from the chosen source is analysed again,
+even if it appeared in some other, older results directory.
+
+For example, after a normal run containing A and B, give the update a sample
+CSV containing B and C. B's published QC and annotation are reused, C receives
+normal analysis, and ANI and cohort reports are rebuilt for B and C. A's files
+remain in the previous output and are not copied into the new cohort.
+
+```bash
+nextflow run . -profile local,docker \
+  --update_from /path/to/results-v1 \
+  --sample_csv samples-v2.csv \
+  --metadata metadata-v2.tsv \
+  --taxdump /path/to/pinned-taxdump \
+  --checkm2_db /path/to/checkm2-db \
+  --codetta_db /path/to/codetta-db \
+  --busco_db /path/to/busco \
+  --eggnog_db /path/to/eggnog-db \
+  --outdir /path/to/results-v2
+```
+
+Use the usual execution profile on HPC. Per-sample database paths and BUSCO
+dataset preparation are needed only if the revised cohort contains additions.
+For a removal-only update:
+
+```bash
+nextflow run . -profile local,docker \
+  --update_from /path/to/results-v2 \
+  --sample_csv samples-v3.csv \
+  --metadata metadata-v3.tsv \
+  --taxdump /path/to/pinned-taxdump \
+  --outdir /path/to/results-v3
+```
+
+Supply the intended `--busco_lineages` in order, plus any non-default ANI
+settings, on every update. Requested BUSCO lineages must already be available
+for retained samples. Their QC/annotation settings and outcomes remain as
+published; newly supplied per-sample tool settings govern additions only.
+The ANI threshold, scoring profile, primary BUSCO column and optional
+incomplete-16S gate apply to the whole revised cohort. ANI pairs are recomputed,
+including retained-to-retained comparisons; this is not a pairwise ANI cache.
+
+Before new analysis starts, preflight requires the source validated manifest,
+complete master/status tables, versions report and retained sample artefacts.
+Documented failed/skipped tool outcomes remain valid stored outcomes. Missing
+files, malformed or inconsistent summaries, nested sample symlinks, and
+changed genomes under a retained accession cause an explicit error. Older or
+partial results lacking the required published format must be repaired before
+they can be used for a routine update; the recovery helper below has a
+different purpose.
+
+The updated CSV must resolve each genome, including retained genomes. A
+retained input can be moved, rewrapped or gzip-compressed, and its FASTA
+description may change. Ordered record IDs and sequence bytes, including
+case/soft masking, must match the source's published staged FASTA. When the
+original FASTA is unavailable, point the CSV at that staged FASTA instead.
+Use a new accession or a full analysis for a changed assembly. At least one
+sample must remain in the requested cohort; zero ANI-eligible samples are
+supported and produce header-only ANI tables with explicit exclusion reasons.
+
+The new results directory must be separate from the source: neither directory
+may contain the other. Retained per-sample artefacts are copied, so a completed
+update works as a later source without the original work directory, cache or
+older results tree. Existing internal IDs are preserved when membership
+changes create or remove sanitisation collisions.
+
+Additional audit outputs under `tables/` are:
+
+- `cohort_update.tsv`: added/reused/removed actions, internal IDs, fingerprints
+  of requested genomes, source location and source manifest/versions hashes.
+  Removed genomes have fingerprint `NA` because their files are not required.
+- `cohort_update_run.json`: the input, source and settings identity used to
+  prevent resuming an unrelated update into the same directory.
+- `inherited_versions.tsv`: source provenance with explicit reuse labels.
+  These rows are also retained in `tool_and_db_versions.tsv` alongside the
+  current execution's provenance; reused tools are not reported as rerun.
+
+The existing master/status table columns stay unchanged. Metadata and
+cohort-dependent fields are rebuilt from current inputs, so ANI cluster IDs,
+representatives and inclusion decisions can change. No stale cohort tables
+are copied from the source.
+
+To recover an interrupted update, rerun its exact command with `-resume`,
+preserving that update's launch/cache and work directories. Inputs and
+scientific settings must match its saved identity. Changing the cohort again
+requires another fresh `--outdir` and a completed published source.
+
 ## Rescue ANI from published results
 
 Use `bin/rescue_ani_from_results.py` when an older run already published
