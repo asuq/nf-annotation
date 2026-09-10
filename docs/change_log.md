@@ -1,6 +1,6 @@
 # Change Log
 
-## Cohort membership updates
+## v0.3.1 - 2026-09-10
 
 - Added `--update_from` to reuse validated published sample results, analyse
   added accessions, and rebuild ANI and complete cohort reports without the
@@ -11,6 +11,8 @@
   genomes. Invalid or contradictory ANI inputs still fail.
 - Staging now uses a distinct input filename, preventing an input FASTA from
   being overwritten when its basename matches the internal-ID output name.
+- Updated the shared `nf-helper` profiles: OIST uses Apptainer by default,
+  and GWDG no longer selects the retired `medium` partition.
 
 ## v0.3.0 - 2026-08-01
 
