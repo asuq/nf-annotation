@@ -125,6 +125,14 @@ published bundle, and the adapter is included in PADLOC's search identity.
 | KOfamScan | Native adaptive-threshold pass marker using the frozen prokaryotic profile subset. Preserve multiple accepted KOs. |
 | PADLOC | Native systems and members, checked against canonical gene coordinates and native HMMER evidence. Count systems separately from members. |
 
+The pinned eggNOG 7 output prefixes EC identifiers with `ec:`. Raw evidence
+retains that namespace; normalized EC assignments and matrix columns use the
+validated EC number. Native qualification also reproduced `COG_category` values
+such as `COG0484`, which are identifiers rather than category letters. Those
+values remain visible as field errors and are excluded from category reporting.
+Independent valid fields remain usable; categories are never inferred from
+another caller or substituted for the malformed native value.
+
 `tables/protein_manifest.tsv`, `gene_coordinates.tsv` and
 `protein_function_summary.tsv` retain every valid input protein, including
 unannotated proteins. `tables/annotation_status.tsv` is authoritative for all

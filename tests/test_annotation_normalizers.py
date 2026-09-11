@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import sqlite3
 import sys
 import tempfile
@@ -60,7 +61,7 @@ class NormalizerTests(unittest.TestCase):
                 evalue="0",
                 score="100",
                 GOs="GO:0000001,GO:0000002,GO:0000003",
-                EC="1.2.3.4",
+                EC="ec:1.2.3.4",
                 KEGG_ko="K00001",
                 COG_category="RS",
                 annotation_confidence="-hml" + "-" * 9,
@@ -130,6 +131,39 @@ class NormalizerTests(unittest.TestCase):
         self.assertIn("go", result.features)
         self.assertNotIn("ec", result.features)
         self.assertIn("O ", [row["raw_value"] for row in result.errors])
+
+    def test_eggnog_native_ec_namespace_and_cog_identifier_quarantine(self):
+        self.write_eggnog()
+        path = self.raw / "eggnog.emapper.annotations"
+        path.write_text(
+            path.read_text()
+            .replace("ec:1.2.3.4", "ec:5.6.2.2,ec:2.7.4.9")
+            .replace("\tRS\t", "\tCOG0484\t")
+        )
+        result = egg.normalize(self.raw, self.proteins, self.resource)
+        gene = self.proteins[0]["gene_id"]
+        self.assertEqual(result.features["ec"][gene], {"5.6.2.2", "2.7.4.9"})
+        self.assertEqual(
+            [(row["field"], row["raw_value"]) for row in result.errors],
+            [("categories", "COG0484")],
+        )
+        evidence = result.tables["eggnog_annotations.tsv"][1][0]
+        self.assertEqual(evidence["EC"], "ec:5.6.2.2,ec:2.7.4.9")
+        self.assertEqual(
+            json.loads(evidence["accepted_fields"])["EC"], ["5.6.2.2", "2.7.4.9"]
+        )
+        self.assertEqual(evidence["categories"], "null")
+
+    def test_eggnog_ec_namespace_must_be_explicit_and_well_formed(self):
+        for value in (
+            "5.6.2.2",
+            "EC:5.6.2.2",
+            "ec:",
+            "ec:ec:5.6.2.2",
+            "ec:5.6.2.2,2.7.4.9",
+        ):
+            with self.subTest(value=value), self.assertRaises(AnnotationError):
+                egg.values(value, "EC")
 
     def test_eggnog_namespace_must_match_prepared_ontology(self):
         self.write_eggnog()

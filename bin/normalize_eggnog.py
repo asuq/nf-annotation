@@ -105,6 +105,10 @@ def values(raw: str, name: str) -> list[str]:
     terms = raw.split(",")
     if any(not value or value.strip() != value for value in terms):
         raise AnnotationError("empty term or surrounding whitespace")
+    if name == "EC":
+        if any(not term.startswith("ec:") for term in terms):
+            raise AnnotationError("missing native eggNOG v7 EC namespace")
+        terms = [term.removeprefix("ec:") for term in terms]
     if name in PATTERNS and any(
         not re.fullmatch(PATTERNS[name], term) for term in terms
     ):
