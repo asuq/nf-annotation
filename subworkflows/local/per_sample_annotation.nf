@@ -1,4 +1,5 @@
 include { PROKKA } from '../../modules/local/prokka'
+include { PREPARE_ANNOTATION_BUNDLE } from '../../modules/local/prepare_annotation_bundle'
 include { CCFINDER } from '../../modules/local/ccfinder'
 include { CODETTA } from '../../modules/local/codetta'
 include { SUMMARISE_CODETTA } from '../../modules/local/summarise_codetta'
@@ -81,6 +82,7 @@ workflow PER_SAMPLE_ANNOTATION {
     SUMMARISE_CODETTA(CODETTA.out.summary_input)
 
     PROKKA(annotation_candidates)
+    PREPARE_ANNOTATION_BUNDLE(PROKKA.out.bundle_inputs)
     CCFINDER(annotation_candidates)
     SUMMARISE_CCFINDER(CCFINDER.out.result_json)
     PADLOC(PROKKA.out.padloc_inputs)
@@ -104,6 +106,7 @@ workflow PER_SAMPLE_ANNOTATION {
         .map { item -> "${item[0]}\tskipped\teggnog_short_circuit\t0\t0\t0" }
 
     versions = PROKKA.out.versions
+        .mix(PREPARE_ANNOTATION_BUNDLE.out.versions)
         .mix(CODETTA.out.versions)
         .mix(SUMMARISE_CODETTA.out.versions)
         .mix(CCFINDER.out.versions)
@@ -115,6 +118,7 @@ workflow PER_SAMPLE_ANNOTATION {
     codetta = CODETTA.out.results
     codetta_summary = SUMMARISE_CODETTA.out.summary
     prokka = PROKKA.out.results
+    bundles = PREPARE_ANNOTATION_BUNDLE.out.bundle
     ccfinder = CCFINDER.out.results
     ccfinder_summary = SUMMARISE_CCFINDER.out.summaries
     padloc = PADLOC.out.results

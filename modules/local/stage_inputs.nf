@@ -48,7 +48,7 @@ process STAGE_INPUTS {
     """
     cat <<'EOF' > "${meta.internal_id}.fasta"
     >${meta.internal_id}
-    AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    ATGTGAGCTTAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
     EOF
     : > "${meta.internal_id}.fasta.fai"
     cat <<'EOF' > versions.yml

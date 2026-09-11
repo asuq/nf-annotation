@@ -1,6 +1,6 @@
 /*
  * Run Prokka for gcode-qualified samples and emit stable file handles for the
- * downstream PADLOC and eggNOG wrappers.
+ * downstream protein-bundle validation and annotation.
  */
 process PROKKA {
     tag "${meta.accession}"
@@ -23,6 +23,7 @@ process PROKKA {
     tuple val(meta), path('prokka'), path('prokka.gff'), path('prokka.faa'), path('prokka.gbk'), path('prokka.log'), emit: results
     tuple val(meta), path('prokka.gff'), path('prokka.faa'), emit: padloc_inputs
     tuple val(meta), path('prokka.faa'), emit: eggnog_inputs
+    tuple val(meta), path(genome), val(gcode), path('prokka.faa'), path('prokka.gff'), path('prokka.gbk'), path('prokka.log'), emit: bundle_inputs
     path 'versions.yml', emit: versions
 
     script:
@@ -116,35 +117,37 @@ process PROKKA {
     """
 
     stub:
-    '''
+    """
     mkdir -p prokka
-    cat <<'EOF' > prokka.gff
-    ##gff-version 3
-    contig1	Prokka	CDS	1	30	.	+	0	ID=gnl|Prokka|gene_1
-    ##FASTA
-    >contig1
-    AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-    EOF
-    cat <<'EOF' > prokka.faa
-    >sample_a_1
-    MAAAAAAAAA
-    EOF
-    cat <<'EOF' > prokka.gbk
-    LOCUS       contig1                  30 bp    DNA     linear   BCT 01-JAN-2000
-    FEATURES             Location/Qualifiers
-         CDS             1..30
-                         /locus_tag="sample_a_1"
-    ORIGIN
-            1 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-    //
-    EOF
-    cp prokka.gff prokka/sample_a.gff
-    cp prokka.faa prokka/sample_a.faa
-    cp prokka.gbk prokka/sample_a.gbk
-    : > prokka.log
+    python3 - '${genome}' '${gcode}' <<'PY'
+    import sys
+    from pathlib import Path
+    from Bio import SeqIO
+    from Bio.SeqFeature import SeqFeature, SimpleLocation
+    records = list(SeqIO.parse(sys.argv[1], 'fasta'))
+    code = int(sys.argv[2])
+    assert str(records[0].seq).startswith('ATGTGAGCTTAA'), 'Unexpected staged stub sequence'
+    end, translation = (12, 'MWA') if code == 4 else (6, 'M')
+    for record in records:
+        record.annotations['molecule_type'] = 'DNA'
+    records[0].features = [SeqFeature(SimpleLocation(0, end, strand=1), type='CDS',
+        qualifiers={'locus_tag': ['gene_1'], 'translation': [translation],
+                    'transl_table': [str(code)], 'codon_start': ['1']})]
+    SeqIO.write(records, 'prokka.gbk', 'genbank')
+    Path('prokka.faa').write_text('>gene_1 stub protein\\n' + translation + '\\n')
+    with Path('prokka.gff').open('w') as handle:
+        handle.write('##gff-version 3\\n')
+        handle.write(f'{records[0].id}\\tProkka\\tCDS\\t1\\t{end}\\t.\\t+\\t0\\tID=gene_1;locus_tag=gene_1\\n')
+        handle.write('##FASTA\\n')
+        SeqIO.write(records, handle, 'fasta')
+    PY
+    cp prokka.gff prokka/prokka.gff
+    cp prokka.faa prokka/prokka.faa
+    cp prokka.gbk prokka/prokka.gbk
+    printf 'exit_code=0\\n' > prokka.log
     cat <<'EOF' > versions.yml
     "${task.process}":
       prokka: "stub"
     EOF
-    '''
+    """
 }

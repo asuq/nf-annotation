@@ -5,12 +5,16 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "bin"))
+from annotation_common import bundle_proteins
+
 NEXTFLOW = shutil.which("nextflow")
 TARGET_PROCESSES = (
     "BARRNAP",
@@ -102,6 +106,11 @@ class StubResumeStorageTestCase(unittest.TestCase):
             resumed_work_dirs = self.task_work_leaf_dirs(workdir)
             self.assertEqual(resumed_work_dirs, second_work_dirs)
             self.assertTrue((outdir / "tables" / "master_table.tsv").is_file())
+            bundle = outdir / "samples/TEST_ACC/annotation/bundle"
+            manifest, proteins = bundle_proteins(bundle)
+            self.assertEqual(manifest["genetic_code"], 4)
+            self.assertEqual(len(proteins), 1)
+            self.assertEqual((bundle / "proteins.faa").read_text().splitlines()[1], "MWA")
 
             resume_output = "\n".join((resumed.stdout, resumed.stderr))
             self.assertIn("cached", resume_output.lower())

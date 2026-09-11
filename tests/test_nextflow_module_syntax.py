@@ -846,8 +846,6 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertIn('cp "\\${prokka_gbk}" prokka.gbk', prokka_text)
         self.assertIn('if [[ -s prokka.gbk ]]; then', prokka_text)
         self.assertIn('cp prokka.gbk "\\${tmp_keep_dir}/"', prokka_text)
-        self.assertIn("cat <<'EOF' > prokka.gbk", prokka_text)
-        self.assertIn("cp prokka.gbk prokka/sample_a.gbk", prokka_text)
 
         self.assertIn("filename in ['result.json', 'ccfinder.log']", ccfinder_text)
         self.assertNotIn("filename == 'versions.yml' ? null : filename", ccfinder_text)
