@@ -24,7 +24,7 @@ from annotation_common import (
     read_tsv,
 )
 from annotation_source import validate_source
-from annotation_summary import MATRICES
+from annotation_summary import COG_CATEGORIES, MATRICES
 from validate_inputs import detect_metadata_key_column
 
 
@@ -118,6 +118,22 @@ def matrix_counts(proteins: list[dict[str, str]], column: str) -> tuple[Counter,
         )
         counts.update(features)
     return counts, unavailable
+
+
+def category_counts(proteins: list[dict[str, str]]) -> tuple[Counter, dict, bool]:
+    """Split each gene's unit weight equally among its declared COG categories."""
+    counts, unavailable = matrix_counts(proteins, "cogclassifier_categories")
+    require(
+        set(counts) <= set(COG_CATEGORIES), "Unknown COG category in protein summary"
+    )
+    weights = dict.fromkeys(COG_CATEGORIES, Decimal(0))
+    for row in proteins:
+        if row["cogclassifier_categories"] == "NA":
+            continue
+        categories = json.loads(row["cogclassifier_categories"])
+        for category in categories:
+            weights[category] += Decimal(1) / len(categories)
+    return counts, weights, unavailable
 
 
 def qualify(results: Path, controls: list[dict[str, str]]) -> dict:
@@ -240,6 +256,22 @@ def qualify(results: Path, controls: list[dict[str, str]]) -> dict:
                 int(row[f"{tool}_analysed_proteins"]) == len(proteins),
                 f"Native {tool} input count differs: {accession}",
             )
+        counts, weights, unavailable = category_counts(proteins_by_accession[accession])
+        for category in COG_CATEGORIES:
+            count = row[f"cog_category_{category}_gene_count"]
+            weight = row[f"cog_category_{category}_fractional_gene_count"]
+            if unavailable:
+                require(count == weight == "NA", "Invalid COG categories became counts")
+            else:
+                require(
+                    int(count) == counts[category], "COG category gene count differs"
+                )
+                # Published fractional counts round to 12 decimal places.
+                require(
+                    abs(Decimal(weight) - weights[category])
+                    <= Decimal("0.0000000000005"),
+                    "Fractional COG category count differs",
+                )
         reports[accession] = dict(
             genetic_code=row["Gcode"],
             protein_count=len(proteins),
@@ -268,10 +300,26 @@ def qualify(results: Path, controls: list[dict[str, str]]) -> dict:
         )
         observed_features = set()
         for row in rows:
-            counts, unavailable = matrix_counts(
-                proteins_by_accession[row["accession"]], f"{tool}_{field}"
-            )
+            protein_rows = proteins_by_accession[row["accession"]]
+            counts, unavailable = matrix_counts(protein_rows, f"{tool}_{field}")
             observed_features.update(counts)
+            master_row = by_accession[row["accession"]]
+            assignments = "NA" if unavailable else str(sum(counts.values()))
+            assigned_proteins = (
+                "NA"
+                if unavailable
+                else str(
+                    sum(
+                        bool(json.loads(protein[f"{tool}_{field}"]))
+                        for protein in protein_rows
+                    )
+                )
+            )
+            require(
+                master_row[f"{tool}_{field}_assignments"] == assignments
+                and master_row[f"{tool}_{field}_proteins"] == assigned_proteins,
+                f"Protein/master feature counts differ: {matrix}, {row['accession']}",
+            )
             for feature in features:
                 expected = "NA" if unavailable else str(counts[feature])
                 require(

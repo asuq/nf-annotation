@@ -3,8 +3,14 @@
 import copy
 import unittest
 from collections import Counter
+from decimal import Decimal
 
-from qualify_functional_cohort import AnnotationError, crispr_coordinates, matrix_counts
+from qualify_functional_cohort import (
+    AnnotationError,
+    category_counts,
+    crispr_coordinates,
+    matrix_counts,
+)
 
 
 class FunctionalQualificationTests(unittest.TestCase):
@@ -74,3 +80,18 @@ class FunctionalQualificationTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(AnnotationError, "Duplicate"):
             matrix_counts([{"features": '["K00001","K00001"]'}], "features")
+
+    def test_category_weights_conserve_one_unit_per_assigned_gene(self):
+        rows = [
+            {"cogclassifier_categories": '["R","S"]'},
+            {"cogclassifier_categories": '["R","S","J"]'},
+            {"cogclassifier_categories": "[]"},
+        ]
+        counts, weights, missing = category_counts(rows)
+        self.assertFalse(missing)
+        self.assertEqual(counts, Counter(R=2, S=2, J=1))
+        self.assertLess(abs(sum(weights.values()) - 2), Decimal("1e-25"))
+        self.assertLess(abs(weights["R"] - Decimal(5) / 6), Decimal("1e-25"))
+        self.assertTrue(category_counts(rows + [{"cogclassifier_categories": "NA"}])[2])
+        with self.assertRaisesRegex(AnnotationError, "Unknown"):
+            category_counts([{"cogclassifier_categories": '["?"]'}])
