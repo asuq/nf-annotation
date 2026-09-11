@@ -383,3 +383,66 @@ workflow { VALIDATE_INPUTS() }
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual((output / "runtime.txt").read_text().strip(), runtime)
+
+    def test_prokka_uses_task_temporary_storage_and_preserves_curated_files(self):
+        executable = self.project / "bin/prokka"
+        executable.write_text(
+            f"#!{sys.executable}\n"
+            + """import os
+import sys
+from pathlib import Path
+if sys.argv[1:] == ['--version']:
+    print('prokka synthetic control')
+    sys.exit(0)
+temporary = Path(os.environ['TMPDIR'])
+assert temporary.is_dir() and temporary.parent == Path.cwd()
+output = Path(sys.argv[sys.argv.index('--outdir') + 1])
+output.mkdir()
+for extension in ('gff', 'faa', 'gbk'):
+    (output / ('control.' + extension)).write_text(extension + '\\n')
+"""
+        )
+        executable.chmod(0o755)
+        script = self.project / "prokka_control.nf"
+        script.write_text("""nextflow.enable.dsl=2
+include { PROKKA } from './modules/local/prokka'
+workflow {
+    PROKKA(Channel.of(tuple([accession:'A', internal_id:'A'], file(params.genome), 4)))
+}
+""")
+        configuration = self.root / "prokka.config"
+        configuration.write_text(
+            'process { withName: PROKKA { beforeScript = "export TMPDIR='
+            + str(self.root / "unmounted-host-temporary")
+            + '" } }\n'
+        )
+        output = self.root / "prokka-output"
+        result = subprocess.run(
+            [
+                NEXTFLOW,
+                "run",
+                str(script),
+                "-profile",
+                "test",
+                "-c",
+                str(configuration),
+                "--genome",
+                str(self.source / "samples/A/annotation/bundle/genome.fasta"),
+                "--outdir",
+                str(output),
+                "-work-dir",
+                str(self.root / "prokka-work"),
+            ],
+            cwd=self.root,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env=dict(os.environ, NXF_ANSI_LOG="false", NXF_DISABLE_CHECK_LATEST="true"),
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        published = output / "samples/A/prokka"
+        for extension in ("gff", "faa", "gbk"):
+            self.assertEqual(
+                (published / ("prokka." + extension)).read_text(), extension + "\n"
+            )
+        self.assertIn("exit_code=0", (published / "prokka.log").read_text())

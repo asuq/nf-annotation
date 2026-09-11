@@ -796,8 +796,8 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertIn('rm -rf "\\${output_dir}"', busco_text)
         self.assertIn('cp short_summary.json "\\${output_dir}/"', busco_text)
 
-        self.assertIn("tmp_keep_dir=", prokka_text)
-        self.assertIn("cp -a \"\\${tmp_keep_dir}/.\" prokka/ 2>/dev/null || true", prokka_text)
+        self.assertNotIn("mktemp", prokka_text)
+        self.assertIn("cp prokka.faa prokka/", prokka_text)
 
         self.assertIn("rm -rf ccfinder", ccfinder_text)
         self.assertIn("cp result.json ccfinder/", ccfinder_text)
@@ -827,7 +827,7 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertIn("prokka_gbk=\\$(find prokka -maxdepth 1 -type f -name '*.gbk' | head -n 1 || true)", prokka_text)
         self.assertIn('cp "\\${prokka_gbk}" prokka.gbk', prokka_text)
         self.assertIn('if [[ -s prokka.gbk ]]; then', prokka_text)
-        self.assertIn('cp prokka.gbk "\\${tmp_keep_dir}/"', prokka_text)
+        self.assertIn('cp prokka.gbk prokka/', prokka_text)
 
         self.assertIn("filename in ['result.json', 'ccfinder.log']", ccfinder_text)
         self.assertNotIn("filename == 'versions.yml' ? null : filename", ccfinder_text)

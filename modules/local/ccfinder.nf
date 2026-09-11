@@ -27,6 +27,9 @@ process CCFINDER {
     def ccfinderRoot = '/usr/local/CRISPRCasFinder'
     def extraArgs = (params.ccfinder_extra_args ?: '').toString()
     """
+    export TMPDIR="\$PWD/ccfinder_tmp"
+    mkdir -p "\${TMPDIR}"
+
     ccfinder_root='${ccfinderRoot}'
     if [[ ! -f "\${ccfinder_root}/CRISPRCasFinder.pl" ]]; then
         echo "CRISPRCasFinder.pl not found under \${ccfinder_root}." >&2

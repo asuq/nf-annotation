@@ -32,6 +32,9 @@ process PROKKA {
         locustag = "L${locustag}".take(20)
     }
     """
+    export TMPDIR="\$PWD/prokka_tmp"
+    mkdir -p "\${TMPDIR}"
+
     max_attempts="${params.soft_fail_attempts}"
     if [[ "\${max_attempts}" -lt 1 ]]; then
         max_attempts=1
@@ -89,20 +92,17 @@ process PROKKA {
         : > prokka.gbk
     fi
 
-    tmp_keep_dir="\$(mktemp -d)"
-    if [[ -s prokka.gff ]]; then
-        cp prokka.gff "\${tmp_keep_dir}/"
-    fi
-    if [[ -s prokka.faa ]]; then
-        cp prokka.faa "\${tmp_keep_dir}/"
-    fi
-    if [[ -s prokka.gbk ]]; then
-        cp prokka.gbk "\${tmp_keep_dir}/"
-    fi
     rm -rf prokka
     mkdir -p prokka
-    cp -a "\${tmp_keep_dir}/." prokka/ 2>/dev/null || true
-    rm -rf "\${tmp_keep_dir}"
+    if [[ -s prokka.gff ]]; then
+        cp prokka.gff prokka/
+    fi
+    if [[ -s prokka.faa ]]; then
+        cp prokka.faa prokka/
+    fi
+    if [[ -s prokka.gbk ]]; then
+        cp prokka.gbk prokka/
+    fi
 
     printf 'exit_code=%s\n' "\$exit_code" >> prokka.log
 
