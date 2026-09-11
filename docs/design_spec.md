@@ -1,5 +1,9 @@
 # Codex procedure manual: Nextflow DSL2 genome-annotation pipeline and master-table builder
 
+This is the historical v1 design. The [implemented pipeline](implemented_pipeline.md)
+and [v0.4 specification](development/v0.4.md) describe the current genetic-code,
+functional-annotation and published-source contracts where they supersede it.
+
 **Status:** v1 specification frozen on 2026-03-07 from the legacy notebook behaviour plus user clarifications.  
 **Blocking ambiguities:** none.  
 **A few non-blocking operational defaults were fixed here explicitly so Codex can implement without further questioning.**

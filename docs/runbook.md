@@ -10,8 +10,10 @@ The pipeline requires:
 - `--checkm2_db`: CheckM2 database directory containing one top-level `.dmnd`
 - `--codetta_db`: Codetta profile directory containing `Pfam-A_enone.hmm` and
   its `.h3f`, `.h3i`, `.h3m`, and `.h3p` sidecars
-- `--busco_db` or `--prepare_busco_datasets true`
-- `--eggnog_db` for real eggNOG runs
+- `--busco_db`: a prepared root containing each configured lineage directory
+- `-c annotation.config`: immutable runtimes and prepared resources for every
+  enabled functional tool; see [functional annotation](functional_annotation.md)
+  for the complete configuration
 
 ## Nextflow version
 
@@ -26,25 +28,27 @@ NXF_VER=26.04.0 nextflow run . -profile test -stub-run
 ## BUSCO lineage datasets
 
 `main.nf` reuses existing lineage directories below `--busco_db` by default.
-For example, a configured lineage `alcaligenaceae_odb12` is expected at:
+The default lineages are expected at:
 
 ```text
-${BUSCO_DIR}/alcaligenaceae_odb12
+${BUSCO_DIR}/bacillota_odb12
+${BUSCO_DIR}/mycoplasmatota_odb12
 ```
 
-If a configured lineage is missing, either prepare the BUSCO root ahead of the
-analysis run with the same lineage list:
+Prepare these datasets once before the analysis cohort. Each genome's BUSCO
+command uses `--offline`; thousands of genome jobs do not contact the download
+server independently. Use the same lineage list for preparation and analysis:
 
 ```bash
 nextflow run prepare_databases.nf -profile oist \
   --busco_db "$BUSCO_DIR" \
-  --busco_lineages alcaligenaceae_odb12 \
+  --busco_lineages bacillota_odb12,mycoplasmatota_odb12 \
   --download_missing_databases true \
   --singularity_cache_dir "$SINGULARITY_CACHE" \
   --outdir "$DBPREP_OUT"
 ```
 
-or let the main workflow download missing BUSCO lineages explicitly:
+Run the analysis with preparation and downloads disabled:
 
 ```bash
 nextflow run . -c annotation.config -profile oist \
@@ -54,18 +58,17 @@ nextflow run . -c annotation.config -profile oist \
   --checkm2_db "$CHECKM2_DIR" \
   --codetta_db "$CODETTA_DIR" \
   --busco_db "$BUSCO_DIR" \
-  --busco_lineages alcaligenaceae_odb12 \
-  --prepare_busco_datasets true \
-  --eggnog_db "$EGGNOG_DIR" \
+  --busco_lineages bacillota_odb12,mycoplasmatota_odb12 \
+  --prepare_busco_datasets false \
+  --download_missing_databases false \
   --singularity_cache_dir "$SINGULARITY_CACHE" \
   --outdir "$RESULT_ROOT/out"
 ```
 
-When `--prepare_busco_datasets true` is enabled, existing lineage directories
-are reused and only missing configured lineages are downloaded under
-`--busco_db`. The main downloader stages the BUSCO DB parent as a Nextflow
-`path` input so Singularity/Apptainer profiles can bind the shared destination
-for writes.
+The optional `--prepare_busco_datasets true` setting prepares missing lineages
+once before their genome jobs; it does not enable network access in BUSCO itself.
+Use a matching pinned source specification when preparing lineages outside the
+default checked pair.
 
 ### Preparing metadata.tsv
 

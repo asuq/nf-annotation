@@ -1,5 +1,27 @@
 # Change Log
 
+## v0.4.0 - unreleased
+
+- Added shared annotation planning and execution for eggNOG-mapper v3,
+  COGclassifier, direct Pfam, KOfamScan and PADLOC, with separate pinned runtimes
+  and prepared resource identities.
+- Added code-aware protein and coordinate bundles, detailed native evidence,
+  authoritative tool status, expanded master fields and six source-specific
+  gene-count matrices. Missing or invalid evidence remains unavailable.
+- Added `reannotate.nf` and integrated functional reuse into cohort updates.
+  Published v0.4 results support reuse and renormalization without an old work
+  directory; changed search methods or inputs invalidate the affected analyses.
+- Made paired CheckM2 mean gene length the default genetic-code criterion:
+  table 4 for a valid ratio above 1.5 and table 11 for a valid ratio at or below
+  1.5. Invalid pairs remain unresolved. Retained the two selectable
+  completeness-difference rules.
+- Removed v0.3 result import assumptions, the historical ANI rescue CLI,
+  eggNOG-only accession selection and free-form eggNOG/PADLOC arguments.
+  The configurable incomplete-16S ANI gate remains independent of annotation.
+- Hardened native container mounts, runtime overrides, task temporary storage,
+  PADLOC protein joins and offline BUSCO preparation. Full biological
+  qualification remains tracked in the [release specification](development/v0.4.md).
+
 ## v0.3.1 - 2026-09-10
 
 - Added `--update_from` to reuse validated published sample results, analyse
