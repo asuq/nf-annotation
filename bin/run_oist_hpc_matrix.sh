@@ -26,6 +26,7 @@ Required:
 Options:
   --dry-run                   Print commands and filesystem actions without executing them.
   --resume                    Pass -resume to Nextflow and wrapper runs where supported.
+  --gcode-rule RULE           Optional gcode rule: mean_gene_length_ratio (default), strict_delta, delta_then_11.
   --medium-sample-csv PATH    Medium-cohort sample sheet override.
   --medium-metadata PATH      Medium-cohort metadata TSV override.
   --singularity-cache PATH    Override the Singularity cache root.
@@ -716,9 +717,13 @@ run_real_case() {
     local sample_csv="$3"
     local metadata_tsv="$4"
     local resume_args=()
+    local gcode_args=()
 
     if [[ "${RESUME}" == "true" ]]; then
         resume_args+=(-resume)
+    fi
+    if [[ -n "${GCODE_RULE}" ]]; then
+        gcode_args+=(--gcode_rule "${GCODE_RULE}")
     fi
 
     run_or_print \
@@ -732,6 +737,7 @@ run_real_case() {
         --codetta_db "${CODETTA_DIR}" \
         --busco_db "${BUSCO_DIR}" \
         --eggnog_db "${EGGNOG_DIR}" \
+        "${gcode_args[@]}" \
         --singularity_cache_dir "${SINGULARITY_CACHE}" \
         --outdir "${outdir}"
 }
@@ -800,6 +806,7 @@ main() {
     HPC_ROOT=""
     MEDIUM_SAMPLE_CSV=""
     MEDIUM_METADATA=""
+    GCODE_RULE=""
     SINGULARITY_CACHE=""
 
     while [[ $# -gt 0 ]]; do
@@ -811,6 +818,10 @@ main() {
             --resume)
                 RESUME=true
                 shift
+                ;;
+            --gcode-rule)
+                GCODE_RULE="$2"
+                shift 2
                 ;;
             --hpc-root)
                 HPC_ROOT="$2"
@@ -858,6 +869,15 @@ main() {
     fi
     if [[ -z "${HPC_ROOT}" ]]; then
         fail "--hpc-root is required"
+    fi
+    if [[ -n "${GCODE_RULE}" ]]; then
+        case "${GCODE_RULE}" in
+            mean_gene_length_ratio|strict_delta|delta_then_11)
+                ;;
+            *)
+                fail "--gcode-rule must be one of: mean_gene_length_ratio, strict_delta, delta_then_11"
+                ;;
+        esac
     fi
 
     preflight_host_python

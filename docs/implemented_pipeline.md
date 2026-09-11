@@ -152,6 +152,7 @@ The most important implementation-level parameters are:
 | `busco_lineages` | both | Non-empty lineage list; defaults to `bacillota_odb12` and `mycoplasmatota_odb12`. |
 | `eggnog_db` | `main.nf`, `prepare_databases.nf` | eggNOG data directory. |
 | `ani_threshold` | `main.nf` | FastANI clustering threshold; defaults to `0.95`. |
+| `gcode_rule` | `main.nf` | `mean_gene_length_ratio` (default), `strict_delta`, or `delta_then_11`. The retained completeness rules require a strict advantage greater than 10 percentage points; at smaller/equal differences they leave the code unresolved or select 11, respectively. |
 | `eggnog_only_accessions` | `main.nf` | Optional accession allow-list for eggNOG execution. |
 | `outdir` | both | Published output root; defaults to `results`. |
 | `download_missing_databases` | `prepare_databases.nf` | Enables in-place population of missing runtime databases. |
@@ -376,11 +377,13 @@ or labels, pipeline metadata, and the active container engine in one final TSV.
   `low_quality_best_16S.fna` or `low_quality_partial_16S.fna`, including
   atypical samples.
 - CheckM2 always runs twice per sample, once with translation table `4` and
-  once with `11`. `summarise_checkm2.py` selects code 4 when the ratio of their
+  once with `11`. By default, `summarise_checkm2.py` selects code 4 when the ratio of their
   reported average gene lengths exceeds 1.5, otherwise code 11 for a valid
   pair. Invalid pairs remain unresolved. The summary and master table retain
   the ratio, fixed threshold, rule and selection reason alongside both reports'
-  metrics. QC uses completeness and contamination from the selected code.
+  metrics. `--gcode_rule strict_delta` and `--gcode_rule delta_then_11` retain the
+  original completeness-based criteria. QC uses completeness and contamination
+  from the selected code under every rule.
 - BUSCO is independent of gcode assignment. It runs offline in genome mode for
   every sample and every configured lineage.
 - Codetta is independent of gcode assignment. It runs for every sample and

@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import contextlib
 import csv
-from decimal import Decimal
 import io
 import sys
 import tempfile
 import unittest
+from decimal import Decimal
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -47,7 +47,9 @@ class SummariseCheckM2TestCase(unittest.TestCase):
             writer.writerow(row)
         return path
 
-    def run_summary(self, report4: Path, report11: Path) -> dict[str, str]:
+    def run_summary(
+        self, report4: Path, report11: Path, rule: str | None = None,
+    ) -> dict[str, str]:
         """Run the real summary CLI and read its single output row."""
         output = self.root / "summary.tsv"
         result = summarise_checkm2.main([
@@ -55,6 +57,7 @@ class SummariseCheckM2TestCase(unittest.TestCase):
             "--gcode4-report", str(report4),
             "--gcode11-report", str(report11),
             "--output", str(output),
+            *(["--gcode-rule", rule] if rule is not None else []),
         ])
         self.assertEqual(result, 0)
         with output.open(newline="") as handle:
@@ -63,8 +66,9 @@ class SummariseCheckM2TestCase(unittest.TestCase):
             rows = list(reader)
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["accession"], "ACC1")
-        self.assertEqual(rows[0]["Gcode_Rule"], "mean_gene_length_ratio")
-        self.assertEqual(rows[0]["Gcode_Length_Ratio_Threshold"], "1.5")
+        expected_rule = rule or "mean_gene_length_ratio"
+        self.assertEqual(rows[0]["Gcode_Rule"], expected_rule)
+        self.assertEqual(rows[0]["Gcode_Length_Ratio_Threshold"], "1.5" if expected_rule == "mean_gene_length_ratio" else "NA")
         return rows[0]
 
     def test_paired_metrics_and_selection_provenance(self) -> None:
@@ -214,14 +218,58 @@ class SummariseCheckM2TestCase(unittest.TestCase):
                 self.assertEqual(row["Completeness_gcode4"], "95")
                 self.assertEqual(row["Completeness_gcode11"], "80")
 
-    def test_obsolete_rule_option_is_rejected(self) -> None:
-        """A removed rule cannot silently run a different scientific method."""
+    def test_retained_completeness_rules_and_boundaries(self) -> None:
+        """Preserve both original criteria, including strict >10-point boundaries."""
+        for rule in ("strict_delta", "delta_then_11"):
+            for c4, c11, strict_code in (
+                ("95", "80", "4"), ("80", "95", "11"),
+                ("90", "80", "NA"), ("80", "90", "NA"),
+                ("80", "80", "NA"), ("89.999999", "80", "NA"),
+                ("90.000000000000000000001", "80", "4"),
+                ("80", "90.000000000000000000001", "11"),
+            ):
+                with self.subTest(rule=rule, c4=c4, c11=c11):
+                    expected = "11" if strict_code == "NA" and rule == "delta_then_11" else strict_code
+                    # Deliberately make the length criterion oppose code 4.
+                    row = self.run_summary(
+                        self.write_report(4, Completeness=c4, Average_Gene_Length="150"),
+                        self.write_report(11, Completeness=c11), rule,
+                    )
+                    self.assertEqual(row["Gcode"], expected)
+                    self.assertEqual(row["Gcode_Length_Ratio"], "1")
+                    self.assertEqual(row["checkm2_status"], "done")
+                    self.assertEqual(row["Low_quality"], "NA" if expected == "NA" else "false")
+                    self.assertEqual(row["warnings"], "gcode_na" if expected == "NA" else "")
+                    self.assertTrue(row["Gcode_Selection_Reason"].startswith("completeness_"))
+
+    def test_retained_rules_fail_closed_on_invalid_pairs(self) -> None:
+        """An invalid pair cannot become table 11 under delta_then_11."""
+        for rule in ("strict_delta", "delta_then_11"):
+            for invalid in ({"Average_Gene_Length": "0"}, {"Name": "other"}):
+                with self.subTest(rule=rule, invalid=invalid):
+                    row = self.run_summary(self.write_report(4, **invalid), self.write_report(11), rule)
+                    self.assertEqual(row["Gcode"], "NA")
+                    self.assertEqual(row["Low_quality"], "NA")
+                    self.assertEqual(row["checkm2_status"], "failed")
+
+    def test_selected_completeness_rule_controls_quality(self) -> None:
+        """Use QC from the code selected by the requested completeness rule."""
+        for rule in ("strict_delta", "delta_then_11"):
+            row = self.run_summary(
+                self.write_report(4, Completeness="40"),
+                self.write_report(11, Completeness="60", Contamination="2"), rule,
+            )
+            self.assertEqual(row["Gcode"], "11")
+            self.assertEqual(row["Low_quality"], "true")
+
+    def test_unknown_rule_option_is_rejected(self) -> None:
+        """An invalid rule cannot silently run a different scientific method."""
         with contextlib.redirect_stderr(io.StringIO()):
             with self.assertRaises(SystemExit) as error:
                 summarise_checkm2.parse_args([
                     "--accession", "ACC1", "--gcode4-report", "four.tsv",
                     "--gcode11-report", "eleven.tsv", "--output", "result.tsv",
-                    "--gcode-rule", "strict_delta",
+                    "--gcode-rule", "unknown_rule",
                 ])
         self.assertEqual(error.exception.code, 2)
 

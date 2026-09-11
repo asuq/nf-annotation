@@ -25,6 +25,7 @@ process ASSIGN_GCODE_AND_QC {
         --accession "${meta.accession}" \
         --gcode4-report "${checkm2_gcode4_report}" \
         --gcode11-report "${checkm2_gcode11_report}" \
+        --gcode-rule '${params.gcode_rule}' \
         --output checkm2_summary.tsv
 
     cp checkm2_summary.tsv "${meta.internal_id}_checkm2_summary.tsv"
@@ -42,6 +43,7 @@ process ASSIGN_GCODE_AND_QC {
         --accession "${meta.accession}" \
         --gcode4-report "${checkm2_gcode4_report}" \
         --gcode11-report "${checkm2_gcode11_report}" \
+        --gcode-rule '${params.gcode_rule}' \
         --output checkm2_summary.tsv
     cp checkm2_summary.tsv "${meta.internal_id}_checkm2_summary.tsv"
     cat <<'EOF' > versions.yml

@@ -16,8 +16,15 @@ from typing import Sequence
 from master_table_contract import GCODE_PROVENANCE_COLUMNS
 
 LOGGER = logging.getLogger(__name__)
-GCODE_RULE = "mean_gene_length_ratio"
+MEAN_GENE_LENGTH_RATIO_RULE = "mean_gene_length_ratio"
+STRICT_DELTA_RULE = "strict_delta"
+DELTA_THEN_ELEVEN_RULE = "delta_then_11"
+GCODE_RULE_CHOICES = (
+    MEAN_GENE_LENGTH_RATIO_RULE, STRICT_DELTA_RULE, DELTA_THEN_ELEVEN_RULE,
+)
+DEFAULT_GCODE_RULE = MEAN_GENE_LENGTH_RATIO_RULE
 LENGTH_RATIO_THRESHOLD = Decimal("1.5")
+COMPLETENESS_DELTA_THRESHOLD = Decimal("10")
 
 OUTPUT_COLUMNS = (
     "accession",
@@ -88,6 +95,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         required=True,
         type=Path,
         help="Path to the combined per-sample QC TSV.",
+    )
+    parser.add_argument(
+        "--gcode-rule", choices=GCODE_RULE_CHOICES, default=DEFAULT_GCODE_RULE,
+        help="Genetic-code selection criterion (default: mean_gene_length_ratio).",
     )
     return parser.parse_args(argv)
 
@@ -219,12 +230,15 @@ def reports_have_consistent_shared_stats(
     return True
 
 
-def empty_output_row(accession: str) -> dict[str, str]:
+def empty_output_row(accession: str, gcode_rule: str) -> dict[str, str]:
     """Create a default NA-filled output row."""
     row = {column: "NA" for column in OUTPUT_COLUMNS}
     row["accession"] = accession
-    row["Gcode_Rule"] = GCODE_RULE
-    row["Gcode_Length_Ratio_Threshold"] = str(LENGTH_RATIO_THRESHOLD)
+    if gcode_rule not in GCODE_RULE_CHOICES:
+        raise ValueError(f"Unknown genetic-code rule: {gcode_rule!r}")
+    row["Gcode_Rule"] = gcode_rule
+    if gcode_rule == MEAN_GENE_LENGTH_RATIO_RULE:
+        row["Gcode_Length_Ratio_Threshold"] = str(LENGTH_RATIO_THRESHOLD)
     row["warnings"] = ""
     return row
 
@@ -249,6 +263,9 @@ def assign_gcode_from_valid_pair(
     row: dict[str, str],
     report_four: ParsedCheckM2Report,
     report_eleven: ParsedCheckM2Report,
+    *,
+    gcode_rule: str,
+    warnings: list[str],
 ) -> None:
     """Assign gcode from a valid paired CheckM2 comparison."""
     length_four = report_four.metrics["Average_Gene_Length"]
@@ -261,11 +278,35 @@ def assign_gcode_from_valid_pair(
         ) + 20
         select_four = length_four > LENGTH_RATIO_THRESHOLD * length_eleven
         row["Gcode_Length_Ratio"] = str(length_four / length_eleven)
-    row["Gcode"] = "4" if select_four else "11"
-    row["Gcode_Selection_Reason"] = (
-        "length_ratio_above_threshold" if select_four else "length_ratio_at_or_below_threshold"
-    )
-    assign_low_quality(row, report_four if select_four else report_eleven)
+    if gcode_rule == MEAN_GENE_LENGTH_RATIO_RULE:
+        row["Gcode"] = "4" if select_four else "11"
+        row["Gcode_Selection_Reason"] = (
+            "length_ratio_above_threshold" if select_four else "length_ratio_at_or_below_threshold"
+        )
+    else:
+        completeness_four = report_four.metrics["Completeness"]
+        completeness_eleven = report_eleven.metrics["Completeness"]
+        with localcontext() as context:
+            context.prec = max(
+                len(value.as_tuple().digits) + abs(value.as_tuple().exponent)
+                for value in (completeness_four, completeness_eleven)
+            ) + 10
+            delta = completeness_four - completeness_eleven
+        if delta > COMPLETENESS_DELTA_THRESHOLD:
+            row["Gcode"] = "4"
+            row["Gcode_Selection_Reason"] = "completeness_gcode4_advantage_above_10"
+        elif delta < -COMPLETENESS_DELTA_THRESHOLD:
+            row["Gcode"] = "11"
+            row["Gcode_Selection_Reason"] = "completeness_gcode11_advantage_above_10"
+        elif gcode_rule == DELTA_THEN_ELEVEN_RULE:
+            row["Gcode"] = "11"
+            row["Gcode_Selection_Reason"] = "completeness_difference_at_or_below_10_default_11"
+        else:
+            row["Gcode"] = "NA"
+            row["Gcode_Selection_Reason"] = "completeness_difference_at_or_below_10_unresolved"
+            warnings.append("gcode_na")
+    if row["Gcode"] in {"4", "11"}:
+        assign_low_quality(row, report_four if row["Gcode"] == "4" else report_eleven)
 
 
 def build_output_row(
@@ -274,9 +315,10 @@ def build_output_row(
     report_eleven: ParsedCheckM2Report | None,
     *,
     warnings: list[str],
+    gcode_rule: str = DEFAULT_GCODE_RULE,
 ) -> dict[str, str]:
     """Create the final output row from two optional parsed reports."""
-    row = empty_output_row(accession)
+    row = empty_output_row(accession, gcode_rule)
 
     if report_four is not None:
         row["Completeness_gcode4"] = format_metric(report_four.metrics["Completeness"])
@@ -319,6 +361,8 @@ def build_output_row(
             row,
             report_four,
             report_eleven,
+            gcode_rule=gcode_rule,
+            warnings=warnings,
         )
     else:
         row["Gcode"] = "NA"
@@ -355,6 +399,7 @@ def run_summary(
     gcode4_report: Path,
     gcode11_report: Path,
     output: Path,
+    gcode_rule: str = DEFAULT_GCODE_RULE,
 ) -> None:
     """Summarise paired CheckM2 reports into one per-sample TSV row."""
     warnings: list[str] = []
@@ -389,6 +434,7 @@ def run_summary(
         report_four,
         report_eleven,
         warnings=warnings,
+        gcode_rule=gcode_rule,
     )
     write_output(output, row)
 
@@ -402,6 +448,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         gcode4_report=args.gcode4_report,
         gcode11_report=args.gcode11_report,
         output=args.output,
+        gcode_rule=args.gcode_rule,
     )
     LOGGER.info("Wrote CheckM2 summary for %s.", args.accession)
     return 0

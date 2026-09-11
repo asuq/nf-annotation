@@ -274,6 +274,7 @@ class PrepareCohortUpdateTestCase(unittest.TestCase):
         settings = self.root / "settings.json"
         settings.write_text('{"ani_threshold": 0.95}\n')
         return argparse.Namespace(
+            gcode_rule="mean_gene_length_ratio",
             source_results=self.source,
             destination=self.root / "results",
             validated_samples=validated / "validated_samples.tsv",
@@ -436,6 +437,34 @@ class PrepareCohortUpdateTestCase(unittest.TestCase):
         table(path, header, rows)
         with self.assertRaisesRegex(update.CohortUpdateError, "translation-table mismatch"):
             update.run_prepare(args)
+
+    def test_reuse_rejects_changed_rule_even_when_selected_table_matches(self) -> None:
+        """A different criterion cannot silently enter an existing cohort."""
+        self.published_cohort(["A"])
+        args = self.arguments(["A"])
+        args.gcode_rule = "strict_delta"
+        with self.assertRaisesRegex(update.CohortUpdateError, "Gcode_Rule.*differs"):
+            update.run_prepare(args)
+        self.assertFalse(args.outdir.exists())
+
+    def test_reuse_validates_retained_completeness_rule(self) -> None:
+        """Replay native reports with the explicitly selected original criterion."""
+        self.published_cohort(["A"])
+        args = self.arguments(["A"])
+        args.gcode_rule = "strict_delta"
+        for path in (
+            self.source / "samples/A/checkm2/checkm2_summary.tsv",
+            self.source / "tables/master_table.tsv",
+        ):
+            header, rows = update.read_table(path)
+            rows[0].update(
+                Gcode_Rule="strict_delta", Gcode_Length_Ratio_Threshold="NA",
+                Gcode_Selection_Reason="completeness_gcode4_advantage_above_10",
+            )
+            table(path, header, rows)
+        update.run_prepare(args)
+        _, audit = update.read_table(args.outdir / "cohort_update.tsv")
+        self.assertEqual(audit[0]["action"], "reused")
 
     def test_missing_requested_busco_lineage_fails(self) -> None:
         self.published_cohort(["A"])

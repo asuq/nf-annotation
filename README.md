@@ -186,7 +186,7 @@ The main workflow expects these inputs:
 Useful defaults from the implementation:
 
 - `--busco_lineages` defaults to `bacillota_odb12,mycoplasmatota_odb12`
-- genetic-code selection uses the paired CheckM2 mean-gene-length ratio: `> 1.5` selects code 4; a valid ratio `<= 1.5` selects code 11
+- `--gcode_rule mean_gene_length_ratio` is the default: the paired CheckM2 mean-gene-length ratio `> 1.5` selects code 4; a valid ratio `<= 1.5` selects code 11. The completeness-based `strict_delta` and `delta_then_11` rules remain selectable.
 - `--ani_threshold` defaults to `0.95`
 - `--ani_allow_incomplete_16s` defaults to off; when supplied, `16S = No`
   and `16S = partial` samples may enter ANI if all other ANI gates pass

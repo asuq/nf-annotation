@@ -95,7 +95,11 @@ This is a **behaviour-preserving v1 refactor**, not a methodological redesign.
 - Record both means, the ratio, rule, threshold and selection reason. Compare
   decimal values without rounding before selection. Calculate QC from the
   selected code's completeness and contamination.
-- The former `gcode_rule` selector is removed; there is one selection rule.
+- `gcode_rule` defaults to `mean_gene_length_ratio`. Retain `strict_delta` and
+  `delta_then_11`: select the table whose completeness advantage is strictly
+  greater than 10 percentage points. At an absolute difference of 10 or less,
+  `strict_delta` leaves the code unresolved and `delta_then_11` selects table 11.
+  Invalid report pairs remain unresolved under every rule.
 - If gcode is `NA`:
   - record a warning in `sample_status.tsv`;
   - do **not** run Prokka, eggNOG, CRISPRCasFinder, or PADLOC for that sample.

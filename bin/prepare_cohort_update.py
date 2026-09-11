@@ -244,7 +244,7 @@ def validate_sixteen_s(
 
 
 def validate_qc(
-    root: Path, sample: dict[str, str], status: dict[str, str]
+    root: Path, sample: dict[str, str], status: dict[str, str], gcode_rule: str
 ) -> dict[str, str]:
     """Verify saved QC and genetic-code provenance against the native reports."""
     accession = sample["accession"]
@@ -253,6 +253,11 @@ def validate_qc(
         accession,
         (*build_master_table.CHECKM2_COLUMNS, "checkm2_status", "warnings"),
     )
+    if qc["Gcode_Rule"] != gcode_rule:
+        raise CohortUpdateError(
+            f"Published Gcode_Rule {qc['Gcode_Rule']!r} differs from requested "
+            f"{gcode_rule!r} for {accession!r}; regenerate the affected source results."
+        )
     if qc["Gcode"] not in {"4", "11", "NA"} or qc["Low_quality"] not in {
         "true",
         "false",
@@ -305,6 +310,7 @@ def validate_qc(
     expected = summarise_checkm2.build_output_row(
         accession, native_reports.get(4), native_reports.get(11),
         warnings=[value for value in qc["warnings"].split(";") if value],
+        gcode_rule=gcode_rule,
     )
     for field in (
         "Gcode", *master_table_contract.GCODE_PROVENANCE_COLUMNS,
@@ -440,6 +446,7 @@ def validate_sample_outputs(
     status: dict[str, str],
     master: dict[str, str],
     lineages: Sequence[str],
+    gcode_rule: str,
 ) -> str:
     """Validate reusable summaries, outcome evidence and the published genome."""
     accession = sample["accession"]
@@ -478,7 +485,7 @@ def validate_sample_outputs(
         ),
     )
     sixteen_s = validate_sixteen_s(root, accession, status)
-    qc = validate_qc(root, sample, status)
+    qc = validate_qc(root, sample, status, gcode_rule)
     master_summaries = [qc, sixteen_s]
     master_summaries.extend(validate_busco(root, accession, status, lineages))
     master_summaries.extend(validate_annotations(root, accession, status, qc["Gcode"]))
@@ -712,6 +719,7 @@ def run_prepare(args: argparse.Namespace) -> None:
                 statuses[accession],
                 masters[accession],
                 args.busco_lineage,
+                args.gcode_rule,
             )
             if source_fingerprint != fingerprint:
                 raise CohortUpdateError(
@@ -823,6 +831,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     ):
         parser.add_argument(f"--{option}", type=Path, required=True)
     parser.add_argument("--busco-lineage", action="append", required=True)
+    parser.add_argument(
+        "--gcode-rule", choices=summarise_checkm2.GCODE_RULE_CHOICES,
+        default=summarise_checkm2.DEFAULT_GCODE_RULE,
+    )
     parser.add_argument("--previous-update", type=Path)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")

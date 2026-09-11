@@ -17,8 +17,8 @@ from typing import Sequence
 from urllib.request import urlopen
 
 import master_table_contract
+import summarise_checkm2
 import validate_inputs
-
 
 LOGGER = logging.getLogger(__name__)
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -739,6 +739,7 @@ def build_nextflow_command(
         command.extend(["--prepare_busco_datasets", "true"])
     if args.busco_db:
         command.extend(["--busco_db", str(Path(args.busco_db).resolve())])
+    maybe_add_parameter(command, "--gcode_rule", args.gcode_rule)
     maybe_add_parameter(command, "--slurm_queue", args.slurm_queue)
     maybe_add_parameter(command, "--slurm_qos", args.slurm_qos)
     maybe_add_parameter(command, "--slurm_cluster_options", args.slurm_cluster_options)
@@ -1342,6 +1343,12 @@ def build_real_run_parser() -> argparse.ArgumentParser:
         help="Allow the pipeline to prepare BUSCO lineage datasets itself.",
     )
     parser.add_argument("--eggnog-db", type=Path, default=None, help="eggNOG database path.")
+    parser.add_argument(
+        "--gcode-rule",
+        choices=summarise_checkm2.GCODE_RULE_CHOICES,
+        default=None,
+        help="Optional gcode-assignment rule override.",
+    )
     parser.add_argument(
         "--local-profile",
         default=DEFAULT_LOCAL_PROFILE,

@@ -57,6 +57,7 @@ process PREPARE_COHORT_UPDATE {
         --genome-inputs candidate_genomes \
         --metadata ${quote.call(metadata)} \
         --settings update_settings.json \
+        --gcode-rule ${quote.call(params.gcode_rule)} \
         --destination ${quote.call(destination)} \
         ${lineageArgs} ${previousArg} --outdir prepared
     cp prepared/* .

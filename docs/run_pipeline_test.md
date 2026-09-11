@@ -53,8 +53,10 @@ bin/run_oist_hpc_matrix.sh --hpc-root /path/on/hpc/root all
 
 That wrapper keeps using the coded OIST resource defaults. It does not add
 `--max_cpus`, `--max_memory`, or `--max_time` overrides.
-The genetic-code rule is fixed: a paired mean-gene-length ratio above 1.5 selects
-code 4; a valid ratio at or below 1.5 selects code 11.
+The default genetic-code rule is `mean_gene_length_ratio`: a paired ratio above
+1.5 selects code 4; a valid ratio at or below 1.5 selects code 11. Both the
+acceptance harness and HPC wrapper accept `--gcode-rule strict_delta` or
+`--gcode-rule delta_then_11` to use the retained completeness-based criteria.
 Codetta remains helper-prepared in the HPC matrix, so a directory with
 `Pfam-A_enone.hmm` and the `.h3*` files but without `.nf_myco_ready.json` is
 an expected `db-matrix` failure unless force rebuild is used.

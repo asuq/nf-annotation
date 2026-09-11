@@ -887,9 +887,11 @@ Then run the medium case with:
 bin/run_oist_hpc_matrix.sh --hpc-root "$HPC_ROOT" p2
 ```
 
-The fixed medium cohort uses the paired mean-gene-length ratio rule. Valid
+The fixed medium cohort defaults to the paired mean-gene-length ratio rule. Valid
 ratios at or below 1.5 select code 11, while invalid comparisons leave the code
-unresolved and fail validation. The `p2` validator accepts an isolated failure
+unresolved and fail validation. Use the wrapper's `--gcode-rule` option to select
+`strict_delta` or `delta_then_11`; the `p2` acceptance gate still requires resolved
+codes. The `p2` validator accepts an isolated failure
 in the secondary
 BUSCO lineage when `warnings` includes `busco_summary_failed`. Primary BUSCO
 lineage failures still fail validation because they affect ANI eligibility and
