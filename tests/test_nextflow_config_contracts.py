@@ -125,9 +125,9 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
         self.assertIn("memory = { [200.GB * task.attempt, params.max_memory].min() }", gwdg_text)
         self.assertIn("time = { [1.d * task.attempt, params.max_time].min() }", gwdg_text)
         self.assertIn("withName: PROKKA", gwdg_text)
-        self.assertIn("container = params.prokka_container", gwdg_text)
+        self.assertIn("container = { params.prokka_container }", gwdg_text)
         self.assertIn("withName: CALCULATE_ASSEMBLY_STATS", gwdg_text)
-        self.assertIn("container = params.seqtk_container", gwdg_text)
+        self.assertIn("container = { params.seqtk_container }", gwdg_text)
         self.assertIn("stageInMode = 'copy'", gwdg_text)
         self.assertNotIn("def buildSlurmClusterOptions", gwdg_text)
         self.assertNotIn("params.slurm_account", gwdg_text)
@@ -250,17 +250,17 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
             "maxRetries = { Math.max((params.task_attempts as int) - 1, 0) }",
             config_text,
         )
-        self.assertIn("withName: CLUSTER_ANI {\n        container = params.python_container", config_text)
-        self.assertIn("withName: SELECT_ANI_REPRESENTATIVES {\n        container = params.python_container", config_text)
-        self.assertIn("withName: SUMMARISE_16S {\n        container = params.python_container", config_text)
-        self.assertIn("withName: WRITE_SAMPLE_STATUS {\n        container = params.python_container", config_text)
+        self.assertIn("withName: CLUSTER_ANI {\n        container = { params.python_container }", config_text)
+        self.assertIn("withName: SELECT_ANI_REPRESENTATIVES {\n        container = { params.python_container }", config_text)
+        self.assertIn("withName: SUMMARISE_16S {\n        container = { params.python_container }", config_text)
+        self.assertIn("withName: WRITE_SAMPLE_STATUS {\n        container = { params.python_container }", config_text)
 
     def test_seqtk_helper_processes_are_pinned_explicitly(self) -> None:
         """Keep seqtk-backed helper processes on the shared seqtk image."""
         config_text = BASE_CONFIG.read_text(encoding="utf-8")
 
-        self.assertIn("withName: STAGE_INPUTS {\n        container = params.seqtk_container", config_text)
-        self.assertIn("withName: CALCULATE_ASSEMBLY_STATS {\n        container = params.seqtk_container", config_text)
+        self.assertIn("withName: STAGE_INPUTS {\n        container = { params.seqtk_container }", config_text)
+        self.assertIn("withName: CALCULATE_ASSEMBLY_STATS {\n        container = { params.seqtk_container }", config_text)
 
     def test_runtime_database_prep_processes_use_the_dedicated_helper_image(self) -> None:
         """Keep the prep entry point on the dedicated runtime DB helper image."""
@@ -287,11 +287,11 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
             config_text,
         )
         self.assertIn(
-            "withLabel: finalise_runtime_database {\n        container = params.runtime_db_helper_container",
+            "withLabel: finalise_runtime_database {\n        container = { params.runtime_db_helper_container }",
             config_text,
         )
         self.assertIn(
-            "withLabel: merge_runtime_database_reports {\n        container = params.runtime_db_helper_container",
+            "withLabel: merge_runtime_database_reports {\n        container = { params.runtime_db_helper_container }",
             config_text,
         )
         self.assertNotIn("quay.io/asuq1617/nf-myco_db:0.3", config_text)
@@ -328,7 +328,7 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
         config_text = DOCKER_CONFIG.read_text(encoding="utf-8")
 
         self.assertIn("withName: CCFINDER", config_text)
-        self.assertIn("container = params.ccfinder_container", config_text)
+        self.assertIn("container = { params.ccfinder_container }", config_text)
         self.assertIn("--platform linux/amd64", config_text)
         self.assertIn("['aarch64', 'arm64']", config_text)
 
@@ -349,10 +349,7 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
         config_text = LOCAL_CONFIG.read_text(encoding="utf-8")
 
         self.assertIn("params.max_memory = 16.GB", config_text)
-        self.assertIn("withName: EGGNOG", config_text)
-        self.assertIn("container = params.eggnog_container", config_text)
-        self.assertIn("cpus = 4", config_text)
-        self.assertIn("memory = 8.GB", config_text)
+        self.assertNotIn("withName: EGGNOG", config_text)
 
     def test_reporting_assets_overwrite_on_resumed_runs(self) -> None:
         """Allow resumed local runs to rewrite pipeline info artefacts safely."""

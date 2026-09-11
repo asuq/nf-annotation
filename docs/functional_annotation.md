@@ -58,6 +58,9 @@ The CPU and memory settings are bounded by `max_cpus` and `max_memory` and
 recorded in the method identity. Native task allocations must match the plan.
 DIAMOND's block size and index chunks are explicit and derived from that
 allocation, with reserved memory for annotation. They do not use host RAM.
+The `local` profile caps task memory at 16 GB by default. Full eggNOG runs need
+a larger explicitly provisioned budget, for example `--max_memory '32 GB'`
+with `annotation_memory = '32 GB'`, when that memory is available to the runtime.
 
 ## Entrypoints and reuse
 
@@ -149,8 +152,10 @@ columns. The status table distinguishes the different reasons.
 Independent native analyses finish even when one tool fails. The workflow
 publishes available results and diagnostics, then the final acceptance check
 returns a nonzero exit status if any requested analysis failed or lacked a valid
-upstream bundle. Engine-level failures can interrupt publication and never
-constitute a completed run.
+upstream bundle. A native search terminated before it publishes output receives
+`failed` status with reason `missing_planned_result`; the Nextflow log and trace
+retain its task error. Failure of the workflow engine itself can still interrupt
+publication and never constitutes a completed run.
 
 Resume repeats resource preflight and validates imported source results. Planning
 uses content checksums and stable source bundle paths so unchanged native

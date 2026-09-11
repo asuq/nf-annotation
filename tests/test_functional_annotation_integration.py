@@ -327,3 +327,59 @@ workflow {
                 if path.is_file()
             },
         )
+
+    def test_missing_native_output_still_publishes_failed_status(self):
+        module = self.project / "modules/local/functional_annotation.nf"
+        module.write_text(
+            module.read_text().replace(
+                "    bash task/run.sh",
+                '    if [[ "${meta.accession}" == "B" ]]; then exit 137; fi\n'
+                "    bash task/run.sh",
+            )
+        )
+        output = self.run_pipeline("missing_native", self.source, succeeds=False)
+        states = {
+            row["accession"]: row["status"]
+            for row in read_tsv(output / "tables/annotation_status.tsv")
+            if row["tool"] == "kofam"
+        }
+        self.assertEqual(states, {"B": "failed", "A": "success"})
+
+    def test_configuration_selects_the_helper_runtime_at_execution(self):
+        script = self.project / "runtime_control.nf"
+        script.write_text('''nextflow.enable.dsl=2
+process VALIDATE_INPUTS {
+    publishDir params.outdir, mode: 'copy'
+    output:
+    path 'runtime.txt'
+    script:
+    """printf '%s\\\\n' '${task.container}' > runtime.txt"""
+}
+workflow { VALIDATE_INPUTS() }
+''')
+        runtime = "sha256:" + "3" * 64
+        configuration = self.root / "runtime.config"
+        configuration.write_text(f"params.python_container = '{runtime}'\n")
+        output = self.root / "runtime-output"
+        result = subprocess.run(
+            [
+                NEXTFLOW,
+                "run",
+                str(script),
+                "-profile",
+                "test",
+                "-c",
+                str(configuration),
+                "--outdir",
+                str(output),
+                "-work-dir",
+                str(self.root / "runtime-work"),
+            ],
+            cwd=self.root,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env=dict(os.environ, NXF_ANSI_LOG="false", NXF_DISABLE_CHECK_LATEST="true"),
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual((output / "runtime.txt").read_text().strip(), runtime)

@@ -65,7 +65,10 @@ process ANNOTATION_SEARCH {
     time { params.max_time }
     maxForks params.annotation_max_forks
     container { meta.container }
-    errorStrategy 'finish'
+    // An abruptly terminated task may not emit raw files. The complete plan lets
+    // aggregation record that missing result as failed and reject the final gate
+    // after independent samples finish. Nextflow retains the task error/trace.
+    errorStrategy 'ignore'
     maxRetries 0
 
     input:
