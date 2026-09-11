@@ -555,7 +555,7 @@ validation on HPC, use the normal execution profile instead of `debug`.
 
 - `README.md`: onboarding, prerequisites, quick-start, and normal run examples
 - [`docs/development/v0.4.md`](docs/development/v0.4.md): approved v0.4
-  development and release specification; implementation and qualification pending
+  development and release specification; implementation in progress
 - [`docs/runbook.md`](docs/runbook.md): extended operator detail, runtime
   database preparation notes, acceptance workflows, and troubleshooting
 - [`docs/small_cohort_server_test.md`](docs/small_cohort_server_test.md):

@@ -1,0 +1,6 @@
+accession	genome	expected_gcode	reported_crispr_arrays	reported_spacers	test_purpose
+GCA_000027325.1	Mycoplasmoides genitalium G37	4	0	0	first_smoke;code4;crispr_negative
+GCA_000027345.1	Mycoplasmoides pneumoniae M129	4	0	0	code4;crispr_negative
+GCA_965226525.1	Spiroplasma sp.	4	2	511	code4;crispr_positive
+GCA_000009845.1	Onion yellows phytoplasma OY-M	11	0	0	code11;crispr_negative
+GCA_000157995.1	Holdemania filiformis DSM 12042	11	6	63	code11;fragmented;reported_partial_16s;configurable_ani_gate
