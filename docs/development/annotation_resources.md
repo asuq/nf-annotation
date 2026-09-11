@@ -58,6 +58,7 @@ belongs in preparation or once-per-run preflight, not in every proteome task.
 The ontology supports namespace validation and definitions; preparation adds no
 GO assignments or ancestor expansion.
 
-The acquisition and immutable-resource controls pass locally. The four-resource
-Nextflow stub also passes. Real-resource preparation and compatible biological
-searches must pass before declaring v0.4 qualified.
+The acquisition and immutable-resource controls, four-resource Nextflow stub,
+full native resource preparation and positive/zero searches pass. The
+[qualification record](v0.4_qualification.md) lists the actual resource and SIF
+identities and distinguishes these controls from pending full-cohort acceptance.
