@@ -984,7 +984,7 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
             MODULES_DIR / "prepare_runtime_database.nf",
             MODULES_DIR / "download_checkm2_database.nf",
             MODULES_DIR / "download_busco_databases.nf",
-            MODULES_DIR / "download_eggnog_database.nf",
+            MODULES_DIR / "prepare_annotation_resource.nf",
             MODULES_DIR / "finalise_runtime_database.nf",
             MODULES_DIR / "merge_runtime_database_reports.nf",
         ):
@@ -1052,7 +1052,7 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertIn("checkm2Request = destinations.checkm2", workflow_text)
         self.assertIn("buscoRequest = destinations.busco_root", workflow_text)
         self.assertIn("codettaRequest = destinations.codetta", workflow_text)
-        self.assertIn("eggnogRequest = destinations.eggnog", workflow_text)
+        self.assertIn("annotationRequest = Channel.fromList(annotationRequests)", workflow_text)
         self.assertNotIn("params.padloc_db", workflow_text)
         self.assertIn('script_path="\\$(command -v merge_runtime_database_reports.py)"', merge_module_text)
         self.assertIn('python_path="\\$(command -v python3)"', merge_module_text)
@@ -1069,7 +1069,7 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         checkm2_module_text = (MODULES_DIR / "download_checkm2_database.nf").read_text(
             encoding="utf-8"
         )
-        eggnog_module_text = (MODULES_DIR / "download_eggnog_database.nf").read_text(
+        eggnog_module_text = (MODULES_DIR / "prepare_annotation_resource.nf").read_text(
             encoding="utf-8"
         )
         finalise_module_text = (MODULES_DIR / "finalise_runtime_database.nf").read_text(
@@ -1116,19 +1116,10 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertIn('rm -f "\\${retry_marker}"', busco_module_text)
         self.assertIn('busco --download_path "\\${destination_path}" --download "\\${lineage}"', busco_module_text)
         self.assertIn("stageInMode 'symlink'", eggnog_module_text)
-        self.assertIn(
-            "tuple val(destination), path(destination_parent), val(destination_name), val(download_enabled), val(force)",
-            eggnog_module_text,
-        )
-        self.assertIn('destination_path="${destination_parent}/${destination_name}"', eggnog_module_text)
-        self.assertIn('retry_marker="${destination_parent}/.nf_myco_eggnog_download_in_progress"', eggnog_module_text)
-        self.assertIn('if [[ "${force}" != "true" && ! -f "\\${retry_marker}" ]]; then', eggnog_module_text)
-        self.assertIn(': > "\\${retry_marker}"', eggnog_module_text)
-        self.assertIn('rm -f "\\${retry_marker}"', eggnog_module_text)
-        self.assertIn('script_path="\\$(command -v download_eggnog_data.py)"', eggnog_module_text)
-        self.assertIn('python "\\${script_path}" --data_dir "\\${destination_path}" -y', eggnog_module_text)
-        self.assertNotIn('download_eggnog_data.py.patched', eggnog_module_text)
-        self.assertNotIn('http://eggnog5.embl.de/download/emapperdb-', eggnog_module_text)
+        self.assertIn('container { params["${component}_container"] }', eggnog_module_text)
+        self.assertIn('command -v prepare_runtime_databases.py', eggnog_module_text)
+        self.assertIn('--remote-source-manifest', eggnog_module_text)
+        self.assertNotIn('download_eggnog_data.py', eggnog_module_text)
         self.assertIn("stageInMode 'symlink'", finalise_module_text)
         self.assertIn(
             "tuple val(component), val(destination), path(destination_parent), val(destination_name), path(mode_file), val(source_label), path(lineages_file)",

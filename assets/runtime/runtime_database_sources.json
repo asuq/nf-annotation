@@ -49,22 +49,38 @@
     }
   },
   "eggnog": {
-    "default_version": "5.0.2",
+    "default_version": "eggNOG7-emapper3.0",
     "versions": {
-      "5.0.2": {
-        "kind": "file_bundle",
+      "eggNOG7-emapper3.0": {
+        "kind": "annotation_bundle",
         "files": [
           {
-            "name": "eggnog.db.gz",
-            "url": "http://eggnog5.embl.de/download/emapperdb-5.0.2/eggnog.db.gz",
-            "compression": "gz",
-            "final_name": "eggnog.db"
+            "name": "eggnog.db",
+            "url": "https://data.cgmlab.org/eggnog-mapper/emapper-3.0/data/eggnog.db"
           },
           {
-            "name": "eggnog_proteins.dmnd.gz",
-            "url": "http://eggnog5.embl.de/download/emapperdb-5.0.2/eggnog_proteins.dmnd.gz",
-            "compression": "gz",
-            "final_name": "eggnog_proteins.dmnd"
+            "name": "eggnog_proteins.dmnd",
+            "url": "https://data.cgmlab.org/eggnog-mapper/emapper-3.0/data/eggnog_proteins.dmnd"
+          },
+          {
+            "name": "eggnog.db.fieldpresence.bin",
+            "url": "https://data.cgmlab.org/eggnog-mapper/emapper-3.0/data/eggnog.db.fieldpresence.bin"
+          },
+          {
+            "name": "eggnog.db.taxids.bin",
+            "url": "https://data.cgmlab.org/eggnog-mapper/emapper-3.0/data/eggnog.db.taxids.bin"
+          },
+          {
+            "name": "eggnog.taxa.db",
+            "url": "https://data.cgmlab.org/eggnog-mapper/emapper-3.0/data/eggnog.taxa.db"
+          },
+          {
+            "name": "eggnog.taxa.db.traverse.pkl",
+            "url": "https://data.cgmlab.org/eggnog-mapper/emapper-3.0/data/eggnog.taxa.db.traverse.pkl"
+          },
+          {
+            "name": "go-basic.obo",
+            "url": "https://data.cgmlab.org/eggnog-mapper/emapper-3.0/data/go-basic.obo"
           }
         ]
       }
@@ -75,8 +91,98 @@
     "versions": {
       "v2.0.0": {
         "kind": "archive",
-        "url": "https://github.com/padlocbio/padloc-db/archive/refs/tags/v2.0.0.tar.gz",
-        "archive_name": "padloc-db-v2.0.0.tar.gz"
+        "url": "https://github.com/padlocbio/padloc-db/archive/7f99b47b75e232b111c18626badb9ac32e8e0b5a.tar.gz",
+        "archive_name": "padloc-db-v2.0.0.tar.gz",
+        "checksum": {
+          "type": "sha256",
+          "value": "de1c9697ee735c7c8a856295ace5614c9c1959b6010cbc074a29125aa9c04fc9"
+        }
+      }
+    }
+  },
+  "cogclassifier": {
+    "default_version": "COG2024-COGclassifier2.0.0",
+    "versions": {
+      "COG2024-COGclassifier2.0.0": {
+        "kind": "annotation_bundle",
+        "files": [
+          {
+            "name": "cddid.tbl.gz",
+            "url": "https://ftp.ncbi.nih.gov/pub/mmdb/cdd/cddid.tbl.gz"
+          },
+          {
+            "name": "Cog_LE.tar.gz",
+            "url": "https://ftp.ncbi.nih.gov/pub/mmdb/cdd/little_endian/Cog_LE.tar.gz"
+          },
+          {
+            "name": "cog_definition.tsv",
+            "url": "https://raw.githubusercontent.com/moshi4/COGclassifier/5f9aaf8c2c710ad3fba7697df209ca6b5067b25b/src/cogclassifier/resources/cog_definition.tsv"
+          },
+          {
+            "name": "cog_func_category.tsv",
+            "url": "https://raw.githubusercontent.com/moshi4/COGclassifier/5f9aaf8c2c710ad3fba7697df209ca6b5067b25b/src/cogclassifier/resources/cog_func_category.tsv"
+          }
+        ]
+      }
+    }
+  },
+  "pfam": {
+    "default_version": "38.2",
+    "versions": {
+      "38.2": {
+        "kind": "annotation_bundle",
+        "files": [
+          {
+            "name": "Pfam-A.hmm.gz",
+            "url": "https://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam38.2/Pfam-A.hmm.gz",
+            "checksum": {
+              "type": "md5",
+              "value": "7ab3c4e215d0daaea3004e37c4e24f8a"
+            }
+          },
+          {
+            "name": "Pfam-A.hmm.dat.gz",
+            "url": "https://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam38.2/Pfam-A.hmm.dat.gz",
+            "checksum": {
+              "type": "md5",
+              "value": "aab364689372b1846e8e880976e7f750"
+            }
+          },
+          {
+            "name": "Pfam-A.clans.tsv.gz",
+            "url": "https://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam38.2/Pfam-A.clans.tsv.gz",
+            "checksum": {
+              "type": "md5",
+              "value": "a70eeffcd8105ff094ea5834456d8bab"
+            }
+          },
+          {
+            "name": "Pfam.version.gz",
+            "url": "https://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam38.2/Pfam.version.gz",
+            "checksum": {
+              "type": "md5",
+              "value": "6c7beb9426eb0b1075e778c20b842b24"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "kofam": {
+    "default_version": "2026-07-02",
+    "versions": {
+      "2026-07-02": {
+        "kind": "annotation_bundle",
+        "files": [
+          {
+            "name": "profiles.tar.gz",
+            "url": "https://www.genome.jp/ftp/db/kofam/archives/2026-07-02/profiles.tar.gz"
+          },
+          {
+            "name": "ko_list.gz",
+            "url": "https://www.genome.jp/ftp/db/kofam/archives/2026-07-02/ko_list.gz"
+          }
+        ]
       }
     }
   }

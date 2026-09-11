@@ -166,7 +166,7 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
             "PREP_CODETTA_DATABASE",
             "DOWNLOAD_CHECKM2_DATABASE",
             "DOWNLOAD_BUSCO_DATABASES",
-            "DOWNLOAD_EGGNOG_DATABASE",
+            "PREP_ANNOTATION_RESOURCE",
         ):
             self.assertIn(process_name, viper_text)
         self.assertIn("executor = 'local'", viper_text)
@@ -215,7 +215,7 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
         """Use the fixed PADLOC image tag by default."""
         config_text = NEXTFLOW_CONFIG.read_text(encoding="utf-8")
 
-        self.assertIn("padloc_container = 'quay.io/asuq1617/padloc:2.0.0'", config_text)
+        self.assertIn("padloc_container = 'nf-annotation-padloc:v04-dev'", config_text)
         self.assertNotIn("padloc_container = 'quay.io/biocontainers/padloc:2.0.0--hdfd78af_1'", config_text)
 
     def test_prokka_container_points_at_the_fixed_runtime_tag(self) -> None:
@@ -232,7 +232,7 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
         """Use the fixed eggNOG image tag by default."""
         config_text = NEXTFLOW_CONFIG.read_text(encoding="utf-8")
 
-        self.assertIn("eggnog_container = 'quay.io/asuq1617/eggnog-mapper:2.1.13'", config_text)
+        self.assertIn("eggnog_container = 'nf-annotation-eggnog:v04-dev'", config_text)
         self.assertNotIn(
             "eggnog_container = 'quay.io/biocontainers/eggnog-mapper:2.1.13--pyhdfd78af_2'",
             config_text,
@@ -314,10 +314,6 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
         )
         self.assertIn(
             "withLabel: download_busco_databases {\n        errorStrategy = {",
-            config_text,
-        )
-        self.assertIn(
-            "withLabel: download_eggnog_database {\n        errorStrategy = {",
             config_text,
         )
         self.assertNotIn("withName: PREP_TAXDUMP_DATABASE", config_text)

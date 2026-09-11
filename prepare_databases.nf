@@ -71,6 +71,9 @@ workflow {
         busco_root: normaliseDestination.call(params.busco_db),
         codetta   : normaliseDestination.call(params.codetta_db),
         eggnog    : normaliseDestination.call(params.eggnog_db),
+        cogclassifier: normaliseDestination.call(params.cogclassifier_db),
+        pfam      : normaliseDestination.call(params.pfam_db),
+        kofam     : normaliseDestination.call(params.kofam_db),
     ]
     def mountedDestinations = destinations.collectEntries { component, destination ->
         [(component): buildMountedDestination.call(destination)]
@@ -144,22 +147,25 @@ workflow {
             )
         )
         : Channel.empty()
-    eggnogRequest = destinations.eggnog
-        ? Channel.of(
+    annotationRequests = ['eggnog', 'cogclassifier', 'pfam', 'kofam']
+        .findAll { destinations[it] }
+        .collect { component ->
             tuple(
-                mountedDestinations.eggnog[0],
-                mountedDestinations.eggnog[1],
-                mountedDestinations.eggnog[2],
+                component,
+                mountedDestinations[component][0],
+                mountedDestinations[component][1],
+                mountedDestinations[component][2],
                 downloadEnabled,
-                forceRebuild,
+                params["${component}_version"],
+                file("${projectDir}/assets/runtime/runtime_database_sources.json", checkIfExists: true),
             )
-        )
-        : Channel.empty()
+        }
+    annotationRequest = Channel.fromList(annotationRequests)
     RUNTIME_DATABASE_PREP(
         taxdumpRequest,
         checkm2Request,
         buscoRequest,
         codettaRequest,
-        eggnogRequest,
+        annotationRequest,
     )
 }

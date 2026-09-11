@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import gzip
 import hashlib
 import json
 import logging
@@ -23,6 +22,13 @@ from pathlib import Path
 from typing import Any, Callable, Iterator, Sequence
 from urllib.parse import urlparse
 
+from annotation_resources import (
+    RESOURCE_TOOLS,
+    AnnotationResourceError,
+    prepare_resource,
+    validate_resource,
+)
+from download_annotation_resources import ResourceDownloadError, acquire_component
 
 LOGGER = logging.getLogger(__name__)
 MARKER_FILE_NAME = ".nf_myco_ready.json"
@@ -121,6 +127,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--eggnog-source", type=Path, help="eggNOG database source path.")
     parser.add_argument("--eggnog-dest", type=Path, help="Final eggNOG destination.")
     parser.add_argument("--eggnog-version", default=None, help="Pinned remote eggNOG version.")
+    for component in ("cogclassifier", "pfam", "kofam"):
+        parser.add_argument(f"--{component}-source", type=Path, help=f"Acquired or prepared {component} resource directory.")
+        parser.add_argument(f"--{component}-dest", type=Path, help=f"Immutable {component} resource destination.")
+        parser.add_argument(f"--{component}-version", default=None, help=f"Pinned {component} source version.")
     parser.add_argument("--padloc-source", type=Path, help="PADLOC database source path.")
     parser.add_argument("--padloc-dest", type=Path, help="Final PADLOC destination.")
     parser.add_argument("--padloc-version", default=None, help="Pinned remote PADLOC version.")
@@ -337,14 +347,20 @@ def validate_checkm2(path: Path) -> ValidationResult:
 
 
 def validate_eggnog(path: Path) -> ValidationResult:
-    """Validate one eggNOG data directory."""
-    required = ("eggnog.db", "eggnog_proteins.dmnd")
-    missing = [name for name in required if not (path / name).is_file()]
-    if missing:
-        raise PrepareRuntimeDatabasesError(
-            f"eggNOG destination is missing required files in {path}: {', '.join(missing)}"
-        )
-    return ValidationResult(required_paths=required, details={"files": str(len(required))})
+    """Validate a prepared v3-compatible eggNOG resource and content identity."""
+    return validate_annotation_resource(path, "eggnog")
+
+
+def validate_annotation_resource(path: Path, component: str) -> ValidationResult:
+    """Expose the annotation content contract to the canonical ready-marker API."""
+    try:
+        resource = validate_resource(path, component)
+    except AnnotationResourceError as error:
+        raise PrepareRuntimeDatabasesError(str(error)) from error
+    return ValidationResult(
+        required_paths=tuple(entry["path"] for entry in resource["contract"]["files"]),
+        details={"resource_id": resource["resource_id"], "version": resource["contract"]["version"]},
+    )
 
 
 def validate_codetta(path: Path) -> ValidationResult:
@@ -835,13 +851,6 @@ def build_remote_scratch_dir(destination: Path, scratch_root: Path | None) -> Pa
     return scratch_dir
 
 
-def decompress_gzip(source: Path, destination: Path) -> None:
-    """Decompress one gzip file into its destination path."""
-    ensure_parent_directory(destination)
-    with gzip.open(source, "rb") as input_handle, destination.open("wb") as output_handle:
-        shutil.copyfileobj(input_handle, output_handle)
-
-
 def prepare_remote_archive_component(
     *,
     component: str,
@@ -878,72 +887,6 @@ def prepare_remote_archive_component(
         "checksum": checksum_status,
     }
     return validation, url, metadata
-
-
-def prepare_remote_file_bundle_component(
-    *,
-    component: str,
-    destination: Path,
-    validator: Validator,
-    scratch_root: Path | None,
-    files: Sequence[dict[str, Any]],
-) -> tuple[ValidationResult, str, dict[str, str]]:
-    """Download and materialise one remote multi-file component."""
-    if destination.exists():
-        if destination.is_dir() and destination_is_empty(destination):
-            destination.rmdir()
-        else:
-            raise PrepareRuntimeDatabasesError(
-                f"Destination must be absent or empty before preparation: {destination}"
-            )
-    destination.mkdir(parents=True, exist_ok=False)
-
-    scratch_dir = build_remote_scratch_dir(destination, scratch_root)
-    urls: list[str] = []
-    checksum_tokens: list[str] = []
-    try:
-        for file_config in files:
-            url = file_config.get("url")
-            if not isinstance(url, str) or not url:
-                raise PrepareRuntimeDatabasesError(
-                    f"Remote file bundle entry for {component} is missing its URL."
-                )
-            download_name = file_config.get("name")
-            if not isinstance(download_name, str) or not download_name:
-                download_name = infer_download_name(url, f"{component}.download")
-            downloaded_path = scratch_dir / download_name
-            checksum_status = download_with_checksum_retries(
-                url=url,
-                destination=downloaded_path,
-                checksum_config=file_config.get("checksum"),
-                scratch_dir=scratch_dir,
-            )
-            checksum_tokens.append(f"{download_name}:{checksum_status}")
-
-            final_name = file_config.get("final_name")
-            if not isinstance(final_name, str) or not final_name:
-                final_name = download_name[:-3] if download_name.endswith(".gz") else download_name
-            final_path = destination / final_name
-            compression = file_config.get("compression")
-            if compression == "gz":
-                decompress_gzip(downloaded_path, final_path)
-            else:
-                shutil.copy2(downloaded_path, final_path)
-            urls.append(url)
-        validation = validator(destination)
-    except Exception:
-        shutil.rmtree(destination, ignore_errors=True)
-        raise
-    finally:
-        shutil.rmtree(scratch_dir, ignore_errors=True)
-    metadata = {
-        "source_mode": "remote",
-        "transport": "aria2",
-        "url_count": str(len(urls)),
-        "urls": ",".join(urls),
-        "checksums": ",".join(checksum_tokens) if checksum_tokens else "unchecked",
-    }
-    return validation, ",".join(urls), metadata
 
 
 def prepare_remote_component(
@@ -992,22 +935,6 @@ def prepare_remote_component(
             url=url,
             archive_name=archive_name,
             checksum_config=version_config.get("checksum"),
-        )
-        metadata.update(metadata_prefix)
-        return validation, source, metadata
-
-    if kind == "file_bundle":
-        files = version_config.get("files")
-        if not isinstance(files, list) or not files:
-            raise PrepareRuntimeDatabasesError(
-                f"Remote file bundle version {version_key!r} for {remote_component} has no files."
-            )
-        validation, source, metadata = prepare_remote_file_bundle_component(
-            component=component_label,
-            destination=destination,
-            validator=validator,
-            scratch_root=scratch_root,
-            files=files,
         )
         metadata.update(metadata_prefix)
         return validation, source, metadata
@@ -1072,6 +999,15 @@ def prepare_component(
     lineage: str | None = None,
 ) -> PreparationRecord:
     """Prepare one non-BUSCO database destination."""
+    if component in RESOURCE_TOOLS:
+        return prepare_annotation_component(
+            component=component,
+            source=source,
+            destination=destination,
+            download=download,
+            version=version,
+            manifest=manifest,
+        )
     destination = normalise_path(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
     original_source = normalise_path(source) if source is not None else None
@@ -1162,6 +1098,49 @@ def prepare_component(
     )
 
 
+def prepare_annotation_component(
+    *,
+    component: str,
+    source: Path | None,
+    destination: Path,
+    download: bool,
+    version: str | None,
+    manifest: dict[str, Any] | None,
+) -> PreparationRecord:
+    """Prepare immutable annotation content through the existing resource API."""
+    destination = normalise_path(destination)
+    if manifest is None:
+        raise PrepareRuntimeDatabasesError("Annotation preparation requires the canonical source manifest")
+    version_key, config = resolve_remote_version(
+        manifest=manifest, component=component, requested_version=version
+    )
+    if config.get("kind") != "annotation_bundle":
+        raise PrepareRuntimeDatabasesError(f"Unsupported annotation resource source kind for {component}")
+    was_present = destination.exists()
+    if source is None:
+        if was_present:
+            source = destination
+        elif download:
+            source = destination.with_name(destination.name + ".acquired")
+            try:
+                acquire_component(component, version_key, config, source)
+            except (ResourceDownloadError, OSError, ValueError) as error:
+                raise PrepareRuntimeDatabasesError(str(error)) from error
+        else:
+            raise PrepareRuntimeDatabasesError(f"Missing {component} source and download is disabled")
+    source = normalise_path(source)
+    try:
+        resource = prepare_resource(component, version_key, source, destination)
+    except (AnnotationResourceError, OSError, ValueError) as error:
+        raise PrepareRuntimeDatabasesError(str(error)) from error
+    validation = ValidationResult(
+        required_paths=tuple(entry["path"] for entry in resource["contract"]["files"]),
+        details={"resource_id": resource["resource_id"], "version": version_key},
+    )
+    write_marker(component=component, source=str(source), destination=destination, validation=validation)
+    return PreparationRecord(component, "present" if was_present else "prepared", str(source), destination, describe_validation(validation))
+
+
 def determine_busco_lineages(mapping: dict[str, Path]) -> tuple[str, ...]:
     """Determine the BUSCO lineages that should exist after preparation."""
     if mapping:
@@ -1222,7 +1201,8 @@ def prepare_busco_lineages(
 
 def build_component_records(args: argparse.Namespace) -> list[PreparationRecord]:
     """Prepare the requested database destinations and return report records."""
-    manifest = load_remote_source_manifest(args.remote_source_manifest) if args.download else None
+    annotation_requested = any(getattr(args, component + "_dest") for component in RESOURCE_TOOLS)
+    manifest = load_remote_source_manifest(args.remote_source_manifest) if args.download or annotation_requested else None
 
     if args.taxdump_source and not args.taxdump_dest:
         raise PrepareRuntimeDatabasesError("Taxdump source requires --taxdump-dest.")
@@ -1240,6 +1220,9 @@ def build_component_records(args: argparse.Namespace) -> list[PreparationRecord]
         raise PrepareRuntimeDatabasesError("eggNOG source requires --eggnog-dest.")
     if args.eggnog_version and not args.eggnog_dest:
         raise PrepareRuntimeDatabasesError("eggNOG version requires --eggnog-dest.")
+    for component in ("cogclassifier", "pfam", "kofam"):
+        if (getattr(args, component + "_source") or getattr(args, component + "_version")) and not getattr(args, component + "_dest"):
+            raise PrepareRuntimeDatabasesError(f"{component} source/version requires --{component}-dest.")
     if args.padloc_source and not args.padloc_dest:
         raise PrepareRuntimeDatabasesError("PADLOC source requires --padloc-dest.")
     if args.padloc_version and not args.padloc_dest:
@@ -1336,6 +1319,16 @@ def build_component_records(args: argparse.Namespace) -> list[PreparationRecord]
                 manifest=manifest,
             )
         )
+    for component in ("cogclassifier", "pfam", "kofam"):
+        if getattr(args, component + "_dest"):
+            records.append(prepare_annotation_component(
+                component=component,
+                source=getattr(args, component + "_source"),
+                destination=getattr(args, component + "_dest"),
+                download=args.download,
+                version=getattr(args, component + "_version"),
+                manifest=manifest,
+            ))
     if args.padloc_dest:
         records.append(
             prepare_component(
@@ -1384,6 +1377,8 @@ def build_nextflow_arguments(records: Sequence[PreparationRecord]) -> list[tuple
             mapping["--busco_db"] = str(record.destination)
         elif record.component == "eggnog":
             mapping["--eggnog_db"] = str(record.destination)
+        elif record.component in ("cogclassifier", "pfam", "kofam"):
+            mapping[f"--{record.component}_db"] = str(record.destination)
     return sorted(mapping.items())
 
 

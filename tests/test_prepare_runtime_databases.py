@@ -19,7 +19,6 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-
 ROOT = Path(__file__).resolve().parents[1]
 BIN_DIR = ROOT / "bin"
 if str(BIN_DIR) not in sys.path:
@@ -83,9 +82,14 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
         return path
 
     def create_eggnog_dir(self, path: Path) -> Path:
-        """Create one valid eggNOG source directory."""
-        self.write_text_file(path / "eggnog.db", "sqlite-placeholder\n")
-        self.write_text_file(path / "eggnog_proteins.dmnd", "diamond-placeholder\n")
+        """Create a synthetic, already prepared v0.4 eggNOG resource."""
+        import annotation_resources
+
+        for name in ("eggnog.db", "eggnog_proteins.dmnd", "eggnog.db.taxids.bin", "eggnog.db.fieldpresence.bin", "eggnog.taxa.db", "eggnog.taxa.db.traverse.pkl", "go-basic.obo"):
+            self.write_text_file(path / name, "synthetic-prepared-resource\n")
+        contract = {"component": "eggnog", "version": "eggNOG7-emapper3.0", "files": annotation_resources.file_records(path), "settings": {"synthetic_fixture": True}}
+        payload = {"schema_version": 1, "component": "eggnog", "resource_id": annotation_resources.identity(contract), "contract": contract, "acquisition": {"files": []}}
+        self.write_text_file(path / annotation_resources.RESOURCE_FILE, json.dumps(payload))
         return path
 
     def create_codetta_dir(self, path: Path) -> Path:
@@ -144,8 +148,6 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
         checkm2_url: str,
         busco_template: str,
         codetta_url: str | None = None,
-        eggnog_db_url: str,
-        eggnog_dmnd_url: str,
         padloc_url: str,
         taxdump_checksum_url: str | None = None,
         taxdump_checksum_value: str | None = None,
@@ -208,28 +210,6 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
                         "kind": "lineage_archives",
                         "lineage_url_template": busco_template,
                         "archive_name_template": "{lineage}.tar.gz",
-                    }
-                },
-            },
-            "eggnog": {
-                "default_version": "current",
-                "versions": {
-                    "current": {
-                        "kind": "file_bundle",
-                        "files": [
-                            {
-                                "name": "eggnog.db.gz",
-                                "url": eggnog_db_url,
-                                "compression": "gz",
-                                "final_name": "eggnog.db",
-                            },
-                            {
-                                "name": "eggnog_proteins.dmnd.gz",
-                                "url": eggnog_dmnd_url,
-                                "compression": "gz",
-                                "final_name": "eggnog_proteins.dmnd",
-                            },
-                        ],
                     }
                 },
             },
@@ -568,11 +548,6 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
                 tmpdir / "archives" / "busco.tar.gz",
                 "busco_payload",
             )
-            eggnog_archive = self.create_tar_archive(
-                self.create_eggnog_dir(tmpdir / "sources" / "eggnog_dir"),
-                tmpdir / "archives" / "eggnog.tar.gz",
-                "eggnog_payload",
-            )
             padloc_archive = self.create_zip_archive(
                 self.create_padloc_dir(tmpdir / "sources" / "padloc_dir"),
                 tmpdir / "archives" / "padloc.zip",
@@ -590,10 +565,6 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
                         f"bacillota_odb12={busco_archive}",
                         "--busco-dest-root",
                         str(tmpdir / "prepared" / "busco"),
-                        "--eggnog-source",
-                        str(eggnog_archive),
-                        "--eggnog-dest",
-                        str(tmpdir / "prepared" / "eggnog"),
                         "--padloc-source",
                         str(padloc_archive),
                         "--padloc-dest",
@@ -607,7 +578,6 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
             self.assertTrue(
                 (tmpdir / "prepared" / "busco" / "bacillota_odb12" / "dataset.cfg").is_file()
             )
-            self.assertTrue((tmpdir / "prepared" / "eggnog" / "eggnog.db").is_file())
             self.assertTrue(
                 (tmpdir / "prepared" / "padloc" / "hmm" / "padlocdb.hmm").is_file()
             )
@@ -645,14 +615,6 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
                 tmpdir / "fixtures" / "codetta.tar.gz",
                 "codetta_payload",
             )
-            eggnog_db = self.create_gzip_file(
-                tmpdir / "fixtures" / "eggnog.db.gz",
-                "sqlite-placeholder\n",
-            )
-            eggnog_dmnd = self.create_gzip_file(
-                tmpdir / "fixtures" / "eggnog_proteins.dmnd.gz",
-                "diamond-placeholder\n",
-            )
             padloc_archive = self.create_zip_archive(
                 self.create_padloc_dir(tmpdir / "fixtures" / "padloc"),
                 tmpdir / "fixtures" / "padloc.zip",
@@ -665,8 +627,6 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
                     checkm2_url="https://example.invalid/checkm2.tar.gz",
                     busco_template="https://example.invalid/{lineage}.tar.gz",
                     codetta_url="https://example.invalid/codetta.tar.gz",
-                    eggnog_db_url="https://example.invalid/eggnog.db.gz",
-                    eggnog_dmnd_url="https://example.invalid/eggnog_proteins.dmnd.gz",
                     padloc_url="https://example.invalid/padloc.zip",
                     taxdump_checksum_url="https://example.invalid/taxdump.zip.md5",
                     checkm2_checksum_value=self.checksum_md5(checkm2_archive),
@@ -679,8 +639,6 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
                 "https://example.invalid/bacillota_odb12.tar.gz": bacillota_archive,
                 "https://example.invalid/mycoplasmatota_odb12.tar.gz": myco_archive,
                 "https://example.invalid/codetta.tar.gz": codetta_archive,
-                "https://example.invalid/eggnog.db.gz": eggnog_db,
-                "https://example.invalid/eggnog_proteins.dmnd.gz": eggnog_dmnd,
                 "https://example.invalid/padloc.zip": padloc_archive,
             }
             recorded_calls: list[list[str]] = []
@@ -703,8 +661,6 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
                         str(tmpdir / "prepared" / "busco"),
                         "--codetta-dest",
                         str(tmpdir / "prepared" / "codetta"),
-                        "--eggnog-dest",
-                        str(tmpdir / "prepared" / "eggnog"),
                         "--padloc-dest",
                         str(tmpdir / "prepared" / "padloc"),
                         "--download",
@@ -727,7 +683,6 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
                 (tmpdir / "prepared" / "busco" / "mycoplasmatota_odb12" / "dataset.cfg").is_file()
             )
             self.assertTrue((tmpdir / "prepared" / "codetta" / "Pfam-A_enone.hmm").is_file())
-            self.assertTrue((tmpdir / "prepared" / "eggnog" / "eggnog.db").is_file())
             self.assertTrue(
                 (tmpdir / "prepared" / "padloc" / "hmm" / "padlocdb.hmm").is_file()
             )
@@ -778,8 +733,6 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
                     taxdump_url="https://example.invalid/taxdump-v1.zip",
                     checkm2_url="https://example.invalid/checkm2.tar.gz",
                     busco_template="https://example.invalid/{lineage}.tar.gz",
-                    eggnog_db_url="https://example.invalid/eggnog.db.gz",
-                    eggnog_dmnd_url="https://example.invalid/eggnog_proteins.dmnd.gz",
                     padloc_url="https://example.invalid/padloc.zip",
                     taxdump_checksum_value=self.checksum_md5(release_one),
                     checkm2_checksum_value="unused",
@@ -847,8 +800,6 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
                     taxdump_url="https://example.invalid/taxdump.zip",
                     checkm2_url="https://example.invalid/checkm2.tar.gz",
                     busco_template="https://example.invalid/{lineage}.tar.gz",
-                    eggnog_db_url="https://example.invalid/eggnog.db.gz",
-                    eggnog_dmnd_url="https://example.invalid/eggnog_proteins.dmnd.gz",
                     padloc_url="https://example.invalid/padloc.zip",
                     taxdump_checksum_value="unused",
                     checkm2_checksum_value="unused",
@@ -889,8 +840,6 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
                     taxdump_url="https://example.invalid/taxdump.zip",
                     checkm2_url="https://example.invalid/checkm2.tar.gz",
                     busco_template="https://example.invalid/{lineage}.tar.gz",
-                    eggnog_db_url="https://example.invalid/eggnog.db.gz",
-                    eggnog_dmnd_url="https://example.invalid/eggnog_proteins.dmnd.gz",
                     padloc_url="https://example.invalid/padloc.zip",
                     taxdump_checksum_value="badchecksum",
                     checkm2_checksum_value="unused",
@@ -960,8 +909,6 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
                     taxdump_url="https://example.invalid/taxdump.zip",
                     checkm2_url="https://example.invalid/checkm2.tar.gz",
                     busco_template="https://example.invalid/{lineage}.tar.gz",
-                    eggnog_db_url="https://example.invalid/eggnog.db.gz",
-                    eggnog_dmnd_url="https://example.invalid/eggnog_proteins.dmnd.gz",
                     padloc_url="https://example.invalid/padloc.zip",
                     taxdump_checksum_value=self.checksum_md5(good_archive),
                     checkm2_checksum_value="unused",
@@ -1037,8 +984,6 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
                     taxdump_url="https://example.invalid/taxdump.zip",
                     checkm2_url="https://example.invalid/checkm2.tar.gz",
                     busco_template="https://example.invalid/{lineage}.tar.gz",
-                    eggnog_db_url="https://example.invalid/eggnog.db.gz",
-                    eggnog_dmnd_url="https://example.invalid/eggnog_proteins.dmnd.gz",
                     padloc_url="https://example.invalid/padloc.zip",
                     taxdump_checksum_value="unused",
                     checkm2_checksum_value="unused",

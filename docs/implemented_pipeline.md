@@ -87,8 +87,7 @@ prepare_databases.nf
      -> PREP_CODETTA_DATABASE
      -> DOWNLOAD_BUSCO_DATABASES
      -> FINALISE_RUNTIME_DATABASE
-     -> DOWNLOAD_EGGNOG_DATABASE
-     -> FINALISE_RUNTIME_DATABASE
+     -> PREP_ANNOTATION_RESOURCE
      -> MERGE_RUNTIME_DATABASE_REPORTS
 
 main.nf
@@ -151,12 +150,14 @@ The most important implementation-level parameters are:
 | `prepare_busco_datasets` | `main.nf` | Switches BUSCO lineage resolution from reuse to download. |
 | `busco_lineages` | both | Non-empty lineage list; defaults to `bacillota_odb12` and `mycoplasmatota_odb12`. |
 | `eggnog_db` | `main.nf`, `prepare_databases.nf` | eggNOG data directory. |
+| `cogclassifier_db`, `pfam_db`, `kofam_db` | `prepare_databases.nf` | Immutable annotation-resource preparation destinations; their main-workflow integration is in development. |
+| `eggnog_version`, `cogclassifier_version`, `pfam_version`, `kofam_version` | `prepare_databases.nf` | Explicit resource versions, otherwise resolved from the canonical runtime manifest. |
 | `ani_threshold` | `main.nf` | FastANI clustering threshold; defaults to `0.95`. |
 | `gcode_rule` | `main.nf` | `mean_gene_length_ratio` (default), `strict_delta`, or `delta_then_11`. The retained completeness rules require a strict advantage greater than 10 percentage points; at smaller/equal differences they leave the code unresolved or select 11, respectively. |
 | `eggnog_only_accessions` | `main.nf` | Optional accession allow-list for eggNOG execution. |
 | `outdir` | both | Published output root; defaults to `results`. |
 | `download_missing_databases` | `prepare_databases.nf` | Enables in-place population of missing runtime databases. |
-| `force_runtime_database_rebuild` | `prepare_databases.nf` | Forces re-preparation of runtime database destinations. |
+| `force_runtime_database_rebuild` | `prepare_databases.nf` | Forces re-preparation of the existing QC resources. Annotation resources are immutable; changed or invalid content requires a new destination. |
 | `runtime_db_helper_container` | `prepare_databases.nf` | Dedicated helper image for runtime database preparation and finalisation. |
 | `runtime_db_scratch_root` | `prepare_databases.nf` | Optional scratch root for database preparation. |
 

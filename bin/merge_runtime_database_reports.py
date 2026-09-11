@@ -89,6 +89,9 @@ def build_nextflow_args(rows: Sequence[dict[str, str]]) -> str:
         "codetta": "--codetta_db",
         "busco_root": "--busco_db",
         "eggnog": "--eggnog_db",
+        "cogclassifier": "--cogclassifier_db",
+        "pfam": "--pfam_db",
+        "kofam": "--kofam_db",
     }
     arguments = [
         (flag_map[row["component"]], row["destination"])
