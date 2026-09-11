@@ -20,6 +20,7 @@ from annotation_common import (
     write_json,
 )
 from annotation_resources import RESOURCE_FILE, validate_resource
+from prepare_padloc_input import prepare_gff
 
 PADLOC_RESOURCE = {
     "version": "2.0.0",
@@ -123,6 +124,10 @@ def preflight(config: dict[str, Any]) -> dict[str, Any]:
         if tool == "cogclassifier":
             native_code["classify_cog_hits.py"] = digest(
                 Path(__file__).with_name("classify_cog_hits.py")
+            )
+        elif tool == "padloc":
+            native_code["prepare_padloc_input.py"] = digest(
+                Path(__file__).with_name("prepare_padloc_input.py")
             )
         search_method = dict(
             tool=tool,
@@ -253,7 +258,7 @@ def plan_task(
     previous: Path | None = None,
 ) -> dict[str, Any]:
     """Prepare one task, retaining native IDs for PADLOC and compact IDs otherwise."""
-    manifest, _ = bundle_proteins(bundle)
+    manifest, proteins = bundle_proteins(bundle)
     task = task_identity(manifest, tool, entry)
     task.update(action="run", reason="no_compatible_native_result")
     if previous is not None and (previous / "result.json").is_file():
@@ -279,14 +284,7 @@ def plan_task(
         outdir / "input.faa",
     )
     if tool == "padloc":
-        with (
-            (bundle / "source.gff").open() as source,
-            (outdir / "input.gff").open("w") as dest,
-        ):
-            for line in source:
-                if line.rstrip("\r\n") == "##FASTA":
-                    break
-                dest.write(line)
+        prepare_gff(bundle, proteins, outdir / "input.gff")
     if tool == "cogclassifier":
         shutil.copyfile(
             Path(__file__).with_name("classify_cog_hits.py"),

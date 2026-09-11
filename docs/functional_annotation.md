@@ -112,6 +112,11 @@ Native files, version output, logs and exit codes are retained under
 `result.json` accompany them. `annotation_results.json` records the portable
 source contract, table checksums, bundles and result identities.
 
+PADLOC receives the native FAA IDs and a task GFF whose `protein_id` attributes
+match those validated IDs. This resolves Prokka's prefixed GFF protein names
+without changing feature order or coordinates. The original GFF remains in the
+published bundle, and the adapter is included in PADLOC's search identity.
+
 | Source | Primary acceptance rule |
 | --- | --- |
 | eggNOG v3 | Native high and medium confidence for each annotation field. GO terms use the exported native confidence for each namespace before the native merge. No additional GO ancestors are added. |
