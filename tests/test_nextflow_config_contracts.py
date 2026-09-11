@@ -19,7 +19,6 @@ GWDG_CONFIG = ROOT / "conf" / "gwdg.config"
 MARMIC_CONFIG = ROOT / "conf" / "marmic.config"
 VIPER_CPU_CONFIG = ROOT / "conf" / "viper-cpu.config"
 LOCAL_CONFIG = ROOT / "conf" / "local.config"
-DEBUG_CONFIG = ROOT / "conf" / "debug.config"
 BASE_CONFIG = ROOT / "conf" / "base.config"
 
 
@@ -45,11 +44,11 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
         self.assertIn("soft_fail_attempts = 3", config_text)
         self.assertIn("taxdump_version = null", config_text)
         self.assertIn("db_download_attempts = 2", config_text)
-        self.assertIn("eggnog_only_accessions = null", config_text)
+        self.assertIn("annotation_tools = 'eggnog,cogclassifier,pfam,kofam,padloc'", config_text)
         self.assertIn("singularity_cache_dir = null", config_text)
         self.assertIn("singularity_run_options = ''", config_text)
         self.assertIn("slurm_qos = null", config_text)
-        self.assertIn("includeConfig 'conf/debug.config'", config_text)
+        self.assertNotIn("includeConfig 'conf/debug.config'", config_text)
         self.assertIn("includeConfig 'conf/oist.config'", config_text)
         self.assertIn("includeConfig 'conf/gwdg.config'", config_text)
         self.assertIn("includeConfig 'conf/marmic.config'", config_text)
@@ -189,14 +188,6 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
         self.assertNotIn("cleanup = true", override_text)
         self.assertNotIn("workDir =", override_text)
 
-    def test_debug_profile_sets_default_eggnog_smoke_accession(self) -> None:
-        """Provide one composable debug profile for single-sample eggNOG runs."""
-        config_text = DEBUG_CONFIG.read_text(encoding="utf-8")
-
-        self.assertIn("profiles {", config_text)
-        self.assertIn("debug {", config_text)
-        self.assertIn("eggnog_only_accessions = 'GCA_000027325.1'", config_text)
-
     def test_python_container_uses_shared_repo_owned_helper_image(self) -> None:
         """Use one shared helper image that carries the ANI scientific stack."""
         config_text = NEXTFLOW_CONFIG.read_text(encoding="utf-8")
@@ -211,12 +202,10 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
         self.assertIn("ccfinder_container = 'quay.io/asuq1617/ccfinder:4.2.30'", config_text)
         self.assertNotIn("ccfinder_container = 'quay.io/asuq1617/ccfinder:4.3.2'", config_text)
 
-    def test_padloc_container_points_at_the_fixed_runtime_tag(self) -> None:
-        """Use the fixed PADLOC image tag by default."""
-        config_text = NEXTFLOW_CONFIG.read_text(encoding="utf-8")
-
-        self.assertIn("padloc_container = 'nf-annotation-padloc:v04-dev'", config_text)
-        self.assertNotIn("padloc_container = 'quay.io/biocontainers/padloc:2.0.0--hdfd78af_1'", config_text)
+    def test_native_annotation_containers_require_immutable_explicit_references(self) -> None:
+        text = NEXTFLOW_CONFIG.read_text()
+        for tool in ("eggnog", "cogclassifier", "pfam", "kofam", "padloc"):
+            self.assertIn(f"{tool}_container = null", text)
 
     def test_prokka_container_points_at_the_fixed_runtime_tag(self) -> None:
         """Use the fixed Prokka image tag by default."""
@@ -228,11 +217,11 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
             config_text,
         )
 
-    def test_eggnog_container_points_at_the_fixed_runtime_tag(self) -> None:
-        """Use the fixed eggNOG image tag by default."""
+    def test_eggnog_v2_default_is_removed(self) -> None:
+        """Reject the previous mapper-v2 default."""
         config_text = NEXTFLOW_CONFIG.read_text(encoding="utf-8")
 
-        self.assertIn("eggnog_container = 'nf-annotation-eggnog:v04-dev'", config_text)
+        self.assertIn("eggnog_container = null", config_text)
         self.assertNotIn(
             "eggnog_container = 'quay.io/biocontainers/eggnog-mapper:2.1.13--pyhdfd78af_2'",
             config_text,

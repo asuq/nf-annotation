@@ -44,6 +44,7 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
             "checkm2_db": Path("/tmp/checkm2"),
             "codetta_db": Path("/tmp/codetta"),
             "eggnog_db": Path("/tmp/eggnog"),
+            "annotation_config": Path("/tmp/annotation.config"),
             "resume": False,
             "prepare_busco_datasets": False,
             "busco_db": Path("/tmp/busco"),
@@ -682,14 +683,19 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
 
     def test_validate_real_run_args_uses_pipeline_ccfinder_container(self) -> None:
         """Allow real runs without any harness-level CCFINDER override."""
-        args = self.make_real_run_args()
+        with tempfile.TemporaryDirectory() as directory:
+            configuration = Path(directory) / "annotation.config"
+            configuration.write_text("params.annotation_tools = 'kofam'\n")
+            args = self.make_real_run_args(annotation_config=configuration)
+            run_acceptance_tests.validate_real_run_args(args)
+            args.annotation_config = None
+            with self.assertRaisesRegex(run_acceptance_tests.AcceptanceTestError, "annotation-config"):
+                run_acceptance_tests.validate_real_run_args(args)
 
-        run_acceptance_tests.validate_real_run_args(args)
-
-    def test_default_real_profiles_include_debug(self) -> None:
-        """Use the debug profile by default for acceptance real-data runs."""
-        self.assertEqual(run_acceptance_tests.DEFAULT_LOCAL_PROFILE, "debug,local,docker")
-        self.assertEqual(run_acceptance_tests.DEFAULT_SLURM_PROFILE, "debug,slurm,singularity")
+    def test_default_real_profiles_use_complete_cohort(self) -> None:
+        """Use the normal execution profiles for every declared accession."""
+        self.assertEqual(run_acceptance_tests.DEFAULT_LOCAL_PROFILE, "local,docker")
+        self.assertEqual(run_acceptance_tests.DEFAULT_SLURM_PROFILE, "slurm,singularity")
         self.assertEqual(run_acceptance_tests.DEFAULT_DBPREP_PROFILE, "slurm,singularity")
 
     def test_build_nextflow_command_uses_pipeline_ccfinder_container(self) -> None:
@@ -727,6 +733,7 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
         self.assertNotIn("--eggnog_only_accessions", command)
         self.assertIn("--codetta_db", command)
         self.assertIn(str(Path("/tmp/codetta").resolve()), command)
+        self.assertEqual(command[command.index("-c") + 1], str(args.annotation_config.resolve()))
 
     def test_build_nextflow_command_forwards_singularity_runtime_arguments(self) -> None:
         """Forward renamed Singularity runtime arguments to Nextflow."""

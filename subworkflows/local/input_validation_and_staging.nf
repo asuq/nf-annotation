@@ -37,9 +37,7 @@ workflow INPUT_VALIDATION_AND_STAGING {
         reused_codetta = PUBLISHED_RESULTS_IMPORT.out.codetta_summary
         reused_ccfinder = PUBLISHED_RESULTS_IMPORT.out.ccfinder_summary
         reused_prokka = PUBLISHED_RESULTS_IMPORT.out.prokka
-        reused_padloc = PUBLISHED_RESULTS_IMPORT.out.padloc
-        reused_eggnog = PUBLISHED_RESULTS_IMPORT.out.eggnog
-        reused_eggnog_skips = PUBLISHED_RESULTS_IMPORT.out.eggnog_skips
+        reused_bundles = PUBLISHED_RESULTS_IMPORT.out.bundles
         inherited_version_reports = PUBLISHED_RESULTS_IMPORT.out.inherited_versions
         import_versions = PUBLISHED_RESULTS_IMPORT.out.versions
     } else {
@@ -62,9 +60,7 @@ workflow INPUT_VALIDATION_AND_STAGING {
         reused_codetta = Channel.empty()
         reused_ccfinder = Channel.empty()
         reused_prokka = Channel.empty()
-        reused_padloc = Channel.empty()
-        reused_eggnog = Channel.empty()
-        reused_eggnog_skips = Channel.empty()
+        reused_bundles = Channel.empty()
         inherited_version_reports = Channel.value([])
         import_versions = Channel.empty()
     }
@@ -87,9 +83,7 @@ workflow INPUT_VALIDATION_AND_STAGING {
     reused_codetta_summary = reused_codetta
     reused_ccfinder_summary = reused_ccfinder
     reused_prokka_results = reused_prokka
-    reused_padloc_results = reused_padloc
-    reused_eggnog_results = reused_eggnog
-    reused_eggnog_skip_rows = reused_eggnog_skips
+    reused_bundles = reused_bundles
     inherited_versions = inherited_version_reports
     staged_fai = STAGE_INPUTS.out.fai
     versions = versions

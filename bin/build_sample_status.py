@@ -20,8 +20,6 @@ import validate_inputs
 
 LOGGER = logging.getLogger(__name__)
 PROKKA_MANIFEST_COLUMNS = ("exit_code", "gff_size", "faa_size")
-PADLOC_MANIFEST_COLUMNS = ("exit_code", "result_file_count")
-EGGNOG_MANIFEST_COLUMNS = ("status", "warnings", "exit_code", "annotations_size", "result_file_count")
 CODETTA_SUMMARY_COLUMNS = (
     "Codetta_Genetic_Code",
     "Codetta_NCBI_Table_Candidates",
@@ -105,16 +103,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--prokka-manifest",
         type=Path,
         help="Optional Prokka status manifest TSV.",
-    )
-    parser.add_argument(
-        "--padloc-manifest",
-        type=Path,
-        help="Optional PADLOC status manifest TSV.",
-    )
-    parser.add_argument(
-        "--eggnog-manifest",
-        type=Path,
-        help="Optional eggNOG status manifest TSV.",
     )
     parser.add_argument(
         "--ani",
@@ -564,67 +552,6 @@ def prokka_outputs_present(row: dict[str, str], accession: str) -> bool:
     return gff_size > 0 and faa_size > 0
 
 
-def padloc_outputs_present(row: dict[str, str], accession: str) -> bool:
-    """Return True when PADLOC emitted at least one output file."""
-    result_file_count = parse_nonnegative_int(
-        row.get("result_file_count"),
-        table_name="PADLOC manifest",
-        accession=accession,
-        column_name="result_file_count",
-    )
-    return result_file_count > 0
-
-
-def eggnog_outputs_present(row: dict[str, str], accession: str) -> bool:
-    """Return True when eggNOG emitted a non-empty cleaned annotations table."""
-    annotations_size = parse_nonnegative_int(
-        row.get("annotations_size"),
-        table_name="eggNOG manifest",
-        accession=accession,
-        column_name="annotations_size",
-    )
-    return annotations_size > 0
-
-
-def derive_eggnog_status(
-    accession: str,
-    *,
-    manifest_index: dict[str, dict[str, str]],
-    manifest_requested: bool,
-    gcode_value: str,
-) -> tuple[str, list[str]]:
-    """Return eggNOG status, including explicit acceptance short-circuit rows."""
-    if not manifest_requested:
-        return "na", []
-    if gcode_value == "NA":
-        return "skipped", []
-
-    row = manifest_index.get(accession)
-    if row is None:
-        return "failed", ["missing_eggnog_result"]
-
-    manifest_status = (row.get("status") or "").strip()
-    if manifest_status == "skipped":
-        warnings = table_helpers.split_tokens(row.get("warnings", ""))
-        return "skipped", warnings or ["eggnog_short_circuit"]
-    if manifest_status not in {"", "done", "failed"}:
-        raise SampleStatusError(
-            f"eggNOG manifest has invalid status for accession {accession!r}: {manifest_status!r}."
-        )
-
-    return derive_annotation_status(
-        accession,
-        manifest_index=manifest_index,
-        manifest_requested=manifest_requested,
-        gcode_value=gcode_value,
-        table_name="eggNOG manifest",
-        failed_warning="eggnog_failed",
-        missing_warning="missing_eggnog_result",
-        has_outputs=eggnog_outputs_present,
-        missing_outputs_warning="missing_eggnog_outputs",
-    )
-
-
 def build_status_row(
     sample_row: dict[str, str],
     *,
@@ -646,10 +573,6 @@ def build_status_row(
     ccfinder_requested: bool,
     prokka_index: dict[str, dict[str, str]],
     prokka_requested: bool,
-    padloc_index: dict[str, dict[str, str]],
-    padloc_requested: bool,
-    eggnog_index: dict[str, dict[str, str]],
-    eggnog_requested: bool,
     ani_index: dict[str, dict[str, str]],
     ani_requested: bool,
     primary_busco_column: str | None,
@@ -745,28 +668,6 @@ def build_status_row(
     )
     row["prokka_status"] = prokka_status
     warnings.extend(prokka_warnings)
-
-    padloc_status, padloc_warnings = derive_annotation_status(
-        accession,
-        manifest_index=padloc_index,
-        manifest_requested=padloc_requested,
-        gcode_value=gcode_value,
-        table_name="PADLOC manifest",
-        failed_warning="padloc_failed",
-        missing_warning="missing_padloc_result",
-        has_outputs=padloc_outputs_present,
-    )
-    row["padloc_status"] = padloc_status
-    warnings.extend(padloc_warnings)
-
-    eggnog_status, eggnog_warnings = derive_eggnog_status(
-        accession,
-        manifest_index=eggnog_index,
-        manifest_requested=eggnog_requested,
-        gcode_value=gcode_value,
-    )
-    row["eggnog_status"] = eggnog_status
-    warnings.extend(eggnog_warnings)
 
     sixteen_s_value = sixteen_s_index.get(accession, {}).get("16S", "NA") or "NA"
     primary_busco_value = "NA"
@@ -866,18 +767,6 @@ def run_build(args: argparse.Namespace) -> None:
             "Prokka manifest",
             validated_accessions,
         )
-        padloc_index = load_annotation_manifest(
-            args.padloc_manifest,
-            PADLOC_MANIFEST_COLUMNS,
-            "PADLOC manifest",
-            validated_accessions,
-        )
-        eggnog_index = load_annotation_manifest(
-            args.eggnog_manifest,
-            EGGNOG_MANIFEST_COLUMNS,
-            "eggNOG manifest",
-            validated_accessions,
-        )
         ani_index = table_helpers.load_optional_accession_index(
             args.ani,
             table_helpers.ANI_COLUMNS,
@@ -940,10 +829,6 @@ def run_build(args: argparse.Namespace) -> None:
                 ccfinder_requested=args.ccfinder_strains is not None,
                 prokka_index=prokka_index,
                 prokka_requested=args.prokka_manifest is not None,
-                padloc_index=padloc_index,
-                padloc_requested=args.padloc_manifest is not None,
-                eggnog_index=eggnog_index,
-                eggnog_requested=args.eggnog_manifest is not None,
                 ani_index=ani_index,
                 ani_requested=args.ani is not None,
                 primary_busco_column=args.primary_busco_column,

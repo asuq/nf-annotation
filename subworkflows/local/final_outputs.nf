@@ -2,6 +2,7 @@ include { BUILD_MASTER_TABLE } from '../../modules/local/build_master_table'
 include { COLLECT_VERSIONS } from '../../modules/local/collect_versions'
 include { SELECT_ANI_REPRESENTATIVES } from '../../modules/local/select_ani_representatives'
 include { WRITE_SAMPLE_STATUS } from '../../modules/local/write_sample_status'
+include { AGGREGATE_ANNOTATIONS; ANNOTATION_ACCEPTANCE } from '../../modules/local/functional_annotation'
 
 /*
  * Build the final cohort tables from the keyed per-sample summaries and gather
@@ -19,9 +20,9 @@ workflow FINAL_OUTPUTS {
     codetta_summaries
     ccfinder_summaries
     prokka_results
-    padloc_results
-    eggnog_results
-    eggnog_skips
+    annotation_results
+    annotation_plan
+    annotation_bundles
     ani_clusters
     ani_metadata
     assembly_stats
@@ -50,11 +51,6 @@ workflow FINAL_OUTPUTS {
         }
         def matches = file.readLines().findAll { line -> line.startsWith('exit_code=') }
         return matches ? matches[-1].split('=', 2)[1].trim() : 'NA'
-    }
-
-    countTopLevelFiles = { directoryPath ->
-        def files = directoryPath.toFile().listFiles()
-        return files == null ? 0 : files.count { file -> file.isFile() }
     }
 
     unpackTuple = { item, channelName, expectedSize ->
@@ -143,52 +139,6 @@ workflow FINAL_OUTPUTS {
             storeDir: finalOutputsCollectDir,
         )
 
-    padlocManifest = Channel
-        .of('accession\texit_code\tresult_file_count')
-        .concat(
-            padloc_results.map { item ->
-                def values = unpackTuple.call(item, 'padloc_results', 3)
-                def meta = values[0]
-                def padlocDir = values[1]
-                def log = values[2]
-                "${meta.accession}\t${extractExitCode.call(log)}\t${countTopLevelFiles.call(padlocDir)}"
-            }
-        )
-        .collectFile(
-            name: 'padloc_manifest.tsv',
-            newLine: true,
-            sort: false,
-            storeDir: finalOutputsCollectDir,
-        )
-
-    eggnogManifest = Channel
-        .of('accession\tstatus\twarnings\texit_code\tannotations_size\tresult_file_count')
-        .concat(
-            eggnog_results.map { item ->
-                def values = unpackTuple.call(item, 'eggnog_results', 4)
-                def meta = values[0]
-                def eggnogDir = values[1]
-                def annotations = values[2]
-                def log = values[3]
-                def exitCode = extractExitCode.call(log)
-                def annotationsSize = annotations.toFile().length()
-                def resultFileCount = countTopLevelFiles.call(eggnogDir)
-                def status = (exitCode == '0' && annotationsSize > 0) ? 'done' : 'failed'
-                def warnings = ''
-                if (status == 'failed') {
-                    warnings = exitCode == '0' ? 'missing_eggnog_outputs' : 'eggnog_failed'
-                }
-                "${meta.accession}\t${status}\t${warnings}\t${exitCode}\t${annotationsSize}\t${resultFileCount}"
-            }
-        )
-        .concat(eggnog_skips)
-        .collectFile(
-            name: 'eggnog_manifest.tsv',
-            newLine: true,
-            sort: false,
-            storeDir: finalOutputsCollectDir,
-        )
-
     SELECT_ANI_REPRESENTATIVES(
         ani_clusters,
         ani_metadata,
@@ -221,12 +171,18 @@ workflow FINAL_OUTPUTS {
         combined_codetta,
         combined_ccfinder,
         prokkaManifest,
-        padlocManifest,
-        eggnogManifest,
         SELECT_ANI_REPRESENTATIVES.out.ani_summary,
         assembly_stats,
         primary_busco_column,
         ani_allow_incomplete_16s,
+    )
+
+    AGGREGATE_ANNOTATIONS(
+        annotation_plan,
+        BUILD_MASTER_TABLE.out.master_table,
+        WRITE_SAMPLE_STATUS.out.sample_status,
+        annotation_bundles,
+        annotation_results.map { item -> item[1] }.toList(),
     )
 
     final_versions = SELECT_ANI_REPRESENTATIVES.out.versions
@@ -250,9 +206,12 @@ workflow FINAL_OUTPUTS {
         container_engine,
     )
 
+    ANNOTATION_ACCEPTANCE(AGGREGATE_ANNOTATIONS.out.acceptance, COLLECT_VERSIONS.out.versions_table)
+
     emit:
-    master_table = BUILD_MASTER_TABLE.out.master_table
-    sample_status = WRITE_SAMPLE_STATUS.out.sample_status
+    master_table = AGGREGATE_ANNOTATIONS.out.tables.map { files -> files.find { it.name == 'master_table.tsv' } }
+    sample_status = AGGREGATE_ANNOTATIONS.out.tables.map { files -> files.find { it.name == 'sample_status.tsv' } }
+    annotation_manifest = AGGREGATE_ANNOTATIONS.out.manifest
     ani_representatives = SELECT_ANI_REPRESENTATIVES.out.ani_representatives
     versions_table = COLLECT_VERSIONS.out.versions_table
     versions = final_versions

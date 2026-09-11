@@ -24,8 +24,6 @@ SOFT_FAIL_RETRY_MARKERS = {
     "ccfinder.nf": "retrying_ccfinder",
     "checkm2.nf": "retrying_checkm2",
     "codetta.nf": "retrying_codetta",
-    "eggnog.nf": "retrying_eggnog",
-    "padloc.nf": "retrying_padloc",
     "prokka.nf": "retrying_prokka",
 }
 
@@ -125,30 +123,25 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
             ROOT / "subworkflows" / "local" / "per_sample_annotation.nf"
         ).read_text(encoding="utf-8")
         codetta_text = (MODULES_DIR / "codetta.nf").read_text(encoding="utf-8")
-        eggnog_text = (MODULES_DIR / "eggnog.nf").read_text(encoding="utf-8")
 
-        for database in ("checkm2", "codetta", "eggnog"):
+        for database in ("checkm2", "codetta"):
             self.assertIn(f"{database}Db = hasNewSamples.map", main_text)
             self.assertIn(f"file(params.{database}_db, checkIfExists: true)", main_text)
         self.assertIn("PER_SAMPLE_QC(", main_text)
         self.assertIn("checkm2Db,", main_text)
         self.assertIn("PER_SAMPLE_ANNOTATION(", main_text)
         self.assertIn("codettaDb,", main_text)
-        self.assertIn("eggnogDb,", main_text)
         self.assertIn("take:\n    sample_genomes\n    checkm2_db\n    busco_datasets", per_sample_qc_text)
         self.assertIn(".combine(checkm2_db)", per_sample_qc_text)
         self.assertIn(
-            "take:\n    sample_genomes\n    gcode_summaries\n    codetta_db\n    eggnog_db",
+            "take:\n    sample_genomes\n    gcode_summaries\n    codetta_db",
             per_sample_annotation_text,
         )
         self.assertIn("CODETTA(sample_genomes.combine(codetta_db))", per_sample_annotation_text)
         self.assertIn("SUMMARISE_CODETTA(CODETTA.out.summary_input)", per_sample_annotation_text)
-        self.assertIn("EGGNOG(eggnog_inputs.combine(eggnog_db))", per_sample_annotation_text)
         self.assertIn("tuple val(meta), path(genome), path(codetta_db)", codetta_text)
         self.assertIn('{ "${params.outdir}/samples/${meta.accession}" }', codetta_text)
         self.assertIn('cp -R "${codetta_db}/". "\\${resource_directory}/"', codetta_text)
-        self.assertIn("tuple val(meta), path(faa), path(eggnog_db)", eggnog_text)
-        self.assertIn('--data_dir "${eggnog_db}"', eggnog_text)
 
     def test_summarise_busco_emits_lineage_specific_summary_names(self) -> None:
         """Require unique BUSCO summary filenames per lineage."""
@@ -158,7 +151,6 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertIn('{ "${params.outdir}/samples/${meta.accession}/busco/${lineage}" }', module_text)
         self.assertIn('path("busco_summary_${lineage}.tsv")', module_text)
         self.assertIn('--output "busco_summary_${lineage}.tsv"', module_text)
-        self.assertIn("BUSCO_${lineage}", module_text)
 
     def test_download_busco_dataset_uses_single_process_resources(self) -> None:
         """Require BUSCO dataset prep downloads to use single-process resources."""
@@ -387,6 +379,8 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertIn('ln -s "\\${dataset_source}" "\\${staged_lineage_dir}"', module_text)
         self.assertIn('--download_path "\\${busco_download_root}"', module_text)
         self.assertIn('--lineage_dataset "${lineage}"', module_text)
+        self.assertIn('--offline', module_text)
+        self.assertNotRegex(module_text, r'--(?:download|update-data)(?:\s|=)')
         self.assertIn('max_attempts="${params.soft_fail_attempts}"', module_text)
         self.assertIn('while (( attempt <= max_attempts ))', module_text)
         self.assertIn('retrying_busco', module_text)
@@ -537,10 +531,7 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertIn('--busco-lineage \\"${it}\\"', module_text)
         self.assertNotIn("--sample-status-columns", module_text)
         self.assertIn("--defer-genome-fasta-check", module_text)
-        self.assertIn(
-            'def stubGenome = file("${projectDir}/assets/fixtures/stub/genomes/TEST_ACC.fasta").toString()',
-            module_text,
-        )
+        self.assertIn('--genome-base-dir "${workflow.launchDir}"', module_text)
         self.assertIn("busco_lineages", workflow_text)
         self.assertNotIn("sample_status_columns", workflow_text)
         self.assertNotIn("BUILD_OUTPUT_CONTRACTS", main_text)
@@ -646,8 +637,6 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
             "calculate_assembly_stats.nf",
             "checkm2.nf",
             "codetta.nf",
-            "eggnog.nf",
-            "padloc.nf",
             "prokka.nf",
             "stage_inputs.nf",
             "summarise_codetta.nf",
@@ -695,13 +684,6 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
 
         self.assertIn("awk 'NF { value=\\$0 } END { if (value) print value }'", module_text)
         self.assertIn('prokka_version="\\${prokka_version:-NA}"', module_text)
-
-    def test_padloc_uses_the_version_flag_for_provenance(self) -> None:
-        """Require PADLOC provenance to capture the version string, not the banner."""
-        module_text = (MODULES_DIR / "padloc.nf").read_text(encoding="utf-8")
-
-        self.assertIn('padloc_version="\\$(padloc --version 2>&1 | awk \'NF { print; exit }\' || echo NA)"', module_text)
-        self.assertNotIn('padloc --help 2>&1 | awk \'NF { print; exit }\'', module_text)
 
     def test_fastani_fails_early_on_empty_matrix_without_module_level_stage_copy(self) -> None:
         """Require FastANI to keep the early matrix guards and defer stage-copy policy to config."""
@@ -893,11 +875,8 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         workflow_text = workflow_path.read_text(encoding="utf-8")
 
         self.assertIn("name: 'prokka_manifest.tsv'", workflow_text)
-        self.assertIn("name: 'padloc_manifest.tsv'", workflow_text)
-        self.assertIn("name: 'eggnog_manifest.tsv'", workflow_text)
         self.assertIn("sort: false", workflow_text)
         self.assertIn("storeDir: finalOutputsCollectDir", workflow_text)
-        self.assertIn("accession\\tstatus\\twarnings\\texit_code\\tannotations_size\\tresult_file_count", workflow_text)
 
     def test_final_outputs_calls_manifest_helpers_as_closures(self) -> None:
         """Require closure helpers in final outputs to use explicit `.call(...)`."""
@@ -905,38 +884,7 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         workflow_text = workflow_path.read_text(encoding="utf-8")
 
         self.assertIn("extractExitCode.call(log)", workflow_text)
-        self.assertIn("countTopLevelFiles.call(padlocDir)", workflow_text)
-        self.assertIn("countTopLevelFiles.call(eggnogDir)", workflow_text)
         self.assertNotIn("extractExitCode(log)", workflow_text)
-        self.assertNotIn("countTopLevelFiles(padlocDir)", workflow_text)
-        self.assertNotIn("countTopLevelFiles(eggnogDir)", workflow_text)
-
-    def test_padloc_creates_output_directory_before_running_tool(self) -> None:
-        """Require PADLOC output directory creation before invoking the tool."""
-        module_text = (MODULES_DIR / "padloc.nf").read_text(encoding="utf-8")
-
-        mkdir_index = module_text.index("mkdir -p padloc")
-        run_index = module_text.index('padloc --faa padloc_input.faa')
-        self.assertLess(mkdir_index, run_index)
-
-    def test_padloc_uses_the_bundled_database_image(self) -> None:
-        """Require PADLOC to rely on the bundled database in its fixed image."""
-        module_text = (MODULES_DIR / "padloc.nf").read_text(encoding="utf-8")
-        workflow_text = (
-            ROOT / "subworkflows" / "local" / "per_sample_annotation.nf"
-        ).read_text(encoding="utf-8")
-        main_text = (ROOT / "main.nf").read_text(encoding="utf-8")
-        collect_versions_text = (MODULES_DIR / "collect_versions.nf").read_text(
-            encoding="utf-8"
-        )
-
-        self.assertIn("tuple val(meta), path(gff), path(faa)", module_text)
-        self.assertNotIn("path(padloc_db)", module_text)
-        self.assertNotIn("padloc_db_dir=", module_text)
-        self.assertNotIn("--data", module_text)
-        self.assertIn("PADLOC(PROKKA.out.padloc_inputs)", workflow_text)
-        self.assertNotIn("padlocDb = params.padloc_db", main_text)
-        self.assertNotIn("--padloc-db", collect_versions_text)
 
     def test_merge_runtime_database_reports_uses_path_python_lookup(self) -> None:
         """Require merge helper execution to use PATH-resolved Python and helper binaries."""
@@ -948,26 +896,6 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertIn('python_path="\\$(command -v python3)"', module_text)
         self.assertNotIn('script_path="/usr/local/bin/merge_runtime_database_reports.py"', module_text)
         self.assertNotIn('/usr/local/bin/python3', module_text)
-
-    def test_eggnog_short_circuit_filters_only_eggnog_inputs(self) -> None:
-        """Require acceptance eggNOG short-circuiting to filter only eggNOG jobs."""
-        workflow_text = (
-            ROOT / "subworkflows" / "local" / "per_sample_annotation.nf"
-        ).read_text(encoding="utf-8")
-        final_outputs_text = (
-            ROOT / "subworkflows" / "local" / "final_outputs.nf"
-        ).read_text(encoding="utf-8")
-        config_text = (ROOT / "nextflow.config").read_text(encoding="utf-8")
-
-        self.assertIn("eggnog_only_accessions = null", config_text)
-        self.assertIn("params.eggnog_only_accessions", workflow_text)
-        self.assertIn("EGGNOG(eggnog_inputs.combine(eggnog_db))", workflow_text)
-        self.assertNotIn("PROKKA(annotation_candidates.filter", workflow_text)
-        self.assertNotIn("CCFINDER(annotation_candidates.filter", workflow_text)
-        self.assertNotIn("PADLOC(PROKKA.out.padloc_inputs.filter", workflow_text)
-        self.assertIn("eggnog_skips = eggnogSkippedRows", workflow_text)
-        self.assertIn(".concat(eggnog_skips)", final_outputs_text)
-        self.assertIn("eggnog_short_circuit", workflow_text)
 
     def test_collect_versions_stages_version_files_in_a_directory(self) -> None:
         """Require collected version files to be staged into one directory input."""

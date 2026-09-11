@@ -21,8 +21,6 @@ process PROKKA {
 
     output:
     tuple val(meta), path('prokka'), path('prokka.gff'), path('prokka.faa'), path('prokka.gbk'), path('prokka.log'), emit: results
-    tuple val(meta), path('prokka.gff'), path('prokka.faa'), emit: padloc_inputs
-    tuple val(meta), path('prokka.faa'), emit: eggnog_inputs
     tuple val(meta), path(genome), val(gcode), path('prokka.faa'), path('prokka.gff'), path('prokka.gbk'), path('prokka.log'), emit: bundle_inputs
     path 'versions.yml', emit: versions
 

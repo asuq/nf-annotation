@@ -34,16 +34,4 @@ process SUMMARISE_CODETTA {
         > versions.yml
     """
 
-    stub:
-    '''
-    cat <<'EOF' > codetta_summary.tsv
-    accession	Codetta_Genetic_Code	Codetta_NCBI_Table_Candidates	codetta_status	warnings
-    sample_a	FFLLSSSSYY??CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG	1;11	done	
-    EOF
-    cat <<'EOF' > versions.yml
-    "${task.process}":
-      python: "stub"
-      script: "bin/summarise_codetta.py"
-    EOF
-    '''
 }

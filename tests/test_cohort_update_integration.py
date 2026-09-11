@@ -21,8 +21,6 @@ TOOLS = {
     "codetta",
     "prokka",
     "ccfinder",
-    "padloc",
-    "eggnog",
     "fastani",
 }
 
@@ -266,7 +264,7 @@ class CohortUpdateIntegrationTestCase(unittest.TestCase):
         updated = self.run_pipeline("bc", ["B", "C"], source=source)
         self.assert_members(updated, {"B", "C"})
         tasks = self.heavy_tasks(updated)
-        self.assertEqual(len(tasks), 10)
+        self.assertEqual(len(tasks), 8)
         self.assertTrue(all("(C" in row["name"] for row in tasks), tasks)
         self.assertEqual(fingerprints(source), before)
         self.assertEqual(
@@ -352,14 +350,13 @@ class CohortUpdateIntegrationTestCase(unittest.TestCase):
         source = self.run_pipeline(
             "states",
             ["LOW", "NOGCODE", "FAILED", "ID-X"],
-            extra=["--eggnog_only_accessions", "ID-X"],
         )
         initial = {
             row["accession"]: row
             for row in read_rows(source / "tables/sample_status.tsv")
         }
         self.assertEqual(initial["FAILED"]["prokka_status"], "failed")
-        self.assertEqual(initial["FAILED"]["eggnog_status"], "skipped")
+        self.assertEqual(initial["FAILED"]["eggnog_status"], "skipped_disabled")
         updated = self.run_pipeline(
             "states-update", ["LOW", "NOGCODE", "FAILED", "ID-X", "ID.X"], source=source
         )

@@ -32,15 +32,4 @@ cat <<EOF > versions.yml
 EOF
 """
 
-    stub:
-    """cat <<EOF > "busco_summary_${lineage}.tsv"
-accession	lineage	BUSCO_${lineage}	busco_status	warnings
-sample_a	${lineage}	C:98.0%[S:98.0%,D:0.0%],F:1.0%,M:1.0%,n:200	done
-EOF
-cat <<'EOF' > versions.yml
-"${task.process}":
-  python: "stub"
-  script: "bin/summarise_busco.py"
-EOF
-"""
 }

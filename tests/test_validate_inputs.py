@@ -27,6 +27,17 @@ def read_tsv(path: Path) -> list[dict[str, str]]:
 class ValidateInputsTestCase(unittest.TestCase):
     """Cover the strict sample-manifest and metadata validation contract."""
 
+    def test_relative_genome_paths_resolve_against_the_launch_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            launch = Path(directory)
+            (launch / "genome.fna").write_text(">contig\nACGT\n")
+            rows, _ = validate_inputs.validate_samples(
+                validate_inputs.REQUIRED_SAMPLE_COLUMNS,
+                [dict(accession="A", is_new="true", assembly_level="Scaffold",
+                      genome_fasta="genome.fna")], {}, genome_base_dir=launch,
+            )
+            self.assertEqual(rows[0].values["genome_fasta"], str((launch / "genome.fna").resolve()))
+
     def test_empty_manifest_is_rejected(self) -> None:
         with self.assertRaisesRegex(validate_inputs.ValidationError, "at least one"):
             validate_inputs.validate_samples(

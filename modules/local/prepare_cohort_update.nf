@@ -9,7 +9,7 @@ process PREPARE_COHORT_UPDATE {
         overwrite: true,
         saveAs: { filename ->
             filename in ['validated_samples.tsv', 'accession_map.tsv', 'validation_warnings.tsv',
-                         'sample_status.tsv', 'cohort_update.tsv', 'cohort_update_run.json',
+                         'cohort_update.tsv', 'cohort_update_run.json',
                          'inherited_versions.tsv'] ? filename : null
         },
     )

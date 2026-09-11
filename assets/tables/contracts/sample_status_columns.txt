@@ -16,6 +16,10 @@ prokka_status
 ccfinder_status
 padloc_status
 eggnog_status
+cogclassifier_status
+pfam_status
+kofam_status
+annotation_complete
 ani_included
 ani_exclusion_reason
 warnings

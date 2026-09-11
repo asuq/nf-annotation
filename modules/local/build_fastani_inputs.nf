@@ -59,27 +59,4 @@ process BUILD_FASTANI_INPUTS {
 EOF
 """
 
-    stub:
-    """mkdir -p fastani_inputs
-cat <<'EOF' > fastani_inputs/sample_a.fasta
->sample_a
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-EOF
-cat <<'EOF' > fastani_paths.txt
-fastani_inputs/sample_a.fasta
-EOF
-cat <<'EOF' > ani_metadata.tsv
-accession	matrix_name	path	assembly_level	gcode	checkm2_completeness	checkm2_contamination	n50	scaffolds	genome_size	organism_name	${primary_busco_column}
-sample_a	fastani_inputs/sample_a.fasta	fastani_inputs/sample_a.fasta	Scaffold	11	95	1	50000	3	800000	Sample_A	C:98.0%[S:98.0%,D:0.0%],F:1.0%,M:1.0%,n:200
-EOF
-cat <<'EOF' > ani_exclusions.tsv
-accession	internal_id	ani_included	ani_exclusion_reason
-sample_a	sample_a	true
-EOF
-cat <<'EOF' > versions.yml
-"${task.process}":
-  python: "stub"
-  script: "bin/build_fastani_inputs.py"
-EOF
-"""
 }

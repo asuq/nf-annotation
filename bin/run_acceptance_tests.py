@@ -29,8 +29,8 @@ DEFAULT_MEDIUM_SOURCE_CATALOG = (
     ROOT_DIR / "assets" / "tables" / "medium" / "source_catalog.tsv"
 )
 DEFAULT_MEDIUM_COHORT_PLAN = ROOT_DIR / "assets" / "tables" / "medium" / "cohort_plan.tsv"
-DEFAULT_LOCAL_PROFILE = "debug,local,docker"
-DEFAULT_SLURM_PROFILE = "debug,slurm,singularity"
+DEFAULT_LOCAL_PROFILE = "local,docker"
+DEFAULT_SLURM_PROFILE = "slurm,singularity"
 DEFAULT_DBPREP_PROFILE = "slurm,singularity"
 REAL_RUN_NOTE = (
     "CRISPRCasFinder uses params.ccfinder_container from pipeline config; "
@@ -674,12 +674,16 @@ def validate_real_run_args(args: argparse.Namespace) -> None:
         missing.append("--codetta-db")
     if not args.eggnog_db:
         missing.append("--eggnog-db")
+    if not args.annotation_config:
+        missing.append("--annotation-config")
     if not args.prepare_busco_datasets and not args.busco_db:
         missing.append("--busco-db or --prepare-busco-datasets")
     if missing:
         raise AcceptanceTestError(
             "Missing required arguments for real-data runs: " + ", ".join(missing)
         )
+    if not args.annotation_config.is_file():
+        raise AcceptanceTestError("--annotation-config must be an existing Nextflow configuration file")
 
 
 def validate_dbprep_run_args(args: argparse.Namespace) -> None:
@@ -716,6 +720,8 @@ def build_nextflow_command(
         ".",
         "-profile",
         profile,
+        "-c",
+        str(args.annotation_config.resolve()),
         "-work-dir",
         str(work_dir),
         "--sample_csv",
@@ -1323,6 +1329,10 @@ def build_common_parser() -> argparse.ArgumentParser:
 def build_real_run_parser() -> argparse.ArgumentParser:
     """Build the parent parser for real-data run arguments."""
     parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument(
+        "--annotation-config", type=Path, default=None,
+        help="Nextflow configuration with immutable annotation runtimes and all enabled resource paths.",
+    )
     parser.add_argument("--taxdump", type=Path, default=None, help="Pinned taxdump directory.")
     parser.add_argument("--checkm2-db", type=Path, default=None, help="CheckM2 database path.")
     parser.add_argument(

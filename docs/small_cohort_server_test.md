@@ -95,6 +95,7 @@ Use the tracked small cohort on SLURM before any larger run:
 
 ```bash
 python3 bin/run_acceptance_tests.py slurm \
+  --annotation-config annotation.config \
   --work-root /path/to/test_root \
   --taxdump /shared/db/ncbi_taxdump_YYYYMMDD \
   --checkm2-db /shared/db/checkm2/CheckM2_database \
@@ -105,9 +106,9 @@ python3 bin/run_acceptance_tests.py slurm \
   --singularity-cache-dir /path/to/singularity-cache
 ```
 
-This uses the harness default SLURM profile `debug,slurm,singularity`, which is
-the right small-cohort starting point. The `debug` profile keeps eggNOG limited
-to the tracked smoke accession for the first real validation pass.
+The harness uses `slurm,singularity` and analyses the complete declared cohort.
+Pass `--annotation-config annotation.config` with the resources and immutable
+runtimes described in [functional annotation](functional_annotation.md).
 
 The harness writes the server run under:
 
@@ -147,6 +148,7 @@ Rerun the same acceptance command with `--resume`:
 
 ```bash
 python3 bin/run_acceptance_tests.py slurm \
+  --annotation-config annotation.config \
   --work-root /path/to/test_root \
   --taxdump /shared/db/ncbi_taxdump_YYYYMMDD \
   --checkm2-db /shared/db/checkm2/CheckM2_database \
@@ -169,7 +171,7 @@ If you want to bypass the acceptance harness after the cohort is prepared, use
 the generated inputs directly:
 
 ```bash
-nextflow run . -profile debug,oist \
+nextflow run . -c annotation.config -profile oist \
   --sample_csv /path/to/test_root/generated/sample_sheet.csv \
   --metadata /path/to/test_root/generated/metadata.tsv \
   --taxdump /shared/db/ncbi_taxdump_YYYYMMDD \
@@ -181,8 +183,7 @@ nextflow run . -profile debug,oist \
   -work-dir /path/to/test_root/runs/raw-small/work
 ```
 
-Use `-profile debug,oist` for the first raw small-cohort run so eggNOG stays
-limited to the smoke accession. Add `-resume` only when reusing the exact same
+Use `-profile oist -c annotation.config` for the first raw small-cohort run. Add `-resume` only when reusing the exact same
 launch directory and `-work-dir`.
 
 Do not start the first small-cohort correctness run with

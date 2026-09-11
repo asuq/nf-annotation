@@ -13,7 +13,9 @@ design freeze.
 
 ## Workflow entrypoints
 
-The repository currently exposes two Nextflow DSL2 entrypoints.
+The repository currently exposes three Nextflow DSL2 entrypoints. See
+[functional annotation](functional_annotation.md) for the shared v0.4 caller,
+normalizer, aggregation and reannotation contracts.
 
 The declared minimum Nextflow version is `>=26.04.0`, matching the strict
 syntax parser used by current stable Nextflow releases.
@@ -27,7 +29,8 @@ Use the main entrypoint for normal analysis runs. It orchestrates:
 - per-sample QC with Barrnap, paired CheckM2 runs, and BUSCO
 - per-sample Codetta execution and summary generation for all samples
 - cohort 16S aggregation
-- gcode-gated annotation with Prokka, CRISPRCasFinder, PADLOC, and eggNOG
+- gcode-gated Prokka and CRISPRCasFinder, followed by canonical protein bundles
+- shared eggNOG v3, COGclassifier, Pfam, KOfamScan and PADLOC annotation
 - ANI preparation, all-vs-all FastANI, clustering, and representative selection
 - final table and provenance reporting
 
@@ -36,10 +39,11 @@ Use the main entrypoint for normal analysis runs. It orchestrates:
 - `sample_csv`
 - `metadata`
 - `taxdump`
-- `checkm2_db`
-- `codetta_db`
-- `eggnog_db`
 - `busco_lineages`
+
+New genomes also require CheckM2, Codetta and BUSCO resources. Every enabled
+functional tool requires the immutable configuration described in
+[functional annotation](functional_annotation.md).
 
 BUSCO lineage datasets are resolved by `BUSCO_DATASET_PREP`. The current
 implementation reuses existing lineage directories below `busco_db`. If
@@ -65,7 +69,7 @@ The workflow currently supports:
 - CheckM2 database preparation
 - Codetta profile database preparation
 - BUSCO lineage directory preparation
-- eggNOG database preparation
+- eggNOG v3, COGclassifier, Pfam and KOfam resource preparation
 
 It requires a non-empty `busco_lineages` list and at least one destination
 parameter among:
@@ -116,8 +120,11 @@ main.nf
      -> PROKKA
      -> CCFINDER
      -> SUMMARISE_CCFINDER
-     -> PADLOC
-     -> EGGNOG
+     -> PREPARE_ANNOTATION_BUNDLE
+  -> FUNCTIONAL_ANNOTATION
+     -> PLAN_ANNOTATIONS
+     -> ANNOTATION_SEARCH (each enabled native image)
+     -> NORMALIZE_ANNOTATION / REUSE_ANNOTATION
   -> COHORT_ANI
      -> SUMMARISE_BUSCO
      -> CALCULATE_ASSEMBLY_STATS
@@ -129,6 +136,15 @@ main.nf
      -> BUILD_MASTER_TABLE
      -> WRITE_SAMPLE_STATUS
      -> COLLECT_VERSIONS
+     -> AGGREGATE_ANNOTATIONS
+     -> ANNOTATION_ACCEPTANCE
+
+reannotate.nf
+  -> ANNOTATION_RESOURCES
+  -> IMPORT_ANNOTATION_SOURCE
+  -> FUNCTIONAL_ANNOTATION
+  -> AGGREGATE_ANNOTATIONS
+  -> ANNOTATION_ACCEPTANCE
 ```
 
 The orchestration layer stays in Nextflow. Parsing, summarisation, join logic,
@@ -150,11 +166,12 @@ The most important implementation-level parameters are:
 | `prepare_busco_datasets` | `main.nf` | Switches BUSCO lineage resolution from reuse to download. |
 | `busco_lineages` | both | Non-empty lineage list; defaults to `bacillota_odb12` and `mycoplasmatota_odb12`. |
 | `eggnog_db` | `main.nf`, `prepare_databases.nf` | eggNOG data directory. |
-| `cogclassifier_db`, `pfam_db`, `kofam_db` | `prepare_databases.nf` | Immutable annotation-resource preparation destinations; their main-workflow integration is in development. |
+| `cogclassifier_db`, `pfam_db`, `kofam_db` | all three | Prepared immutable annotation resources. |
 | `eggnog_version`, `cogclassifier_version`, `pfam_version`, `kofam_version` | `prepare_databases.nf` | Explicit resource versions, otherwise resolved from the canonical runtime manifest. |
 | `ani_threshold` | `main.nf` | FastANI clustering threshold; defaults to `0.95`. |
 | `gcode_rule` | `main.nf` | `mean_gene_length_ratio` (default), `strict_delta`, or `delta_then_11`. The retained completeness rules require a strict advantage greater than 10 percentage points; at smaller/equal differences they leave the code unresolved or select 11, respectively. |
-| `eggnog_only_accessions` | `main.nf` | Optional accession allow-list for eggNOG execution. |
+| `annotation_tools` | `main.nf`, `reannotate.nf` | Explicit cohort-wide subset of the five core tools; all enabled by default. |
+| `annotation_from` | `reannotate.nf` | Validated native v0.4 published source. |
 | `outdir` | both | Published output root; defaults to `results`. |
 | `download_missing_databases` | `prepare_databases.nf` | Enables in-place population of missing runtime databases. |
 | `force_runtime_database_rebuild` | `prepare_databases.nf` | Forces re-preparation of the existing QC resources. Annotation resources are immutable; changed or invalid content requires a new destination. |
@@ -179,12 +196,10 @@ are:
 - `oist`
 - `gwdg`
 - `test`
-- `debug`
 
 Profile-specific behaviour that affects implementation understanding:
 
-- `debug` sets `eggnog_only_accessions = 'GCA_000027325.1'`
-- `test` wires the stub fixtures under `assets/testdata/stub/`
+- `test` uses the controlled stub fixtures and explicitly disables functional tools
 - `docker` adds an amd64 override for the CRISPRCasFinder container on ARM hosts
 - `slurm` and `oist` raise medium and high resource ceilings
 - `singularity` and `oist` enable Singularity and honour cache and run options
@@ -235,8 +250,13 @@ results/
       codetta/
       prokka/
       ccfinder/
-      padloc/
-      eggnog/
+      annotation/
+        bundle/
+        eggnog/
+        cogclassifier/
+        pfam/
+        kofam/
+        padloc/
   tables/
     accession_map.tsv
     master_table.tsv
@@ -244,6 +264,14 @@ results/
     tool_and_db_versions.tsv
     validated_samples.tsv
     validation_warnings.tsv
+    annotation_status.tsv
+    annotation_provenance.tsv
+    protein_manifest.tsv
+    gene_coordinates.tsv
+    protein_function_summary.tsv
+    functional_matrices/
+  annotation_results.json
+  annotation_acceptance.json
 ```
 
 Notes on that layout:
@@ -252,8 +280,9 @@ Notes on that layout:
   name, not the internal sanitized ID
 - `codetta/` is published for every sample and contains the raw Codetta outputs,
   `codetta.log`, and `codetta_summary.tsv`
-- `prokka/`, `ccfinder/`, `padloc/`, and `eggnog/` are only published for
-  samples whose assigned gcode is `4` or `11`
+- `prokka/` and `ccfinder/` are published for resolved genetic codes; the
+  annotation bundle records protein eligibility, and each enabled tool result
+  is published under `annotation/<tool>/`
 - `busco/<lineage>/` is published for every configured lineage per sample
 - `checkm2_gcode4/`, `checkm2_gcode11/`, `busco/<lineage>/`, `prokka/`, and
   `ccfinder/` are flat curated publish folders: they keep the published logs
@@ -329,7 +358,7 @@ The status table is created twice:
    state to produce the final audit table.
 
 The final column contract is resolved at runtime from `params.busco_lineages`.
-The checked-in `assets/sample_status_columns.txt` snapshot records the default
+The checked-in `assets/tables/contracts/sample_status_columns.txt` snapshot records the default
 lineage pair only.
 
 ```text
@@ -351,6 +380,10 @@ prokka_status
 ccfinder_status
 padloc_status
 eggnog_status
+cogclassifier_status
+pfam_status
+kofam_status
+annotation_complete
 ani_included
 ani_exclusion_reason
 warnings
@@ -399,8 +432,8 @@ or labels, pipeline metadata, and the active container engine in one final TSV.
 - `PER_SAMPLE_ANNOTATION` is only partly gated by the assigned gcode. Codetta
   runs for every sample, while only samples with gcode `4` or `11` run Prokka,
   CRISPRCasFinder, PADLOC, and eggNOG.
-- PADLOC and eggNOG outputs are intentionally retained in sample folders but
-  intentionally excluded from `master_table.tsv`.
+- The shared functional workflow appends source-specific counts, coverage and
+  status to `master_table.tsv`; detailed native evidence remains in sample folders.
 - ANI clustering is driven by `BUILD_FASTANI_INPUTS`, which writes both the
   FastANI path list and the accession-keyed eligibility report
   `ani_exclusions.tsv`. By default only `16S = Yes` samples pass the 16S ANI
@@ -411,8 +444,7 @@ or labels, pipeline metadata, and the active container engine in one final TSV.
   `prepare_databases.nf`.
 - BUSCO lineage datasets are the only runtime database that `main.nf` can
   resolve directly through `prepare_busco_datasets = true`.
-- The current debug profile is deliberately not a full biological run because
-  it short-circuits eggNOG to a single accession by default.
+- Annotation selection is explicit and applies to every declared accession.
 
 ## Related docs
 

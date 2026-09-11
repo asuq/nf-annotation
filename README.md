@@ -10,8 +10,8 @@ annotation, QC, taxonomy expansion, and ANI-based reporting.
 The implemented workflow validates the input manifest and metadata, stages
 genomes to execution-safe internal IDs, runs Barrnap, paired CheckM2
 translation-table predictions, BUSCO, Codetta, Prokka, CRISPRCasFinder,
-PADLOC, eggNOG, and FastANI-based clustering, then publishes three final
-reporting tables:
+PADLOC, eggNOG v3, COGclassifier, Pfam, KOfamScan and FastANI-based
+clustering. The principal cohort reports include:
 
 - `master_table.tsv`
 - `sample_status.tsv`
@@ -24,6 +24,13 @@ reporting contracts, see
 [`docs/implemented_pipeline.md`](docs/implemented_pipeline.md). For the
 recommended first real server validation path, see
 [`docs/small_cohort_server_test.md`](docs/small_cohort_server_test.md).
+
+The v0.4 functional workflow also publishes protein-level evidence and six
+source-specific count matrices. All enabled tools analyse the declared cohort.
+Provide the immutable runtimes and prepared resources in
+[`docs/functional_annotation.md`](docs/functional_annotation.md); that page also
+covers annotation-only reuse through `reannotate.nf`. Full biological release
+qualification is still in progress.
 
 ## Table of contents
 
@@ -53,14 +60,15 @@ The main analysis workflow is designed around these steps:
 - retain the logs and stable intermediate files used to assemble
   `master_table.tsv` while pruning bulky raw tool artefacts before task
   completion
-- run gcode-gated annotation with Prokka, CRISPRCasFinder, PADLOC, and eggNOG
+- run Prokka and CRISPRCasFinder with the selected genetic code
+- annotate canonical proteins with the five selected functional tools
 - build ANI inputs, run all-vs-all FastANI, cluster genomes, and select
   representatives
 - publish final cohort tables and a combined versions report
 
-PADLOC and eggNOG outputs are retained in per-sample folders but are not
-merged into `master_table.tsv`. Codetta is merged into the final reporting
-tables through `GC_Content`, `Codetta_Genetic_Code`,
+Functional counts and status are merged into `master_table.tsv`, with native
+evidence retained per sample. Assembly statistics supply `GC_Content`; Codetta
+supplies `Codetta_Genetic_Code`,
 `Codetta_NCBI_Table_Candidates`, and `codetta_status`. In
 `tool_and_db_versions.tsv`, Codetta is reported as
 compatible with `v2.0`, the default container image is
@@ -311,7 +319,7 @@ nextflow run prepare_databases.nf -profile local,docker \
 ### 2. Run the main analysis workflow
 
 ```bash
-nextflow run . -profile local,docker \
+nextflow run . -c annotation.config -profile local,docker \
   --sample_csv samples.csv \
   --metadata metadata.tsv \
   --taxdump /path/to/pinned-taxdump \
@@ -336,7 +344,7 @@ report outputs without requiring real external databases or tool containers.
 Local Docker run:
 
 ```bash
-nextflow run . -profile local,docker \
+nextflow run . -c annotation.config -profile local,docker \
   --sample_csv samples.csv \
   --metadata metadata.tsv \
   --taxdump /path/to/pinned-taxdump \
@@ -350,7 +358,7 @@ nextflow run . -profile local,docker \
 SLURM plus Singularity run:
 
 ```bash
-nextflow run . -profile slurm,singularity \
+nextflow run . -c annotation.config -profile slurm,singularity \
   --sample_csv samples.csv \
   --metadata metadata.tsv \
   --taxdump /path/to/pinned-taxdump \
@@ -369,7 +377,7 @@ dash, pass the Nextflow parameter with equals syntax, for example
 OIST profile run:
 
 ```bash
-nextflow run . -profile oist \
+nextflow run . -c annotation.config -profile oist \
   --sample_csv samples.csv \
   --metadata metadata.tsv \
   --taxdump /path/to/pinned-taxdump \
@@ -386,7 +394,7 @@ MPCDF Viper CPU run, launched from `viper05i`:
 ```bash
 export NXF_APPTAINER_CACHEDIR="/ptmp/$USER/apptainer-cache"
 
-nextflow run . -profile viper-cpu \
+nextflow run . -c annotation.config -profile viper-cpu \
   -w "/ptmp/$USER/nf-annotation-work" \
   --sample_csv samples.csv \
   --metadata metadata.tsv \
@@ -419,7 +427,7 @@ label uses `$JOB_TMPDIR` only for processes explicitly assigned that label.
 Large OIST cohort run with the opt-in storage overrides:
 
 ```bash
-nextflow run . -profile oist \
+nextflow run . -c annotation.config -profile oist \
   -c conf/oist_20k_storage.config \
   -work-dir /flash/path/to/work_nf_annotation_20k \
   --sample_csv samples.csv \
@@ -446,7 +454,7 @@ To resume that run safely, reuse the same launch directory, Lustre-backed
 Main-workflow BUSCO dataset download variant:
 
 ```bash
-nextflow run . -profile local,docker \
+nextflow run . -c annotation.config -profile local,docker \
   --sample_csv samples.csv \
   --metadata metadata.tsv \
   --taxdump /path/to/pinned-taxdump \
@@ -464,7 +472,7 @@ removing samples. Supply the **complete revised sample CSV**, current metadata,
 and a fresh results directory:
 
 ```bash
-nextflow run . -profile local,docker \
+nextflow run . -c annotation.config -profile local,docker \
   --update_from /path/to/results-v1 \
   --sample_csv samples-v2.csv \
   --metadata metadata-v2.tsv \
@@ -545,15 +553,13 @@ Run the dependency-locked development test suite with `pixi run test`.
 - `viper-cpu`: MPCDF Viper CPU profile; launch from `viper05i` with a
   `/ptmp` work directory and Apptainer cache
 - `test`: fixture-backed local profile for `-stub-run`
-- `debug`: composable profile that sets
-  `--eggnog_only_accessions GCA_000027325.1`
 
-Use `debug` only when that eggNOG short-circuit is acceptable. For full eggNOG
-validation on HPC, use the normal execution profile instead of `debug`.
 
 ## Documentation map
 
 - `README.md`: onboarding, prerequisites, quick-start, and normal run examples
+- [`docs/functional_annotation.md`](docs/functional_annotation.md): configuration,
+  reannotation, evidence and count semantics
 - [`docs/development/v0.4.md`](docs/development/v0.4.md): approved v0.4
   development and release specification; implementation in progress
 - [`docs/runbook.md`](docs/runbook.md): extended operator detail, runtime

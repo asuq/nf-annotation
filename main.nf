@@ -10,6 +10,7 @@ include { FINAL_OUTPUTS } from './subworkflows/local/final_outputs'
 include { INPUT_VALIDATION_AND_STAGING } from './subworkflows/local/input_validation_and_staging'
 include { PER_SAMPLE_ANNOTATION } from './subworkflows/local/per_sample_annotation'
 include { PER_SAMPLE_QC } from './subworkflows/local/per_sample_qc'
+include { ANNOTATION_RESOURCES; FUNCTIONAL_ANNOTATION } from './subworkflows/local/functional_annotation'
 
 workflow {
     if (!(params.gcode_rule in ['mean_gene_length_ratio', 'strict_delta', 'delta_then_11'])) {
@@ -61,7 +62,6 @@ workflow {
     if (!params.update_from) {
         if (!params.checkm2_db) { error "params.checkm2_db is required." }
         if (!params.codetta_db) { error "params.codetta_db is required." }
-        if (!params.eggnog_db) { error "params.eggnog_db is required." }
     }
     if (params.update_from) {
         def sourceRoot = new File(params.update_from.toString()).canonicalFile.toPath()
@@ -101,9 +101,9 @@ workflow {
         error "params.busco_primary_column must identify one of the configured BUSCO lineages."
     }
 
-    log.warn 'PADLOC and eggNOG outputs are retained in sample folders but are intentionally excluded from master_table.tsv.'
-
+    ANNOTATION_RESOURCES()
     sampleCsv = Channel.fromPath(params.sample_csv, checkIfExists: true)
+        .combine(ANNOTATION_RESOURCES.out.receipt).map { item -> item[0] }
     metadata = Channel.value(file(params.metadata, checkIfExists: true))
     taxdump = Channel.fromPath(params.taxdump, checkIfExists: true)
 
@@ -123,10 +123,6 @@ workflow {
     codettaDb = hasNewSamples.map { present ->
         if (!params.codetta_db) { error "params.codetta_db is required for added samples." }
         file(params.codetta_db, checkIfExists: true)
-    }
-    eggnogDb = hasNewSamples.map { present ->
-        if (!params.eggnog_db) { error "params.eggnog_db is required for added samples." }
-        file(params.eggnog_db, checkIfExists: true)
     }
     buscoLineages = hasNewSamples.flatMap { present -> buscoLineagesList }
     BUSCO_DATASET_PREP(buscoLineages)
@@ -148,7 +144,12 @@ workflow {
         INPUT_VALIDATION_AND_STAGING.out.new_staged_genomes,
         PER_SAMPLE_QC.out.gcode_qc,
         codettaDb,
-        eggnogDb,
+    )
+    FUNCTIONAL_ANNOTATION(
+        INPUT_VALIDATION_AND_STAGING.out.validated_samples,
+        PER_SAMPLE_ANNOTATION.out.bundles.mix(INPUT_VALIDATION_AND_STAGING.out.reused_bundles),
+        ANNOTATION_RESOURCES.out.receipt,
+        Channel.value(params.update_from ? file(params.update_from, checkIfExists: true) : []),
     )
     COHORT_ANI(
         INPUT_VALIDATION_AND_STAGING.out.validated_samples,
@@ -171,9 +172,9 @@ workflow {
         PER_SAMPLE_ANNOTATION.out.codetta_summary.mix(INPUT_VALIDATION_AND_STAGING.out.reused_codetta_summary),
         PER_SAMPLE_ANNOTATION.out.ccfinder_summary.mix(INPUT_VALIDATION_AND_STAGING.out.reused_ccfinder_summary),
         PER_SAMPLE_ANNOTATION.out.prokka.mix(INPUT_VALIDATION_AND_STAGING.out.reused_prokka_results),
-        PER_SAMPLE_ANNOTATION.out.padloc.mix(INPUT_VALIDATION_AND_STAGING.out.reused_padloc_results),
-        PER_SAMPLE_ANNOTATION.out.eggnog.mix(INPUT_VALIDATION_AND_STAGING.out.reused_eggnog_results),
-        PER_SAMPLE_ANNOTATION.out.eggnog_skips.mix(INPUT_VALIDATION_AND_STAGING.out.reused_eggnog_skip_rows),
+        FUNCTIONAL_ANNOTATION.out.results,
+        FUNCTIONAL_ANNOTATION.out.plan,
+        FUNCTIONAL_ANNOTATION.out.bundle_files,
         COHORT_ANI.out.clusters,
         COHORT_ANI.out.ani_metadata,
         COHORT_ANI.out.assembly_stats,

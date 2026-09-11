@@ -1,9 +1,10 @@
-"""Define the locked master-table column contract for v1."""
+"""Define the v0.4 master-table and authoritative sample-status column contracts."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Sequence
+from annotation_summary import ANNOTATION_COLUMNS
 
 
 DEFAULT_BUSCO_LINEAGES = ("bacillota_odb12", "mycoplasmatota_odb12")
@@ -68,6 +69,10 @@ SAMPLE_STATUS_SUFFIX_COLUMNS = (
     "ccfinder_status",
     "padloc_status",
     "eggnog_status",
+    "cogclassifier_status",
+    "pfam_status",
+    "kofam_status",
+    "annotation_complete",
     "ani_included",
     "ani_exclusion_reason",
     "warnings",
@@ -109,6 +114,7 @@ def build_append_columns(busco_lineages: Sequence[str] | None = None) -> list[st
         *busco_columns,
         *CRISPR_COLUMNS,
         *ANI_COLUMNS,
+        *ANNOTATION_COLUMNS,
     ]
 
 
@@ -180,7 +186,7 @@ def extract_busco_lineages_from_append_columns(
         *ASSEMBLY_DERIVED_COLUMNS,
         *GCODE_QC_COLUMNS,
     ]
-    suffix_columns = [*CRISPR_COLUMNS, *ANI_COLUMNS]
+    suffix_columns = [*CRISPR_COLUMNS, *ANI_COLUMNS, *ANNOTATION_COLUMNS]
     append_list = [column.strip() for column in append_columns]
 
     if append_list[: len(prefix_columns)] != prefix_columns:

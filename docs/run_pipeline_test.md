@@ -38,7 +38,7 @@ For OIST or any other full-eggNOG HPC validation, use this sequence:
 
 1. `bin/run_pipeline_test.sh prepare` on the login node
 2. `bin/run_pipeline_test.sh dbprep-slurm` on SLURM
-3. raw `nextflow run . -profile oist` for the real pipeline run
+3. raw `nextflow run . -c annotation.config -profile oist` for the real pipeline run
 
 Do not start with `all` on a fresh HPC environment. First make `prepare`,
 then `dbprep-slurm`, then the tracked real pipeline run pass. Only use `all`
@@ -68,7 +68,7 @@ The medium Mycoplasmatota/Bacillota cohort is now prepared in the same way as
 the tracked small cohort from repo-tracked `source_catalog.tsv` and
 `cohort_plan.tsv` files under `assets/testdata/medium/`.
 
-The wrapper's normal `slurm` path remains centred on the debug acceptance
+The wrapper's normal `slurm` path remains centred on the acceptance
 cohort and local-baseline comparison.
 
 For the recommended first real server validation path with the tracked small
@@ -129,8 +129,8 @@ The wrapper does not accept a separate container override.
 
 The wrapper does not prepare runtime databases such as taxdump, CheckM2,
 Codetta, BUSCO, or eggNOG. Prepare those separately before real-data runs when
-they are not already available. PADLOC uses the fixed database bundled in the
-default PADLOC image.
+they are not already available. PADLOC uses the pinned database bundled in its
+explicitly configured immutable image.
 
 If an HPC login node still exposes an older interpreter such as `Python 3.6.8`,
 load a newer module or move a Python `3.12` installation to the front of
@@ -145,13 +145,10 @@ hash -r
 python3 --version
 ```
 
-Acceptance-backed `local`, `slurm`, and `all` runs now use the composable
-`debug` profile by default. That profile restricts eggNOG to the tracked smoke
-accession `GCA_000027325.1`. Raw pipeline runs are unchanged and still execute
-eggNOG for every gcode-qualified sample unless you opt into `debug` or set
-`params.eggnog_only_accessions` explicitly. If you override the harness
-profiles, include `debug` yourself if you still want the smoke-only eggNOG
-behaviour.
+Acceptance-backed `local`, `slurm`, and `all` runs use the normal execution
+profiles and the complete declared cohort. Pass
+`--annotation-config annotation.config` with the immutable tool runtimes and
+resource paths documented in [functional annotation](functional_annotation.md).
 
 ## Examples
 
@@ -171,6 +168,7 @@ Preview a real local run without executing it:
 
 ```bash
 bin/run_pipeline_test.sh --dry-run local \
+  --annotation-config annotation.config \
   --taxdump /path/to/pinned-taxdump \
   --checkm2-db /path/to/checkm2-db \
   --codetta-db /path/to/codetta-db \
@@ -182,6 +180,7 @@ Run the local real-data acceptance cohort:
 
 ```bash
 bin/run_pipeline_test.sh local \
+  --annotation-config annotation.config \
   --taxdump /path/to/pinned-taxdump \
   --checkm2-db /path/to/checkm2-db \
   --codetta-db /path/to/codetta-db \
@@ -193,6 +192,7 @@ Run the SLURM real-data acceptance cohort:
 
 ```bash
 bin/run_pipeline_test.sh slurm \
+  --annotation-config annotation.config \
   --taxdump /path/to/pinned-taxdump \
   --checkm2-db /path/to/checkm2-db \
   --codetta-db /path/to/codetta-db \
@@ -220,6 +220,7 @@ Run the full layered workflow:
 
 ```bash
 bin/run_pipeline_test.sh all \
+  --annotation-config annotation.config \
   --taxdump /path/to/pinned-taxdump \
   --checkm2-db /path/to/checkm2-db \
   --codetta-db /path/to/codetta-db \

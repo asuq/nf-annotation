@@ -47,7 +47,7 @@ nextflow run prepare_databases.nf -profile oist \
 or let the main workflow download missing BUSCO lineages explicitly:
 
 ```bash
-nextflow run . -profile oist \
+nextflow run . -c annotation.config -profile oist \
   --sample_csv "$SAMPLE_CSV" \
   --metadata "$METADATA_TSV" \
   --taxdump "$TAXDUMP_DIR" \
@@ -226,7 +226,6 @@ under `--outdir` on success.
 
 ## Profiles
 
-- `debug`: composable behaviour profile that defaults eggNOG smoke runs to `GCA_000027325.1`
 - `local`: local executor
 - `slurm`: SLURM executor with optional `params.slurm_queue`, `params.slurm_qos`, and `params.slurm_cluster_options`
 - `singularity`: Singularity execution with optional `params.singularity_cache_dir` and `params.singularity_run_options`
@@ -260,7 +259,7 @@ normal analysis, and ANI and cohort reports are rebuilt for B and C. A's files
 remain in the previous output and are not copied into the new cohort.
 
 ```bash
-nextflow run . -profile local,docker \
+nextflow run . -c annotation.config -profile local,docker \
   --update_from /path/to/results-v1 \
   --sample_csv samples-v2.csv \
   --metadata metadata-v2.tsv \
@@ -277,7 +276,7 @@ dataset preparation are needed only if the revised cohort contains additions.
 For a removal-only update:
 
 ```bash
-nextflow run . -profile local,docker \
+nextflow run . -c annotation.config -profile local,docker \
   --update_from /path/to/results-v2 \
   --sample_csv samples-v3.csv \
   --metadata metadata-v3.tsv \
@@ -375,8 +374,8 @@ Use `bin/run_acceptance_tests.py` for the layered acceptance workflow:
 - `prepare`: download or reuse the tracked acceptance source genomes and build a generated cohort under `assets/testdata/local/acceptance/`
 - `unit`: run the Python unit-test layer for fine-grained and minor edge cases
 - `stub`: run the full-pipeline `-stub-run` smoke test
-- `local`: run the generated positive cohort with `-profile debug,local,docker`
-- `slurm`: run the same cohort with `-profile debug,slurm,singularity` and compare its stable outputs against the latest successful local run
+- `local`: run the generated positive cohort with `-profile local,docker`
+- `slurm`: run the same cohort with `-profile slurm,singularity` and compare its stable outputs against the latest successful local run
 - `dbprep-slurm`: run `prepare_databases.nf` on SLURM, download the curated runtime databases, and validate the prepared database tree
 - `all`: run `prepare`, `unit`, `stub`, `local`, and `slurm` in sequence
 
@@ -396,25 +395,21 @@ These acceptance runs also assume the CRISPRCasFinder image is already set via
 `params.ccfinder_container` in pipeline config. The harness does not accept a
 separate CCFINDER container argument.
 
-PADLOC uses the fixed database bundled in the default PADLOC image, so neither
+PADLOC uses the pinned database bundled in its explicitly configured immutable image, so neither
 the pipeline nor the acceptance harness accepts an external PADLOC database
 path anymore.
 
-Acceptance runs use the `debug` profile by default, which sets
-`params.eggnog_only_accessions = 'GCA_000027325.1'`. Normal raw pipeline runs
-still execute eggNOG for every gcode-qualified sample unless you opt into
-`debug` or set that parameter explicitly. If you override `--local-profile` or
-`--slurm-profile` in the harness, include `debug` yourself if you still want
-the smoke-only eggNOG behaviour.
-
-For OIST or any other full-eggNOG HPC validation, use raw `nextflow run .`
-instead of the default SLURM acceptance wrapper. The wrapper's SLURM mode is
-still centred on the debug acceptance cohort and local-baseline comparison.
+Acceptance runs use the normal execution profiles for the whole declared
+cohort. Supply `--annotation-config annotation.config` to the acceptance
+harness, or `-c annotation.config` to Nextflow. The file must provide the
+immutable runtimes and enabled resources described in
+[functional annotation](functional_annotation.md).
 
 Example local acceptance run:
 
 ```bash
 python3 bin/run_acceptance_tests.py local \
+  --annotation-config annotation.config \
   --taxdump /path/to/pinned-taxdump \
   --checkm2-db /path/to/checkm2-db \
   --codetta-db /path/to/codetta-db \
@@ -426,6 +421,7 @@ Example SLURM acceptance run:
 
 ```bash
 python3 bin/run_acceptance_tests.py slurm \
+  --annotation-config annotation.config \
   --taxdump /path/to/pinned-taxdump \
   --checkm2-db /path/to/checkm2-db \
   --codetta-db /path/to/codetta-db \
@@ -467,39 +463,10 @@ nextflow run . \
   --outdir results
 ```
 
-Local debug smoke variant:
-
-```bash
-nextflow run . -profile debug,local,docker \
-  --sample_csv samples.csv \
-  --metadata metadata.tsv \
-  --taxdump /path/to/pinned-taxdump \
-  --checkm2_db /path/to/checkm2-db \
-  --codetta_db /path/to/codetta-db \
-  --busco_db /path/to/busco \
-  --eggnog_db /path/to/eggnog-db \
-  --outdir results
-```
-
-Local debug run with an overridden eggNOG smoke accession:
-
-```bash
-nextflow run . -profile debug,local,docker \
-  --sample_csv samples.csv \
-  --metadata metadata.tsv \
-  --taxdump /path/to/pinned-taxdump \
-  --checkm2_db /path/to/checkm2-db \
-  --codetta_db /path/to/codetta-db \
-  --busco_db /path/to/busco \
-  --eggnog_db /path/to/eggnog-db \
-  --eggnog_only_accessions SOME_OTHER_ACCESSION \
-  --outdir results
-```
-
 SLURM:
 
 ```bash
-nextflow run . -profile slurm \
+nextflow run . -c annotation.config -profile slurm \
   --sample_csv samples.csv \
   --metadata metadata.tsv \
   --taxdump /path/to/pinned-taxdump \
@@ -518,7 +485,7 @@ example `--slurm_cluster_options='--qos=2h'`.
 Singularity:
 
 ```bash
-nextflow run . -profile singularity \
+nextflow run . -c annotation.config -profile singularity \
   --sample_csv samples.csv \
   --metadata metadata.tsv \
   --taxdump /path/to/pinned-taxdump \
@@ -532,7 +499,7 @@ nextflow run . -profile singularity \
 OIST:
 
 ```bash
-nextflow run . -profile oist \
+nextflow run . -c annotation.config -profile oist \
   --sample_csv samples.csv \
   --metadata metadata.tsv \
   --taxdump /path/to/pinned-taxdump \
@@ -547,7 +514,7 @@ nextflow run . -profile oist \
 GWDG SCC:
 
 ```bash
-nextflow run . -profile gwdg \
+nextflow run . -c annotation.config -profile gwdg \
   --sample_csv samples.csv \
   --metadata metadata.tsv \
   --taxdump /path/to/pinned-taxdump \
@@ -564,10 +531,10 @@ nextflow run . -profile gwdg \
 Use the OIST profile directly for full eggNOG runs:
 
 ```bash
-nextflow run . -profile oist ...
+nextflow run . -c annotation.config -profile oist ...
 ```
 
-Do not include `debug` and do not set `--eggnog_only_accessions` when the goal
+Select every required tool in `annotation.config` when the goal
 is to validate full eggNOG execution on HPC.
 
 Build everything on HPC-native storage. Do not copy the local database tree to
@@ -575,7 +542,7 @@ HPC. Use three stages in order:
 
 1. prepare the tracked acceptance cohort on the HPC login node
 2. prepare runtime databases on SLURM with `dbprep-slurm`
-3. run the real pipeline with raw `nextflow run . -profile oist`
+3. run the real pipeline with raw `nextflow run . -c annotation.config -profile oist`
 
 For the scripted campaign through the medium Mycoplasmatota/Bacillota run, use
 the dedicated wrapper:
@@ -779,7 +746,7 @@ Do not jump straight to `all` on a new HPC setup. Make this tracked run pass
 first, then move on to the full scripted campaign.
 
 ```bash
-nextflow run . -profile oist \
+nextflow run . -c annotation.config -profile oist \
   -work-dir "$RESULT_ROOT/p1/work" \
   --sample_csv "$ACCEPT_ROOT/generated/sample_sheet.csv" \
   --metadata "$ACCEPT_ROOT/generated/metadata.tsv" \
@@ -792,13 +759,13 @@ nextflow run . -profile oist \
   --outdir "$RESULT_ROOT/p1/out"
 ```
 
-Do not include `debug` and do not set `--eggnog_only_accessions`.
+Enabled annotation tools run across the complete declared cohort.
 
 For large OIST cohorts where shared-storage pressure matters, add the tracked
 opt-in storage override:
 
 ```bash
-nextflow run . -profile oist \
+nextflow run . -c annotation.config -profile oist \
   -c conf/oist_20k_storage.config \
   -work-dir /flash/path/to/work_nf_annotation_20k \
   --sample_csv "$ACCEPT_ROOT/generated/sample_sheet.csv" \
@@ -823,7 +790,7 @@ To guarantee `-resume` for that run design:
 Resume example:
 
 ```bash
-nextflow run . -profile oist \
+nextflow run . -c annotation.config -profile oist \
   -c conf/oist_20k_storage.config \
   -resume \
   -work-dir /flash/path/to/work_nf_annotation_20k \
@@ -961,7 +928,7 @@ flag `--ani_allow_incomplete_16s` to also allow `16S = No` and
 
 ## Notes
 
-- PADLOC and eggNOG outputs are retained per sample but are not merged into the final master table.
+- All five functional tools contribute source-specific counts and status to the master table; native evidence remains under each sample annotation directory.
 - Original accessions remain the published sample-folder names. Internal sanitized IDs are execution-only.
 - The shared Python helper image now includes `numpy` and `scipy` so ANI clustering and representative selection reuse the same helper container as the other Python tasks.
 - Codetta provenance is split deliberately: `tool_and_db_versions.tsv` reports

@@ -37,16 +37,4 @@ process CLUSTER_ANI {
     EOF
     """
 
-    stub:
-    '''
-    cat <<'EOF' > cluster.tsv
-    Accession	Cluster_ID	Matrix_Name
-    sample_a	C000001	fastani_inputs/sample_a.fasta
-    EOF
-    cat <<'EOF' > versions.yml
-    "${task.process}":
-      python: "stub"
-      script: "bin/cluster_ani.py"
-    EOF
-    '''
 }

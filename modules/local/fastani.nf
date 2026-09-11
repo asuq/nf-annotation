@@ -75,16 +75,22 @@ process FASTANI {
     """
 
     stub:
-    '''
-    cat <<'EOF' > fastani.matrix
-    1
-    fastani_inputs/sample_a.fasta
-    EOF
+    """
+    python3 - '${fastani_paths}' <<'PY'
+    import sys
+    from pathlib import Path
+    paths = Path(sys.argv[1]).read_text().splitlines()
+    matrix = ''
+    if paths:
+        matrix = str(len(paths)) + '\\n'
+        matrix += ''.join(name + '\\t99.0' * index + '\\n' for index, name in enumerate(paths))
+    Path('fastani.matrix').write_text(matrix)
+    PY
     : > fastani.tsv
     : > fastani.log
     cat <<'EOF' > versions.yml
     "${task.process}":
       fastani: "stub"
     EOF
-    '''
+    """
 }

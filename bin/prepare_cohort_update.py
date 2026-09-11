@@ -23,6 +23,8 @@ import summarise_16s
 import summarise_busco
 import summarise_checkm2
 import validate_inputs
+from annotation_common import AnnotationError
+from annotation_source import validate_source
 
 LOGGER = logging.getLogger(__name__)
 AUDIT_COLUMNS = (
@@ -376,7 +378,7 @@ def validate_annotations(
     check_status(status, "codetta_status", codetta["codetta_status"], accession)
     summaries.append(codetta)
     if gcode == "NA":
-        for tool in ("prokka", "ccfinder", "padloc", "eggnog"):
+        for tool in ("prokka", "ccfinder"):
             check_status(status, f"{tool}_status", "skipped", accession)
     else:
         require_files(
@@ -390,7 +392,6 @@ def validate_annotations(
                 "ccfinder/ccfinder.log",
                 "ccfinder/ccfinder_contigs.tsv",
                 "ccfinder/ccfinder_crisprs.tsv",
-                "padloc/padloc.log",
             ),
         )
         ccfinder = single_summary(
@@ -413,30 +414,9 @@ def validate_annotations(
             with (root / "ccfinder/result.json").open() as handle:
                 json.load(handle)
         summaries.append(ccfinder)
-        for tool in ("prokka", "padloc", "eggnog"):
-            if tool == "eggnog" and status["eggnog_status"] == "skipped":
-                continue
-            tool_root = root / tool
-            exit_code = read_exit_code(tool_root / f"{tool}.log")
-            if tool == "prokka":
-                present = all(
-                    (tool_root / name).stat().st_size > 0
-                    for name in ("prokka.gff", "prokka.faa")
-                )
-            else:
-                if not (tool_root / tool).is_dir():
-                    raise CohortUpdateError(
-                        f"Missing published result directory: {tool_root / tool}"
-                    )
-                if tool == "eggnog":
-                    require_files(root, ("eggnog/eggnog_annotations.tsv",))
-                    present = (tool_root / "eggnog_annotations.tsv").stat().st_size > 0
-                else:
-                    present = any(
-                        path.is_file() for path in (tool_root / tool).iterdir()
-                    )
-            derived = "done" if exit_code == "0" and present else "failed"
-            check_status(status, f"{tool}_status", derived, accession)
+        exit_code = read_exit_code(root / "prokka/prokka.log")
+        present = all((root / "prokka" / name).stat().st_size > 0 for name in ("prokka.gff", "prokka.faa"))
+        check_status(status, "prokka_status", "done" if exit_code == "0" and present else "failed", accession)
     return summaries
 
 
@@ -524,6 +504,10 @@ def load_source_tables(
     list[dict[str, str]],
 ]:
     """Load a completed source cohort and validate the reporting contracts."""
+    try:
+        validate_source(source)
+    except AnnotationError as error:
+        raise CohortUpdateError(str(error)) from error
     source_manifest = source / "tables/validated_samples.tsv"
     _header, source_rows = read_table(
         source_manifest, (*validate_inputs.REQUIRED_SAMPLE_COLUMNS, "internal_id")
@@ -648,7 +632,6 @@ def write_update_tables(
                 *validate_inputs.REQUIRED_SAMPLE_COLUMNS,
                 "internal_id",
                 "source_gcode",
-                "source_eggnog_status",
             ],
             reused,
         ),
@@ -729,7 +712,6 @@ def run_prepare(args: argparse.Namespace) -> None:
                 {
                     **sample,
                     "source_gcode": statuses[accession]["gcode"],
-                    "source_eggnog_status": statuses[accession]["eggnog_status"],
                 }
             )
             action = "reused"

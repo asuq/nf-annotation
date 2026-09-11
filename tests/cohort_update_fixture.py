@@ -14,6 +14,7 @@ from pathlib import Path
 
 from Bio import SeqIO
 from Bio.Data import CodonTable
+from Bio.SeqFeature import SeqFeature, SimpleLocation
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "bin"))
@@ -177,12 +178,22 @@ def make_stub(args: argparse.Namespace) -> None:
     elif tool == "prokka":
         Path("prokka").mkdir()
         failed = "failed" in accession.lower()
-        for suffix, content in {
-            "gff": f"##gff-version 3\n{internal_id}\tProkka\tCDS\t1\t30\t.\t+\t0\tID={internal_id}_1\n",
-            "faa": f">{internal_id}_1\nMAAAAAAAAA\n",
-            "gbk": f"LOCUS       {internal_id}\n//\n",
-        }.items():
-            write(f"prokka.{suffix}", "" if failed else content)
+        record = next(SeqIO.parse(args.genome, "fasta"))
+        sequence = str(record.seq)
+        protein = str(record.seq[:30].translate(table=4))
+        gene = f"{internal_id}_1"
+        record.annotations["molecule_type"] = "DNA"
+        record.features = [SeqFeature(SimpleLocation(0, 30, strand=1), type="CDS",
+            qualifiers={"locus_tag": [gene], "translation": [protein],
+                        "transl_table": ["4"], "codon_start": ["1"]})]
+        write("prokka.gff", "" if failed else (
+            f"##gff-version 3\n{record.id}\tProkka\tCDS\t1\t30\t.\t+\t0\tID={gene}\n"
+            f"##FASTA\n>{record.id}\n{sequence}\n"))
+        write("prokka.faa", "" if failed else f">{gene}\n{protein}\n")
+        if failed:
+            write("prokka.gbk", "")
+        else:
+            SeqIO.write(record, "prokka.gbk", "genbank")
         write("prokka.log", f"exit_code={1 if failed else 0}\n")
     elif tool == "ccfinder":
         Path("ccfinder").mkdir()
@@ -193,18 +204,6 @@ def make_stub(args: argparse.Namespace) -> None:
             ),
         )
         write("ccfinder.log", "exit_code=0\n")
-    elif tool == "padloc":
-        Path("padloc").mkdir()
-        write("padloc/results.tsv", "system\n")
-        write("padloc.log", "exit_code=0\n")
-    elif tool == "eggnog":
-        Path("eggnog").mkdir()
-        table(
-            "eggnog_annotations.tsv",
-            ["query", "seed_ortholog", "evalue", "score"],
-            [[f"{internal_id}_1", "test_ortholog", "1e-20", "200"]],
-        )
-        write("eggnog.log", "exit_code=0\n")
     else:
         raise ValueError(f"Unknown synthetic process: {tool}")
     write("versions.yml", f'"{args.process_name}":\n  {tool}: "synthetic-test"\n')

@@ -102,32 +102,4 @@ process BUILD_COHORT_16S {
         > versions.yml
     """
 
-    stub:
-    '''
-    cat <<'EOF' > all_best_16S.fna
-    >sample_a
-    AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-    EOF
-    cat <<'EOF' > all_best_16S_manifest.tsv
-    accession	16S	best_16S_header	best_16S_length	include_in_all_best_16S	low_quality	warnings
-    sample_a	Yes	sample_a 16S ribosomal RNA	80	true	false
-    EOF
-    : > all_partial_16S.fna
-    cat <<'EOF' > all_partial_16S_manifest.tsv
-    accession	16S	best_16S_header	best_16S_length	include_in_all_best_16S	low_quality	warnings
-    EOF
-    : > low_quality_best_16S.fna
-    cat <<'EOF' > low_quality_best_16S_manifest.tsv
-    accession	16S	best_16S_header	best_16S_length	include_in_all_best_16S	low_quality	warnings
-    EOF
-    : > low_quality_partial_16S.fna
-    cat <<'EOF' > low_quality_partial_16S_manifest.tsv
-    accession	16S	best_16S_header	best_16S_length	include_in_all_best_16S	low_quality	warnings
-    EOF
-    cat <<'EOF' > versions.yml
-    "${task.process}":
-      python: "stub"
-      script: "bin/concat_best_16s.py"
-    EOF
-    '''
 }

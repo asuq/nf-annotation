@@ -73,6 +73,18 @@ class AnnotationError(ValueError):
     """An input, resource or tool output violates an annotation invariant."""
 
 
+def validate_accession(value: Any) -> None:
+    """Require an accession that can identify one published sample directory."""
+    if (
+        not isinstance(value, str)
+        or not value
+        or value in (".", "..")
+        or any(char in value for char in ("/", "\\"))
+        or any(ord(char) < 32 for char in value)
+    ):
+        raise AnnotationError("Invalid published accession")
+
+
 def digest(path: Path) -> str:
     """Hash file bytes with SHA-256."""
     with path.open("rb") as handle:

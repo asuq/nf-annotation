@@ -104,7 +104,15 @@ class StubResumeStorageTestCase(unittest.TestCase):
             resumed = self.run_pipeline(run_dir=tmpdir, outdir=outdir, workdir=workdir, resume=True)
             self.assertEqual(resumed.returncode, 0, resumed.stderr)
             resumed_work_dirs = self.task_work_leaf_dirs(workdir)
-            self.assertEqual(resumed_work_dirs, second_work_dirs)
+            # Resource integrity and reporting are deliberately checked again;
+            # expensive upstream tasks must continue to use the existing cache.
+            added = resumed_work_dirs - second_work_dirs
+            self.assertTrue(added)
+            allowed = ("annotation_preflight.json", "annotation_plan.json",
+                       "annotation_results.json", "annotation_complete.txt")
+            for directory in added:
+                contents = {path.name for path in (workdir / directory).rglob("*")}
+                self.assertTrue(any(name in contents for name in allowed), directory)
             self.assertTrue((outdir / "tables" / "master_table.tsv").is_file())
             bundle = outdir / "samples/TEST_ACC/annotation/bundle"
             manifest, proteins = bundle_proteins(bundle)

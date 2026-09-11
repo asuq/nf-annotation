@@ -34,24 +34,4 @@ process SUMMARISE_CCFINDER {
     EOF
     """
 
-    stub:
-    '''
-    cat <<'EOF' > ccfinder_strains.tsv
-    accession	CRISPRS	SPACERS_SUM	CRISPR_FRAC	ccfinder_status	warnings
-    sample_a	2	7	0.1	done
-    EOF
-    cat <<'EOF' > ccfinder_contigs.tsv
-    accession	contig_id	contig_length	CRISPRS	SPACERS_SUM	CRISPR_FRAC
-    sample_a	contig_1	1000	2	7	0.1
-    EOF
-    cat <<'EOF' > ccfinder_crisprs.tsv
-    accession	contig_id	crispr_id	evidence_level	spacer_count	start	end	crispr_length
-    sample_a	contig_1	crispr_1	4	3	10	80	71
-    EOF
-    cat <<'EOF' > versions.yml
-    "${task.process}":
-      python: "stub"
-      script: "bin/summarise_ccfinder.py"
-    EOF
-    '''
 }

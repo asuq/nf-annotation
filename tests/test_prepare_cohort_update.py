@@ -20,6 +20,7 @@ import collect_versions  # noqa: E402
 import master_table_contract  # noqa: E402
 import prepare_cohort_update as update  # noqa: E402
 import validate_inputs  # noqa: E402
+from annotation_workflow_fixture import publish_disabled, refresh_tables
 
 LINEAGE = "bacillota_odb12"
 BUSCO = "C:98.0%[S:98.0%,D:0.0%],F:1.0%,M:1.0%,n:200"
@@ -167,7 +168,6 @@ class PrepareCohortUpdateTestCase(unittest.TestCase):
                 "ccfinder/ccfinder.log",
                 "ccfinder/ccfinder_contigs.tsv",
                 "ccfinder/ccfinder_crisprs.tsv",
-                "padloc/padloc/results.tsv",
             ):
                 write(sample / relative, "fixture\n")
             write(
@@ -179,11 +179,6 @@ class PrepareCohortUpdateTestCase(unittest.TestCase):
                     sample / f"prokka/prokka.{extension}", "" if failed else "fixture\n"
                 )
             write(sample / "prokka/prokka.log", f"exit_code={1 if failed else 0}\n")
-            write(sample / "padloc/padloc.log", "exit_code=0\n")
-            if not skipped:
-                write(sample / "eggnog/eggnog_annotations.tsv", "fixture\n")
-                write(sample / "eggnog/eggnog.log", "exit_code=0\n")
-                (sample / "eggnog/eggnog").mkdir()
             status = {
                 column: "done" if column.endswith("_status") else ""
                 for column in master_table_contract.build_sample_status_columns(
@@ -243,6 +238,8 @@ class PrepareCohortUpdateTestCase(unittest.TestCase):
                 }
             ],
         )
+
+        publish_disabled(self.source, accessions)
 
     def arguments(
         self, accessions: list[str], *, lineages: list[str] | None = None
@@ -378,7 +375,8 @@ class PrepareCohortUpdateTestCase(unittest.TestCase):
         args = self.arguments(["A"])
         update.run_prepare(args)
         _, rows = update.read_table(args.outdir / "reused_samples.tsv")
-        self.assertEqual(rows[0]["source_eggnog_status"], "skipped")
+        self.assertEqual(rows[0]["source_gcode"], "4")
+        self.assertNotIn("source_eggnog_status", rows[0])
 
     def test_source_summary_must_agree_with_published_status(self) -> None:
         self.published_cohort(["A"])
@@ -462,6 +460,7 @@ class PrepareCohortUpdateTestCase(unittest.TestCase):
                 Gcode_Selection_Reason="completeness_gcode4_advantage_above_10",
             )
             table(path, header, rows)
+        refresh_tables(self.source)
         update.run_prepare(args)
         _, audit = update.read_table(args.outdir / "cohort_update.tsv")
         self.assertEqual(audit[0]["action"], "reused")

@@ -46,22 +46,4 @@ process SUMMARISE_16S {
     EOF
     """
 
-    stub:
-    """
-    cat <<'EOF' > best_16S.fna
-    >sample_a 16S ribosomal RNA
-    AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-    EOF
-    cat <<'EOF' > 16S_status.tsv
-    accession	16S	best_16S_header	best_16S_length	warnings
-    sample_a	Yes	sample_a 16S ribosomal RNA	80
-    EOF
-    cp best_16S.fna "${meta.internal_id}_best_16S.fna"
-    cp 16S_status.tsv "${meta.internal_id}_16S_status.tsv"
-    cat <<'EOF' > versions.yml
-    "${task.process}":
-      python: "stub"
-      summarise_16s: "bin/summarise_16s.py"
-    EOF
-    """
 }

@@ -4,8 +4,6 @@ include { CCFINDER } from '../../modules/local/ccfinder'
 include { CODETTA } from '../../modules/local/codetta'
 include { SUMMARISE_CODETTA } from '../../modules/local/summarise_codetta'
 include { SUMMARISE_CCFINDER } from '../../modules/local/summarise_ccfinder'
-include { PADLOC } from '../../modules/local/padloc'
-include { EGGNOG } from '../../modules/local/eggnog'
 
 /*
  * Run the gcode-gated annotation branch by joining staged genomes to the
@@ -16,19 +14,8 @@ workflow PER_SAMPLE_ANNOTATION {
     sample_genomes
     gcode_summaries
     codetta_db
-    eggnog_db
 
     main:
-    def eggnogOnlyAccessions = null
-    if (params.eggnog_only_accessions != null) {
-        def rawAccessions = params.eggnog_only_accessions instanceof Collection
-            ? (params.eggnog_only_accessions as Collection)
-            : params.eggnog_only_accessions.toString().split(',')
-        eggnogOnlyAccessions = rawAccessions
-            .collect { it.toString().trim() }
-            .findAll { !it.isEmpty() } as Set
-    }
-
     unpackTuple = { item, channelName, expectedSize ->
         if (!(item instanceof List)) {
             def actualType = item == null ? 'null' : item.getClass().getName()
@@ -85,34 +72,12 @@ workflow PER_SAMPLE_ANNOTATION {
     PREPARE_ANNOTATION_BUNDLE(PROKKA.out.bundle_inputs)
     CCFINDER(annotation_candidates)
     SUMMARISE_CCFINDER(CCFINDER.out.result_json)
-    PADLOC(PROKKA.out.padloc_inputs)
-
-    eggnog_inputs = PROKKA.out.eggnog_inputs
-    if (eggnogOnlyAccessions != null && !eggnogOnlyAccessions.isEmpty()) {
-        eggnog_inputs = eggnog_inputs.filter { item ->
-            def values = unpackTuple.call(item, 'eggnog_inputs', 2)
-            def meta = values[0]
-            eggnogOnlyAccessions.contains(meta.accession.toString())
-        }
-    }
-
-    EGGNOG(eggnog_inputs.combine(eggnog_db))
-
-    eggnogSkippedRows = gcode_by_accession
-        .filter { item ->
-            item[1] in ['4', '11'] && eggnogOnlyAccessions != null &&
-                !eggnogOnlyAccessions.isEmpty() && !eggnogOnlyAccessions.contains(item[0])
-        }
-        .map { item -> "${item[0]}\tskipped\teggnog_short_circuit\t0\t0\t0" }
-
     versions = PROKKA.out.versions
         .mix(PREPARE_ANNOTATION_BUNDLE.out.versions)
         .mix(CODETTA.out.versions)
         .mix(SUMMARISE_CODETTA.out.versions)
         .mix(CCFINDER.out.versions)
         .mix(SUMMARISE_CCFINDER.out.versions)
-        .mix(PADLOC.out.versions)
-        .mix(EGGNOG.out.versions)
 
     emit:
     codetta = CODETTA.out.results
@@ -121,8 +86,5 @@ workflow PER_SAMPLE_ANNOTATION {
     bundles = PREPARE_ANNOTATION_BUNDLE.out.bundle
     ccfinder = CCFINDER.out.results
     ccfinder_summary = SUMMARISE_CCFINDER.out.summaries
-    padloc = PADLOC.out.results
-    eggnog = EGGNOG.out.results
-    eggnog_skips = eggnogSkippedRows
     versions = versions
 }

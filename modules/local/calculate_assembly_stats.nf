@@ -38,15 +38,13 @@ process CALCULATE_ASSEMBLY_STATS {
     """
 
     stub:
-    '''
-    cat <<'EOF' > assembly_stats.tsv
-    accession	n50	scaffolds	genome_size	gc_content
-    sample_a	80	1	80	50
-    EOF
+    """
+    printf 'accession\\tn50\\tscaffolds\\tgenome_size\\tgc_content\\n' > assembly_stats.tsv
+    awk -F '\\t' 'NR > 1 { print \$1 "\\t80\\t1\\t80\\t50" }' '${staged_manifest}' >> assembly_stats.tsv
     cat <<'EOF' > versions.yml
     "${task.process}":
       seqtk: "stub"
       script: "bin/calculate_assembly_stats.sh"
     EOF
-    '''
+    """
 }

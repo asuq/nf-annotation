@@ -292,14 +292,6 @@ class BuildSampleStatusTestCase(unittest.TestCase):
                 tmpdir / "prokka_manifest.tsv",
                 "accession\texit_code\tgff_size\tfaa_size\nACC1\t0\t100\t50\n",
             )
-            padloc_manifest = self.write_text_file(
-                tmpdir / "padloc_manifest.tsv",
-                "accession\texit_code\tresult_file_count\nACC1\t0\t2\n",
-            )
-            eggnog_manifest = self.write_text_file(
-                tmpdir / "eggnog_manifest.tsv",
-                "accession\tstatus\twarnings\texit_code\tannotations_size\tresult_file_count\nACC1\tdone\t\t0\t10\t2\n",
-            )
             ani = self.write_text_file(
                 tmpdir / "ani.tsv",
                 "\n".join(
@@ -336,10 +328,6 @@ class BuildSampleStatusTestCase(unittest.TestCase):
                     str(ccfinder),
                     "--prokka-manifest",
                     str(prokka_manifest),
-                    "--padloc-manifest",
-                    str(padloc_manifest),
-                    "--eggnog-manifest",
-                    str(eggnog_manifest),
                     "--ani",
                     str(ani),
                     "--assembly-stats",
@@ -372,8 +360,6 @@ class BuildSampleStatusTestCase(unittest.TestCase):
             self.assertEqual(by_accession["ACC1"]["codetta_status"], "done")
             self.assertEqual(by_accession["ACC1"]["ccfinder_status"], "done")
             self.assertEqual(by_accession["ACC1"]["prokka_status"], "done")
-            self.assertEqual(by_accession["ACC1"]["padloc_status"], "done")
-            self.assertEqual(by_accession["ACC1"]["eggnog_status"], "done")
             self.assertEqual(by_accession["ACC1"]["ani_included"], "true")
             self.assertEqual(
                 by_accession["ACC1"]["warnings"],
@@ -384,8 +370,6 @@ class BuildSampleStatusTestCase(unittest.TestCase):
             self.assertEqual(by_accession["ACC2"]["gcode"], "NA")
             self.assertEqual(by_accession["ACC2"]["codetta_status"], "failed")
             self.assertEqual(by_accession["ACC2"]["prokka_status"], "skipped")
-            self.assertEqual(by_accession["ACC2"]["padloc_status"], "skipped")
-            self.assertEqual(by_accession["ACC2"]["eggnog_status"], "skipped")
             self.assertEqual(by_accession["ACC2"]["ccfinder_status"], "skipped")
             self.assertEqual(by_accession["ACC2"]["ani_included"], "false")
             self.assertEqual(
@@ -539,14 +523,6 @@ class BuildSampleStatusTestCase(unittest.TestCase):
                 tmpdir / "prokka_manifest.tsv",
                 "accession\texit_code\tgff_size\tfaa_size\n",
             )
-            padloc_manifest = self.write_text_file(
-                tmpdir / "padloc_manifest.tsv",
-                "accession\texit_code\tresult_file_count\n",
-            )
-            eggnog_manifest = self.write_text_file(
-                tmpdir / "eggnog_manifest.tsv",
-                "accession\tstatus\twarnings\texit_code\tannotations_size\tresult_file_count\n",
-            )
             output = tmpdir / "sample_status.tsv"
 
             exit_code = build_sample_status.main(
@@ -567,10 +543,6 @@ class BuildSampleStatusTestCase(unittest.TestCase):
                     str(ccfinder),
                     "--prokka-manifest",
                     str(prokka_manifest),
-                    "--padloc-manifest",
-                    str(padloc_manifest),
-                    "--eggnog-manifest",
-                    str(eggnog_manifest),
                     "--columns",
                     str(SAMPLE_STATUS_COLUMNS_ASSET),
                     "--output",
@@ -582,11 +554,9 @@ class BuildSampleStatusTestCase(unittest.TestCase):
             _, rows = read_tsv_rows(output)
             row = rows[0]
             self.assertEqual(row["prokka_status"], "failed")
-            self.assertEqual(row["padloc_status"], "failed")
-            self.assertEqual(row["eggnog_status"], "failed")
             self.assertEqual(
                 row["warnings"],
-                "missing_prokka_result;missing_padloc_result;missing_eggnog_result",
+                "missing_prokka_result",
             )
 
     def test_main_marks_annotation_failures_from_logs_and_outputs(self) -> None:
@@ -633,14 +603,6 @@ class BuildSampleStatusTestCase(unittest.TestCase):
                 tmpdir / "prokka_manifest.tsv",
                 "accession\texit_code\tgff_size\tfaa_size\nACC1\t0\t0\t50\n",
             )
-            padloc_manifest = self.write_text_file(
-                tmpdir / "padloc_manifest.tsv",
-                "accession\texit_code\tresult_file_count\nACC1\t1\t0\n",
-            )
-            eggnog_manifest = self.write_text_file(
-                tmpdir / "eggnog_manifest.tsv",
-                "accession\tstatus\twarnings\texit_code\tannotations_size\tresult_file_count\nACC1\tfailed\tmissing_eggnog_outputs\t0\t0\t1\n",
-            )
             output = tmpdir / "sample_status.tsv"
 
             exit_code = build_sample_status.main(
@@ -661,10 +623,6 @@ class BuildSampleStatusTestCase(unittest.TestCase):
                     str(ccfinder),
                     "--prokka-manifest",
                     str(prokka_manifest),
-                    "--padloc-manifest",
-                    str(padloc_manifest),
-                    "--eggnog-manifest",
-                    str(eggnog_manifest),
                     "--columns",
                     str(SAMPLE_STATUS_COLUMNS_ASSET),
                     "--output",
@@ -676,101 +634,10 @@ class BuildSampleStatusTestCase(unittest.TestCase):
             _, rows = read_tsv_rows(output)
             row = rows[0]
             self.assertEqual(row["prokka_status"], "failed")
-            self.assertEqual(row["padloc_status"], "failed")
-            self.assertEqual(row["eggnog_status"], "failed")
             self.assertEqual(
                 row["warnings"],
-                "missing_prokka_outputs;padloc_failed;missing_eggnog_outputs",
+                "missing_prokka_outputs",
             )
-
-    def test_main_marks_acceptance_eggnog_short_circuit_as_skipped(self) -> None:
-        """Respect explicit eggNOG skipped rows emitted by acceptance short-circuiting."""
-        with tempfile.TemporaryDirectory() as tmpdir_name:
-            tmpdir = Path(tmpdir_name)
-            validated_samples = self.write_text_file(
-                tmpdir / "validated_samples.tsv",
-                "accession\tis_new\tassembly_level\tgenome_fasta\tinternal_id\nACC1\tfalse\tNA\t/path/one.fna\tid_1\n",
-            )
-            initial_status_rows = [
-                self.make_initial_status_row(
-                    accession="ACC1",
-                    internal_id="id_1",
-                    is_new="false",
-                )
-            ]
-            initial_status = self.write_tsv_rows(
-                tmpdir / "initial_status.tsv",
-                [row for row in initial_status_rows[0]],
-                initial_status_rows,
-            )
-            metadata = self.write_text_file(
-                tmpdir / "metadata.tsv",
-                "Accession\tTax_ID\tOrganism_Name\tAtypical_Warnings\nACC1\t123\tOne\tNA\n",
-            )
-            checkm2 = self.write_text_file(
-                tmpdir / "checkm2.tsv",
-                "accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tLow_quality\tcheckm2_status\twarnings\nACC1\t95\t80\t2\t1\t0.9\t0.8\t900\t450\t800\t780\t4\tmean_gene_length_ratio\t2\t1.5\tlength_ratio_above_threshold\tfalse\tdone\t\n",
-            )
-            status_16s = self.write_text_file(
-                tmpdir / "16s.tsv",
-                "accession\t16S\tbest_16S_header\tbest_16S_length\twarnings\nACC1\tYes\th1\t1500\t\n",
-            )
-            busco = self.write_text_file(
-                tmpdir / "busco.tsv",
-                "accession\tlineage\tBUSCO_bacillota_odb12\tbusco_status\twarnings\nACC1\tbacillota_odb12\tC:98.0%[S:98.0%,D:0.0%],F:1.0%,M:1.0%,n:200\tdone\t\n",
-            )
-            ccfinder = self.write_text_file(
-                tmpdir / "ccfinder.tsv",
-                "accession\tCRISPRS\tSPACERS_SUM\tCRISPR_FRAC\tccfinder_status\twarnings\nACC1\t2\t7\t0.1\tdone\t\n",
-            )
-            prokka_manifest = self.write_text_file(
-                tmpdir / "prokka_manifest.tsv",
-                "accession\texit_code\tgff_size\tfaa_size\nACC1\t0\t100\t50\n",
-            )
-            padloc_manifest = self.write_text_file(
-                tmpdir / "padloc_manifest.tsv",
-                "accession\texit_code\tresult_file_count\nACC1\t0\t2\n",
-            )
-            eggnog_manifest = self.write_text_file(
-                tmpdir / "eggnog_manifest.tsv",
-                "accession\tstatus\twarnings\texit_code\tannotations_size\tresult_file_count\nACC1\tskipped\teggnog_short_circuit\t0\t0\t0\n",
-            )
-            output = tmpdir / "sample_status.tsv"
-
-            exit_code = build_sample_status.main(
-                [
-                    "--validated-samples",
-                    str(validated_samples),
-                    "--initial-status",
-                    str(initial_status),
-                    "--metadata",
-                    str(metadata),
-                    "--checkm2",
-                    str(checkm2),
-                    "--16s-status",
-                    str(status_16s),
-                    "--busco",
-                    str(busco),
-                    "--ccfinder-strains",
-                    str(ccfinder),
-                    "--prokka-manifest",
-                    str(prokka_manifest),
-                    "--padloc-manifest",
-                    str(padloc_manifest),
-                    "--eggnog-manifest",
-                    str(eggnog_manifest),
-                    "--columns",
-                    str(SAMPLE_STATUS_COLUMNS_ASSET),
-                    "--output",
-                    str(output),
-                ]
-            )
-
-            self.assertEqual(exit_code, 0)
-            _, rows = read_tsv_rows(output)
-            row = rows[0]
-            self.assertEqual(row["eggnog_status"], "skipped")
-            self.assertEqual(row["warnings"], "eggnog_short_circuit")
 
     def test_main_uses_explicit_primary_busco_column_and_atypical_exception(self) -> None:
         """Use the configured primary BUSCO lineage and allow the locked exception."""
@@ -870,14 +737,6 @@ class BuildSampleStatusTestCase(unittest.TestCase):
                 tmpdir / "prokka_manifest.tsv",
                 "accession\texit_code\tgff_size\tfaa_size\nACC1\t0\t100\t50\nACC2\t0\t100\t50\n",
             )
-            padloc_manifest = self.write_text_file(
-                tmpdir / "padloc_manifest.tsv",
-                "accession\texit_code\tresult_file_count\nACC1\t0\t2\nACC2\t0\t2\n",
-            )
-            eggnog_manifest = self.write_text_file(
-                tmpdir / "eggnog_manifest.tsv",
-                "accession\tstatus\twarnings\texit_code\tannotations_size\tresult_file_count\nACC1\tdone\t\t0\t10\t2\nACC2\tdone\t\t0\t10\t2\n",
-            )
             ani = self.write_text_file(
                 tmpdir / "ani.tsv",
                 "Accession\tCluster_ID\tIs_Representative\tANI_to_Representative\tScore\nACC1\tcluster_1\tyes\t100\t0.95\n",
@@ -904,10 +763,6 @@ class BuildSampleStatusTestCase(unittest.TestCase):
                     str(ccfinder),
                     "--prokka-manifest",
                     str(prokka_manifest),
-                    "--padloc-manifest",
-                    str(padloc_manifest),
-                    "--eggnog-manifest",
-                    str(eggnog_manifest),
                     "--ani",
                     str(ani),
                     "--assembly-stats",
@@ -1083,6 +938,10 @@ class BuildSampleStatusTestCase(unittest.TestCase):
                 "ccfinder_status",
                 "padloc_status",
                 "eggnog_status",
+                "cogclassifier_status",
+                "pfam_status",
+                "kofam_status",
+                "annotation_complete",
                 "ani_included",
                 "ani_exclusion_reason",
                 "warnings",

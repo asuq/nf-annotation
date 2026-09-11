@@ -75,10 +75,10 @@ process BARRNAP {
     contig1	barrnap	rRNA	1	100	5.0	+	.	Name=16S_rRNA
     EOF
     cat <<'EOF' > rrna.fa
-    >sample_a 16S ribosomal RNA
+    >${meta.accession} 16S ribosomal RNA
     AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
     EOF
-    : > barrnap.log
+    printf 'exit_code=0\\n' > barrnap.log
     cat <<'EOF' > versions.yml
     "${task.process}":
       barrnap: "stub"

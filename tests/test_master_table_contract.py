@@ -47,7 +47,9 @@ class MasterTableContractTestCase(unittest.TestCase):
         self.assertIn("BUSCO_lineage_c", columns)
         self.assertLess(columns.index("BUSCO_lineage_a"), columns.index("BUSCO_lineage_b"))
         self.assertLess(columns.index("BUSCO_lineage_b"), columns.index("BUSCO_lineage_c"))
-        self.assertEqual(columns[-4:], list(master_table_contract.ANI_COLUMNS))
+        self.assertEqual(columns[-len(master_table_contract.ANNOTATION_COLUMNS):], list(master_table_contract.ANNOTATION_COLUMNS))
+        start = columns.index("Cluster_ID")
+        self.assertEqual(columns[start:start + 4], list(master_table_contract.ANI_COLUMNS))
 
     def test_build_sample_status_columns_supports_custom_busco_order(self) -> None:
         """Insert BUSCO status columns in caller-provided lineage order."""

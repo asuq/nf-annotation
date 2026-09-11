@@ -10,7 +10,7 @@ process VALIDATE_INPUTS {
         overwrite: true,
         enabled: !params.update_from,
         saveAs: { filename ->
-            filename in ['validated_samples.tsv', 'accession_map.tsv', 'validation_warnings.tsv', 'sample_status.tsv']
+            filename in ['validated_samples.tsv', 'accession_map.tsv', 'validation_warnings.tsv']
                 ? filename
                 : null
         },
@@ -37,6 +37,7 @@ process VALIDATE_INPUTS {
     --metadata "${metadata}" \
     ${lineageArgs} \
     --defer-genome-fasta-check \
+    --genome-base-dir "${workflow.launchDir}" \
     --outdir .
 
 cat <<EOF > versions.yml
@@ -46,67 +47,4 @@ cat <<EOF > versions.yml
 EOF
 """
 
-    stub:
-    def stubGenome = file("${projectDir}/assets/fixtures/stub/genomes/TEST_ACC.fasta").toString()
-    def sampleStatusColumns = [
-        'accession',
-        'internal_id',
-        'is_new',
-        'validation_status',
-        'taxonomy_status',
-        'barrnap_status',
-        'checkm2_gcode4_status',
-        'checkm2_gcode11_status',
-        'gcode_status',
-        'gcode',
-        'low_quality',
-    ] + (busco_lineages as List).collect { "busco_${it}_status" } + [
-        'codetta_status',
-        'prokka_status',
-        'ccfinder_status',
-        'padloc_status',
-        'eggnog_status',
-        'ani_included',
-        'ani_exclusion_reason',
-        'warnings',
-        'notes',
-    ]
-    def sampleStatusStubValues = [
-        accession: 'TEST_ACC',
-        internal_id: 'TEST_ACC',
-        is_new: 'false',
-        validation_status: 'done',
-        warnings: 'stub_warning',
-        notes: 'stub warning',
-        gcode: 'NA',
-        low_quality: 'NA',
-        ani_included: 'na',
-    ]
-    def sampleStatusRow = sampleStatusColumns.collect { column ->
-        if (sampleStatusStubValues.containsKey(column)) {
-            return sampleStatusStubValues[column]
-        }
-        return column.endsWith('_status') ? 'na' : ''
-    }.join('\t')
-    """cat <<'EOF' > validated_samples.tsv
-accession	is_new	assembly_level	genome_fasta	internal_id
-TEST_ACC	false	NA	${stubGenome}	TEST_ACC
-EOF
-cat <<'EOF' > accession_map.tsv
-accession	internal_id	is_new	assembly_level	genome_fasta	metadata_present
-TEST_ACC	TEST_ACC	false	NA	${stubGenome}	true
-EOF
-cat <<'EOF' > validation_warnings.tsv
-accession	warning_code	message
-EOF
-cat <<'EOF' > sample_status.tsv
-${sampleStatusColumns.join('\t')}
-${sampleStatusRow}
-EOF
-cat <<'EOF' > versions.yml
-"${task.process}":
-  python: "stub"
-  script: "bin/validate_inputs.py"
-EOF
-"""
 }

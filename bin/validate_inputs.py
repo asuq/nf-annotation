@@ -112,6 +112,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             "the downstream workflow staging step."
         ),
     )
+    parser.add_argument("--genome-base-dir", type=Path, default=Path.cwd(),
+                        help="Resolve relative genome paths against this explicit launch directory.")
     return parser.parse_args(argv)
 
 
@@ -325,6 +327,7 @@ def validate_samples(
     metadata_index: dict[str, dict[str, str]],
     *,
     defer_genome_fasta_check: bool = False,
+    genome_base_dir: Path | None = None,
 ) -> tuple[list[SampleRecord], list[ValidationWarning]]:
     """Validate sample rows against manifest and metadata rules."""
     seen_accessions: set[str] = set()
@@ -379,6 +382,8 @@ def validate_samples(
                 f"Sample {accession!r} is missing a genome_fasta path."
             )
         genome_path = Path(genome_value).expanduser()
+        if not genome_path.is_absolute():
+            genome_path = (genome_base_dir or Path.cwd()) / genome_path
         if not defer_genome_fasta_check and not genome_path.exists():
             raise ValidationError(
                 f"Genome FASTA for sample {accession!r} does not exist: {genome_value}"
@@ -545,12 +550,17 @@ def run_validation(
     *,
     busco_lineages: Sequence[str] | None = None,
     defer_genome_fasta_check: bool = False,
+    genome_base_dir: Path | None = None,
 ) -> None:
     """Validate inputs and write the expected downstream TSV outputs."""
     sample_header, sample_rows = read_delimited_table(sample_csv, delimiter=",")
     validate_sample_header(sample_header)
 
     metadata_header, metadata_rows = read_delimited_table(metadata)
+    try:
+        master_table_contract.build_master_table_columns(metadata_header, busco_lineages)
+    except ValueError as error:
+        raise ValidationError(str(error)) from error
     metadata_key_column = detect_metadata_key_column(metadata_header)
     metadata_index = build_metadata_index(metadata_rows, metadata_key_column)
 
@@ -559,6 +569,7 @@ def run_validation(
         sample_rows=sample_rows,
         metadata_index=metadata_index,
         defer_genome_fasta_check=defer_genome_fasta_check,
+        genome_base_dir=genome_base_dir,
     )
     sample_status_columns = resolve_sample_status_columns(
         sample_status_columns_path,
@@ -603,6 +614,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.sample_status_columns,
             busco_lineages=args.busco_lineage,
             defer_genome_fasta_check=args.defer_genome_fasta_check,
+            genome_base_dir=args.genome_base_dir,
         )
     except ValidationError as error:
         LOGGER.error(str(error))
