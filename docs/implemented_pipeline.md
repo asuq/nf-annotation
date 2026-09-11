@@ -151,7 +151,6 @@ The most important implementation-level parameters are:
 | `prepare_busco_datasets` | `main.nf` | Switches BUSCO lineage resolution from reuse to download. |
 | `busco_lineages` | both | Non-empty lineage list; defaults to `bacillota_odb12` and `mycoplasmatota_odb12`. |
 | `eggnog_db` | `main.nf`, `prepare_databases.nf` | eggNOG data directory. |
-| `gcode_rule` | `main.nf` | Translation-table assignment rule; defaults to `strict_delta`. |
 | `ani_threshold` | `main.nf` | FastANI clustering threshold; defaults to `0.95`. |
 | `eggnog_only_accessions` | `main.nf` | Optional accession allow-list for eggNOG execution. |
 | `outdir` | both | Published output root; defaults to `results`. |
@@ -377,16 +376,19 @@ or labels, pipeline metadata, and the active container engine in one final TSV.
   `low_quality_best_16S.fna` or `low_quality_partial_16S.fna`, including
   atypical samples.
 - CheckM2 always runs twice per sample, once with translation table `4` and
-  once with `11`. `summarise_checkm2.py` applies `params.gcode_rule` and emits
-  the merged per-sample QC summary.
+  once with `11`. `summarise_checkm2.py` selects code 4 when the ratio of their
+  reported average gene lengths exceeds 1.5, otherwise code 11 for a valid
+  pair. Invalid pairs remain unresolved. The summary and master table retain
+  the ratio, fixed threshold, rule and selection reason alongside both reports'
+  metrics. QC uses completeness and contamination from the selected code.
 - BUSCO is independent of gcode assignment. It runs offline in genome mode for
   every sample and every configured lineage.
 - Codetta is independent of gcode assignment. It runs for every sample and
   adds `Codetta_Genetic_Code`, `Codetta_NCBI_Table_Candidates`, and
   `codetta_status` to the final reporting layer.
 - `calculate_assembly_stats.sh` uses `seqtk comp` to emit `n50`, `scaffolds`,
-  `genome_size`, and the derived `gc_content` cohort table used by ANI rescue
-  and to populate the master-table `GC_Content` column.
+  `genome_size`, and the derived `gc_content` cohort table used to populate
+  the master-table `GC_Content` column.
 - The default Codetta image is `quay.io/asuq1617/codetta:2.0`. The workflow
   reports Codetta as `v2.0` and also records the pinned upstream source commit
   used to build that image in `tool_and_db_versions.tsv`.

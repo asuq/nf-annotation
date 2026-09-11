@@ -246,12 +246,12 @@ def validate_sixteen_s(
 def validate_qc(
     root: Path, sample: dict[str, str], status: dict[str, str]
 ) -> dict[str, str]:
-    """Verify the saved QC call without applying a new genetic-code rule."""
+    """Verify saved QC and genetic-code provenance against the native reports."""
     accession = sample["accession"]
     qc = single_summary(
         root / "checkm2/checkm2_summary.tsv",
         accession,
-        (*build_master_table.CHECKM2_COLUMNS, "warnings"),
+        (*build_master_table.CHECKM2_COLUMNS, "checkm2_status", "warnings"),
     )
     if qc["Gcode"] not in {"4", "11", "NA"} or qc["Low_quality"] not in {
         "true",
@@ -278,6 +278,7 @@ def validate_qc(
         check_status(status, column, value, accession)
     check_status(status, "gcode", qc["Gcode"], accession)
     check_status(status, "low_quality", qc["Low_quality"], accession)
+    native_reports: dict[int, summarise_checkm2.ParsedCheckM2Report] = {}
     for code in (4, 11):
         if status[f"checkm2_gcode{code}_status"] == "done":
             report_path = root / f"checkm2_gcode{code}/quality_report.tsv"
@@ -286,7 +287,13 @@ def validate_qc(
                 raise CohortUpdateError(
                     f"CheckM2 report identity mismatch: {report_path}"
                 )
-            report = summarise_checkm2.parse_report(report_path)
+            try:
+                report = summarise_checkm2.parse_report(report_path)
+            except ValueError as error:
+                raise CohortUpdateError(f"Invalid published CheckM2 report: {error}") from error
+            if report.translation_table != code:
+                raise CohortUpdateError(f"CheckM2 translation-table mismatch: {report_path}")
+            native_reports[code] = report
             for metric, value in report.metrics.items():
                 if (
                     summarise_checkm2.format_metric(value)
@@ -295,6 +302,19 @@ def validate_qc(
                     raise CohortUpdateError(
                         f"CheckM2 report disagrees with published summary: {report_path}"
                     )
+    expected = summarise_checkm2.build_output_row(
+        accession, native_reports.get(4), native_reports.get(11),
+        warnings=[value for value in qc["warnings"].split(";") if value],
+    )
+    for field in (
+        "Gcode", *master_table_contract.GCODE_PROVENANCE_COLUMNS,
+        "Low_quality", "checkm2_status",
+    ):
+        if qc[field] != expected[field]:
+            raise CohortUpdateError(
+                f"Published {field} disagrees with the current genetic-code contract "
+                f"for {accession!r}; regenerate the affected source results."
+            )
     return qc
 
 

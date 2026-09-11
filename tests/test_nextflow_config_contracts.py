@@ -38,7 +38,6 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
         self.assertIn("codetta_extra_args = ''", config_text)
         self.assertIn("download_missing_databases = false", config_text)
         self.assertIn("force_runtime_database_rebuild = false", config_text)
-        self.assertIn("gcode_rule = 'strict_delta'", config_text)
         self.assertIn("runtime_db_helper_container = 'quay.io/asuq1617/nf-myco_db:0.3'", config_text)
         self.assertIn("runtime_db_scratch_root = null", config_text)
         self.assertIn("task_attempts = 3", config_text)

@@ -338,77 +338,6 @@ preserving that update's launch/cache and work directories. Inputs and
 scientific settings must match its saved identity. Changing the cohort again
 requires another fresh `--outdir` and a completed published source.
 
-## Rescue ANI from published results
-
-Use `bin/rescue_ani_from_results.py` when an older run already published
-per-sample Barrnap, CheckM2, and BUSCO outputs, but the ANI branch needs to be
-rebuilt without rerunning the heavy per-sample tools.
-
-- `--source-outdir` must point to the failed run's published results tree
-- `--outdir` must be a different fresh rescue directory
-- by default, rescue rebuilds the validation-time `source_sample_status.tsv`
-  seed from `validated_samples.tsv` plus `validation_warnings.tsv`
-- the old published `tables/sample_status.tsv` is not used as the default seed,
-  because in a completed or partially completed run it may already be the later
-  overlaid final audit table
-- `--initial-status` remains available as an explicit override when you really
-  have the original validation-time seed table
-- `--busco-lineage` must be supplied once with the original run order as
-  whitespace-separated values because the first lineage remains the primary
-  ANI-scoring BUSCO column
-
-Example:
-
-```bash
-uv run bin/rescue_ani_from_results.py \
-  --source-outdir /path/to/failed-results \
-  --metadata /path/to/metadata.tsv \
-  --outdir /path/to/rescued-ani \
-  --busco-lineage bacillota_odb12 mycoplasmatota_odb12
-```
-
-If FastANI is only available through a container wrapper, pass the wrapper as a
-quoted command prefix:
-
-```bash
-uv run bin/rescue_ani_from_results.py \
-  --source-outdir /path/to/failed-results \
-  --metadata /path/to/metadata.tsv \
-  --outdir /path/to/rescued-ani \
-  --busco-lineage bacillota_odb12 mycoplasmatota_odb12 \
-  --fastani-binary "singularity exec /path/to/fastani.sif fastANI"
-```
-
-By default, rescue reuses the published source table at
-`cohort/assembly_stats/assembly_stats.tsv`. If that table is missing or you do
-not trust it, point rescue at a different TSV with `--assembly-stats` or opt
-into recomputation with `--recalculate-assembly-stats`.
-
-If `seqtk` is only available through a container wrapper, pass that wrapper
-when recomputation is requested:
-
-```bash
-uv run bin/rescue_ani_from_results.py \
-  --source-outdir /path/to/failed-results \
-  --metadata /path/to/metadata.tsv \
-  --outdir /path/to/rescued-ani \
-  --busco-lineage bacillota_odb12 mycoplasmatota_odb12 \
-  --recalculate-assembly-stats \
-  --seqtk-binary "singularity exec /path/to/seqtk.sif seqtk" \
-  --fastani-binary "singularity exec /path/to/fastani.sif fastANI"
-```
-
-The rescue command rebuilds:
-
-- per-sample `best_16S.fna` and `16S_status.tsv`
-- per-sample `checkm2_summary.tsv`
-- per-lineage BUSCO summary TSVs
-- `cohort/assembly_stats/assembly_stats.tsv` by copying the published source table, or by recomputing it when `--recalculate-assembly-stats` is used
-- `cohort/fastani/` ANI inputs, exclusions, matrix, and logs
-- `cohort/ani_clusters/` cluster, ANI summary, and representative tables
-- partial `tables/master_table.tsv` and `tables/sample_status.tsv`
-- `tables/rescue_provenance.tsv`
-
 ## Small-cohort server validation
 
 For the recommended first real server validation path, use the tracked small
@@ -658,7 +587,7 @@ bin/run_oist_hpc_matrix.sh --hpc-root /path/on/hpc/root all
 Optional:
 
 ```bash
-bin/run_oist_hpc_matrix.sh --hpc-root /path/on/hpc/root --gcode-rule delta_then_11 all
+bin/run_oist_hpc_matrix.sh --hpc-root /path/on/hpc/root all
 ```
 
 That wrapper:
@@ -958,12 +887,10 @@ Then run the medium case with:
 bin/run_oist_hpc_matrix.sh --hpc-root "$HPC_ROOT" p2
 ```
 
-The fixed medium cohort intentionally includes Bacillota genomes that may stay
-unresolved at gcode assignment under the default `strict_delta` rule. For `p2`,
-the validator accepts those rows only when `gcode_status=failed` is the sole
-failed column, `warnings` includes `gcode_na`, and downstream annotation
-statuses remain non-failed, typically `skipped`.
-The same `p2` validator also accepts an isolated failure in the secondary
+The fixed medium cohort uses the paired mean-gene-length ratio rule. Valid
+ratios at or below 1.5 select code 11, while invalid comparisons leave the code
+unresolved and fail validation. The `p2` validator accepts an isolated failure
+in the secondary
 BUSCO lineage when `warnings` includes `busco_summary_failed`. Primary BUSCO
 lineage failures still fail validation because they affect ANI eligibility and
 indicate a materially incomplete QC result.

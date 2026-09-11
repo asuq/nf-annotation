@@ -31,7 +31,15 @@ CHECKM2_COLUMNS = (
 )
 ASSEMBLY_DERIVED_COLUMNS = ("GC_Content",)
 CODETTA_COLUMNS = ("Codetta_Genetic_Code", "Codetta_NCBI_Table_Candidates")
-GCODE_QC_COLUMNS = ("Gcode", *CODETTA_COLUMNS, "Low_quality", "16S")
+GCODE_PROVENANCE_COLUMNS = (
+    "Gcode_Rule",
+    "Gcode_Length_Ratio",
+    "Gcode_Length_Ratio_Threshold",
+    "Gcode_Selection_Reason",
+)
+GCODE_QC_COLUMNS = (
+    "Gcode", *GCODE_PROVENANCE_COLUMNS, *CODETTA_COLUMNS, "Low_quality", "16S"
+)
 CRISPR_COLUMNS = ("CRISPRS", "SPACERS_SUM", "CRISPR_FRAC")
 ANI_COLUMNS = ("Cluster_ID", "Is_Representative", "ANI_to_Representative", "Score")
 DEFAULT_APPEND_COLUMNS_ASSET = (

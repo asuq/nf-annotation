@@ -9,14 +9,15 @@ import logging
 import math
 import sys
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation, localcontext
 from pathlib import Path
 from typing import Sequence
 
+from master_table_contract import GCODE_PROVENANCE_COLUMNS
 
 LOGGER = logging.getLogger(__name__)
-STRICT_DELTA_RULE = "strict_delta"
-DELTA_THEN_ELEVEN_RULE = "delta_then_11"
-GCODE_RULE_CHOICES = (STRICT_DELTA_RULE, DELTA_THEN_ELEVEN_RULE)
+GCODE_RULE = "mean_gene_length_ratio"
+LENGTH_RATIO_THRESHOLD = Decimal("1.5")
 
 OUTPUT_COLUMNS = (
     "accession",
@@ -31,6 +32,7 @@ OUTPUT_COLUMNS = (
     "Total_Coding_Sequences_gcode4",
     "Total_Coding_Sequences_gcode11",
     "Gcode",
+    *GCODE_PROVENANCE_COLUMNS,
     "Low_quality",
     "checkm2_status",
     "warnings",
@@ -54,8 +56,9 @@ SHARED_STAT_ALIASES = {
 class ParsedCheckM2Report:
     """Represent the parsed numeric metrics from one CheckM2 report."""
 
-    metrics: dict[str, float]
-    shared_stats: dict[str, float | str]
+    metrics: dict[str, Decimal]
+    shared_stats: dict[str, Decimal | str]
+    translation_table: int
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -86,12 +89,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=Path,
         help="Path to the combined per-sample QC TSV.",
     )
-    parser.add_argument(
-        "--gcode-rule",
-        choices=GCODE_RULE_CHOICES,
-        default=STRICT_DELTA_RULE,
-        help="Rule used to resolve gcode from paired CheckM2 reports.",
-    )
     return parser.parse_args(argv)
 
 
@@ -105,13 +102,19 @@ def read_report_rows(path: Path) -> list[dict[str, str]]:
     if not path.is_file():
         raise ValueError(f"Missing CheckM2 report: {path}")
     with path.open("r", encoding="utf-8", newline="") as handle:
-        rows = list(csv.DictReader(handle, delimiter="\t"))
+        reader = csv.DictReader(handle, delimiter="\t")
+        header = reader.fieldnames
+        if not header or len(header) != len(set(header)):
+            raise ValueError(f"Missing or duplicate CheckM2 report columns: {path}")
+        rows = list(reader)
     if not rows:
         raise ValueError(f"CheckM2 report is empty: {path}")
     if len(rows) != 1:
         raise ValueError(
             f"CheckM2 report must contain exactly one data row: {path}"
         )
+    if None in rows[0] or None in rows[0].values():
+        raise ValueError(f"Malformed CheckM2 report row: {path}")
     return rows
 
 
@@ -123,14 +126,19 @@ def first_present(row: dict[str, str], candidates: Sequence[str]) -> str:
     raise ValueError(f"Missing required CheckM2 field aliases: {', '.join(candidates)}")
 
 
-def parse_float(value: str, field_name: str, path: Path) -> float:
-    """Parse a floating-point field or raise a descriptive error."""
+def parse_number(value: str, field_name: str, path: Path) -> Decimal:
+    """Preserve a native decimal metric and reject non-finite/underflow values."""
     try:
-        return float(value)
-    except ValueError as error:
+        result = Decimal(value)
+    except (InvalidOperation, TypeError, ValueError) as error:
         raise ValueError(
             f"Could not parse {field_name} value {value!r} in {path}."
         ) from error
+    if not result.is_finite() or not math.isfinite(float(result)):
+        raise ValueError(f"Non-finite {field_name} value {value!r} in {path}.")
+    if result != 0 and float(result) == 0:
+        raise ValueError(f"Underflow in native {field_name} value {value!r} in {path}.")
+    return Decimal(0) if result.is_zero() else result
 
 
 def parse_report(path: Path) -> ParsedCheckM2Report:
@@ -138,15 +146,24 @@ def parse_report(path: Path) -> ParsedCheckM2Report:
     row = read_report_rows(path)[0]
 
     metrics = {
-        metric_name: parse_float(
+        metric_name: parse_number(
             first_present(row, aliases),
             metric_name,
             path,
         )
         for metric_name, aliases in METRIC_ALIASES.items()
     }
+    if any(value < 0 for value in metrics.values()):
+        raise ValueError(f"Negative CheckM2 metric in {path}.")
+    if metrics["Completeness"] > 100 or metrics["Coding_Density"] > 1:
+        raise ValueError(f"CheckM2 completeness or coding density is out of range: {path}")
+    if metrics["Average_Gene_Length"] <= 0:
+        raise ValueError(f"Average_Gene_Length must be strictly positive: {path}")
+    coding_sequences = metrics["Total_Coding_Sequences"]
+    if coding_sequences <= 0 or coding_sequences != coding_sequences.to_integral_value():
+        raise ValueError(f"Total_Coding_Sequences must be a positive integer: {path}")
 
-    shared_stats: dict[str, float | str] = {}
+    shared_stats: dict[str, Decimal | str] = {}
     for stat_name, aliases in SHARED_STAT_ALIASES.items():
         value = None
         for alias in aliases:
@@ -158,18 +175,25 @@ def parse_report(path: Path) -> ParsedCheckM2Report:
         if stat_name == "Name":
             shared_stats[stat_name] = value.strip()
         else:
-            shared_stats[stat_name] = parse_float(value, stat_name, path)
+            shared_stats[stat_name] = parse_number(value, stat_name, path)
 
-    return ParsedCheckM2Report(metrics=metrics, shared_stats=shared_stats)
+    if "Name" not in shared_stats:
+        raise ValueError(f"Missing CheckM2 genome Name: {path}")
+    table = row.get("Translation_Table_Used")
+    if table not in {"4", "11"}:
+        raise ValueError(f"Missing or unsupported Translation_Table_Used in {path}.")
+    return ParsedCheckM2Report(
+        metrics=metrics, shared_stats=shared_stats, translation_table=int(table)
+    )
 
 
-def format_metric(value: float | None) -> str:
-    """Format numeric output fields or emit `NA`."""
+def format_metric(value: Decimal | None) -> str:
+    """Preserve the parsed decimal's precision, or emit `NA`."""
     if value is None:
         return "NA"
-    if math.isclose(value, round(value), rel_tol=0.0, abs_tol=1e-9):
-        return str(int(round(value)))
-    return f"{value:.6f}".rstrip("0").rstrip(".")
+    if not value.is_finite():
+        raise ValueError("Cannot publish a non-finite CheckM2 metric.")
+    return str(value)
 
 
 def reports_have_consistent_shared_stats(
@@ -199,6 +223,8 @@ def empty_output_row(accession: str) -> dict[str, str]:
     """Create a default NA-filled output row."""
     row = {column: "NA" for column in OUTPUT_COLUMNS}
     row["accession"] = accession
+    row["Gcode_Rule"] = GCODE_RULE
+    row["Gcode_Length_Ratio_Threshold"] = str(LENGTH_RATIO_THRESHOLD)
     row["warnings"] = ""
     return row
 
@@ -208,9 +234,14 @@ def assign_low_quality(
     report: ParsedCheckM2Report,
 ) -> None:
     """Populate Low_quality from the chosen report metrics."""
-    low_quality_score = (
-        report.metrics["Completeness"] - 5 * report.metrics["Contamination"]
-    )
+    with localcontext() as context:
+        context.prec = max(
+            len(value.as_tuple().digits) + abs(value.as_tuple().exponent)
+            for value in (report.metrics["Completeness"], report.metrics["Contamination"])
+        ) + 10
+        low_quality_score = (
+            report.metrics["Completeness"] - 5 * report.metrics["Contamination"]
+        )
     row["Low_quality"] = "true" if low_quality_score <= 50 else "false"
 
 
@@ -218,32 +249,23 @@ def assign_gcode_from_valid_pair(
     row: dict[str, str],
     report_four: ParsedCheckM2Report,
     report_eleven: ParsedCheckM2Report,
-    *,
-    gcode_rule: str,
-    warnings: list[str],
 ) -> None:
     """Assign gcode from a valid paired CheckM2 comparison."""
-    completeness_four = report_four.metrics["Completeness"]
-    completeness_eleven = report_eleven.metrics["Completeness"]
-
-    if completeness_four - completeness_eleven > 10:
-        row["Gcode"] = "4"
-        assign_low_quality(row, report_four)
-        return
-
-    if completeness_eleven - completeness_four > 10:
-        row["Gcode"] = "11"
-        assign_low_quality(row, report_eleven)
-        return
-
-    if gcode_rule == DELTA_THEN_ELEVEN_RULE:
-        row["Gcode"] = "11"
-        assign_low_quality(row, report_eleven)
-        return
-
-    row["Gcode"] = "NA"
-    row["Low_quality"] = "NA"
-    warnings.append("gcode_na")
+    length_four = report_four.metrics["Average_Gene_Length"]
+    length_eleven = report_eleven.metrics["Average_Gene_Length"]
+    # Compare decimal input values directly, so a binary-float division cannot
+    # place an exact 1.5 boundary on the wrong side of the rule.
+    with localcontext() as context:
+        context.prec = max(
+            len(length_four.as_tuple().digits), len(length_eleven.as_tuple().digits)
+        ) + 20
+        select_four = length_four > LENGTH_RATIO_THRESHOLD * length_eleven
+        row["Gcode_Length_Ratio"] = str(length_four / length_eleven)
+    row["Gcode"] = "4" if select_four else "11"
+    row["Gcode_Selection_Reason"] = (
+        "length_ratio_above_threshold" if select_four else "length_ratio_at_or_below_threshold"
+    )
+    assign_low_quality(row, report_four if select_four else report_eleven)
 
 
 def build_output_row(
@@ -251,7 +273,6 @@ def build_output_row(
     report_four: ParsedCheckM2Report | None,
     report_eleven: ParsedCheckM2Report | None,
     *,
-    gcode_rule: str,
     warnings: list[str],
 ) -> dict[str, str]:
     """Create the final output row from two optional parsed reports."""
@@ -285,20 +306,24 @@ def build_output_row(
             report_eleven.metrics["Total_Coding_Sequences"]
         )
 
-    if report_four is not None and report_eleven is not None and reports_have_consistent_shared_stats(
-        report_four,
-        report_eleven,
-    ):
+    valid_pair = (
+        report_four is not None
+        and report_eleven is not None
+        and report_four.translation_table == 4
+        and report_eleven.translation_table == 11
+        and reports_have_consistent_shared_stats(report_four, report_eleven)
+    )
+    if valid_pair:
+        assert report_four is not None and report_eleven is not None
         assign_gcode_from_valid_pair(
             row,
             report_four,
             report_eleven,
-            gcode_rule=gcode_rule,
-            warnings=warnings,
         )
     else:
         row["Gcode"] = "NA"
         row["Low_quality"] = "NA"
+        row["Gcode_Selection_Reason"] = "invalid_report_pair"
 
     failure_warnings = {
         "checkm2_gcode4_failed",
@@ -306,7 +331,9 @@ def build_output_row(
         "inconsistent_shared_stats",
     }
     row["checkm2_status"] = (
-        "failed" if any(warning in failure_warnings for warning in warnings) else "done"
+        "done"
+        if valid_pair and not any(warning in failure_warnings for warning in warnings)
+        else "failed"
     )
     row["warnings"] = ";".join(dict.fromkeys(warnings))
     return row
@@ -316,7 +343,9 @@ def write_output(path: Path, row: dict[str, str]) -> None:
     """Write the final single-row TSV output."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(OUTPUT_COLUMNS), delimiter="\t")
+        writer = csv.DictWriter(
+            handle, fieldnames=list(OUTPUT_COLUMNS), delimiter="\t", lineterminator="\n"
+        )
         writer.writeheader()
         writer.writerow(row)
 
@@ -326,14 +355,14 @@ def run_summary(
     gcode4_report: Path,
     gcode11_report: Path,
     output: Path,
-    *,
-    gcode_rule: str,
 ) -> None:
     """Summarise paired CheckM2 reports into one per-sample TSV row."""
     warnings: list[str] = []
 
     try:
         report_four = parse_report(gcode4_report)
+        if report_four.translation_table != 4:
+            raise ValueError(f"Expected translation table 4 in {gcode4_report}.")
     except ValueError as error:
         LOGGER.warning(str(error))
         warnings.append("checkm2_gcode4_failed")
@@ -341,6 +370,8 @@ def run_summary(
 
     try:
         report_eleven = parse_report(gcode11_report)
+        if report_eleven.translation_table != 11:
+            raise ValueError(f"Expected translation table 11 in {gcode11_report}.")
     except ValueError as error:
         LOGGER.warning(str(error))
         warnings.append("checkm2_gcode11_failed")
@@ -357,7 +388,6 @@ def run_summary(
         accession,
         report_four,
         report_eleven,
-        gcode_rule=gcode_rule,
         warnings=warnings,
     )
     write_output(output, row)
@@ -372,7 +402,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         gcode4_report=args.gcode4_report,
         gcode11_report=args.gcode11_report,
         output=args.output,
-        gcode_rule=args.gcode_rule,
     )
     LOGGER.info("Wrote CheckM2 summary for %s.", args.accession)
     return 0

@@ -20,7 +20,7 @@ workflow PUBLISHED_RESULTS_IMPORT {
     previousIdentity = file("${params.outdir}/tables/cohort_update_run.json")
     previousUpdate = Channel.value(previousIdentity.exists() ? [previousIdentity] : [])
     settingsNames = [
-        'barrnap_kingdom', 'busco_lineages', 'busco_primary_column', 'gcode_rule',
+        'barrnap_kingdom', 'busco_lineages', 'busco_primary_column',
         'codetta_extra_args', 'ccfinder_extra_args', 'padloc_extra_args', 'eggnog_extra_args',
         'eggnog_only_accessions', 'ani_allow_incomplete_16s', 'ani_threshold', 'ani_score_profile',
         'taxdump', 'taxdump_label', 'checkm2_db', 'checkm2_db_label', 'codetta_db', 'codetta_db_label',

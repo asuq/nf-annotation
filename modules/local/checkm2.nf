@@ -102,12 +102,15 @@ process CHECKM2 {
     """
 
     stub:
+    def stubMeanLength = translation_table.toString() == '4' ? 300 : 150
+    def stubCodingSequences = translation_table.toString() == '4' ? 3000 : 5300
     """
     mkdir -p "checkm2_gcode${translation_table}"
     cat <<'EOF' > quality_report.tsv
-    Name	Completeness	Contamination	Coding_Density	Average_Gene_Length	Total_Coding_Sequences
-    sample_a	95	2	0.9	900	800
+    Name	Completeness	Contamination	Coding_Density	Average_Gene_Length	Total_Coding_Sequences	Genome_Size	GC_Content	Contig_N50	Translation_Table_Used
+    ${meta.internal_id}	95	2	0.9	${stubMeanLength}	${stubCodingSequences}	3000000	0.3	500000	${translation_table}
     EOF
+    cp quality_report.tsv "checkm2_gcode${translation_table}/quality_report.tsv"
     : > checkm2.log
     cat <<'EOF' > versions.yml
     "${task.process}":

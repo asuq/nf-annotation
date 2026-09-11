@@ -30,7 +30,12 @@ VALIDATED_SAMPLE_SUPPLEMENTAL_EXCLUSIONS = (
     "internal_id",
 )
 TAXONOMY_COLUMNS = tuple(master_table_contract.TAXONOMY_COLUMNS)
-CHECKM2_COLUMNS = tuple(master_table_contract.CHECKM2_COLUMNS) + ("Gcode", "Low_quality")
+CHECKM2_COLUMNS = (
+    *master_table_contract.CHECKM2_COLUMNS,
+    "Gcode",
+    *master_table_contract.GCODE_PROVENANCE_COLUMNS,
+    "Low_quality",
+)
 ASSEMBLY_DERIVED_COLUMN_MAP = {"GC_Content": "gc_content"}
 CODETTA_COLUMNS = tuple(master_table_contract.CODETTA_COLUMNS)
 SIXTEEN_S_COLUMNS = ("16S",)

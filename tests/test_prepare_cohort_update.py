@@ -105,7 +105,15 @@ class PrepareCohortUpdateTestCase(unittest.TestCase):
             }
             table(sample / "16s/16S_status.tsv", list(sixteen_s), [sixteen_s])
             qc = {column: "1" for column in build_master_table.CHECKM2_COLUMNS}
-            qc.update(accession=accession, Gcode="4", Low_quality="false", warnings="")
+            qc.update(
+                accession=accession, Gcode="4", Low_quality="false", warnings="",
+                Completeness_gcode4="95", Completeness_gcode11="80",
+                Average_Gene_Length_gcode4="300", Average_Gene_Length_gcode11="150",
+                Gcode_Rule="mean_gene_length_ratio", Gcode_Length_Ratio="2",
+                Gcode_Length_Ratio_Threshold="1.5",
+                Gcode_Selection_Reason="length_ratio_above_threshold",
+                checkm2_status="done",
+            )
             table(sample / "checkm2/checkm2_summary.tsv", list(qc), [qc])
             for code in (4, 11):
                 report = {
@@ -114,6 +122,7 @@ class PrepareCohortUpdateTestCase(unittest.TestCase):
                     if column.endswith(f"_gcode{code}")
                 }
                 report["Name"] = internal_id
+                report["Translation_Table_Used"] = str(code)
                 table(
                     sample / f"checkm2_gcode{code}/quality_report.tsv",
                     list(report),
@@ -395,6 +404,37 @@ class PrepareCohortUpdateTestCase(unittest.TestCase):
         with self.assertRaisesRegex(
             update.CohortUpdateError, "Invalid published Completeness"
         ):
+            update.run_prepare(args)
+
+    def test_source_code_provenance_must_match_native_reports(self) -> None:
+        """Reject stale or altered code-selection provenance before reusing proteins."""
+        self.published_cohort(["A"])
+        args = self.arguments(["A"])
+        path = self.source / "samples/A/checkm2/checkm2_summary.tsv"
+        header, rows = update.read_table(path)
+        for field, value in (
+            ("Gcode_Rule", "unsupported_rule"),
+            ("Gcode_Length_Ratio", "1.1"),
+            ("Gcode_Length_Ratio_Threshold", "2"),
+            ("Gcode_Selection_Reason", "invalid_report_pair"),
+        ):
+            with self.subTest(field=field):
+                altered = dict(rows[0], **{field: value})
+                table(path, header, [altered])
+                with self.assertRaisesRegex(update.CohortUpdateError, field):
+                    update.run_prepare(args)
+                self.assertFalse(args.outdir.exists())
+        table(path, header, rows)
+
+    def test_source_translation_table_must_match_report_location(self) -> None:
+        """Do not reuse a report labelled as the wrong translation table."""
+        self.published_cohort(["A"])
+        args = self.arguments(["A"])
+        path = self.source / "samples/A/checkm2_gcode4/quality_report.tsv"
+        header, rows = update.read_table(path)
+        rows[0]["Translation_Table_Used"] = "11"
+        table(path, header, rows)
+        with self.assertRaisesRegex(update.CohortUpdateError, "translation-table mismatch"):
             update.run_prepare(args)
 
     def test_missing_requested_busco_lineage_fails(self) -> None:

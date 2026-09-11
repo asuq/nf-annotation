@@ -52,7 +52,6 @@ class RunOistHpcMatrixScriptTestCase(unittest.TestCase):
         )
         self.assertIn("Run the OIST HPC validation campaign", result.stdout)
         self.assertIn("--hpc-root PATH", result.stdout)
-        self.assertIn("--gcode-rule RULE", result.stdout)
         self.assertIn(
             "Host python3 must be >= 3.12 for the harness and matrix validators.",
             result.stdout,
@@ -181,8 +180,8 @@ class RunOistHpcMatrixScriptTestCase(unittest.TestCase):
         self.assertNotIn("--max_time", result.stdout)
         self.assertNotIn("--padloc_db", result.stdout)
 
-    def test_p1_dry_run_forwards_gcode_rule_override(self) -> None:
-        """Pass an explicit gcode rule override through to the pipeline run."""
+    def test_p1_dry_run_rejects_obsolete_gcode_rule(self) -> None:
+        """Reject a removed scientific-method option instead of ignoring it."""
         result = self.run_wrapper(
             "--dry-run",
             "--hpc-root",
@@ -192,8 +191,8 @@ class RunOistHpcMatrixScriptTestCase(unittest.TestCase):
             "p1",
         )
 
-        self.assertEqual(result.returncode, 0, msg=result.stderr)
-        self.assertIn("--gcode_rule delta_then_11", result.stdout)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("--gcode-rule", result.stderr)
 
     def test_p2_auto_prepares_medium_inputs(self) -> None:
         """Refresh the fixed medium cohort inputs before each p2 run."""

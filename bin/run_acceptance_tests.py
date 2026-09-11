@@ -32,7 +32,6 @@ DEFAULT_MEDIUM_COHORT_PLAN = ROOT_DIR / "assets" / "tables" / "medium" / "cohort
 DEFAULT_LOCAL_PROFILE = "debug,local,docker"
 DEFAULT_SLURM_PROFILE = "debug,slurm,singularity"
 DEFAULT_DBPREP_PROFILE = "slurm,singularity"
-GCODE_RULE_CHOICES = ("strict_delta", "delta_then_11")
 REAL_RUN_NOTE = (
     "CRISPRCasFinder uses params.ccfinder_container from pipeline config; "
     "the acceptance harness does not override it."
@@ -740,7 +739,6 @@ def build_nextflow_command(
         command.extend(["--prepare_busco_datasets", "true"])
     if args.busco_db:
         command.extend(["--busco_db", str(Path(args.busco_db).resolve())])
-    maybe_add_parameter(command, "--gcode_rule", args.gcode_rule)
     maybe_add_parameter(command, "--slurm_queue", args.slurm_queue)
     maybe_add_parameter(command, "--slurm_qos", args.slurm_qos)
     maybe_add_parameter(command, "--slurm_cluster_options", args.slurm_cluster_options)
@@ -1344,12 +1342,6 @@ def build_real_run_parser() -> argparse.ArgumentParser:
         help="Allow the pipeline to prepare BUSCO lineage datasets itself.",
     )
     parser.add_argument("--eggnog-db", type=Path, default=None, help="eggNOG database path.")
-    parser.add_argument(
-        "--gcode-rule",
-        choices=GCODE_RULE_CHOICES,
-        default=None,
-        help="Optional gcode-assignment rule override.",
-    )
     parser.add_argument(
         "--local-profile",
         default=DEFAULT_LOCAL_PROFILE,

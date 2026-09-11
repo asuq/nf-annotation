@@ -18,6 +18,10 @@ Total_Coding_Sequences_gcode4
 Total_Coding_Sequences_gcode11
 GC_Content
 Gcode
+Gcode_Rule
+Gcode_Length_Ratio
+Gcode_Length_Ratio_Threshold
+Gcode_Selection_Reason
 Codetta_Genetic_Code
 Codetta_NCBI_Table_Candidates
 Low_quality

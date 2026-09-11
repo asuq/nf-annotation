@@ -47,7 +47,6 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
             "resume": False,
             "prepare_busco_datasets": False,
             "busco_db": Path("/tmp/busco"),
-            "gcode_rule": None,
             "slurm_queue": None,
             "slurm_qos": None,
             "slurm_cluster_options": None,
@@ -806,30 +805,6 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
 
         self.assertIn("--slurm_cluster_options=--qos=2h", command)
         self.assertNotIn("--slurm_cluster_options", command)
-
-    def test_build_nextflow_command_forwards_gcode_rule(self) -> None:
-        """Forward an explicit gcode rule override to the real pipeline."""
-        args = self.make_real_run_args(gcode_rule="delta_then_11")
-        cohort = run_acceptance_tests.PreparedCohort(
-            work_root=Path("/tmp/work"),
-            sample_csv=Path("/tmp/sample_sheet.csv"),
-            metadata_tsv=Path("/tmp/metadata.tsv"),
-            source_stats_tsv=Path("/tmp/source_stats.tsv"),
-            checksums_tsv=Path("/tmp/download_checksums.tsv"),
-            cohort_plan=(),
-            source_stats={},
-        )
-
-        command = run_acceptance_tests.build_nextflow_command(
-            profile="slurm,singularity",
-            work_dir=Path("/tmp/work-dir"),
-            outdir=Path("/tmp/results"),
-            cohort=cohort,
-            args=args,
-        )
-
-        self.assertIn("--gcode_rule", command)
-        self.assertIn("delta_then_11", command)
 
     def test_build_dbprep_command_uses_prepare_databases_entry_point(self) -> None:
         """Build the dedicated runtime database prep command."""

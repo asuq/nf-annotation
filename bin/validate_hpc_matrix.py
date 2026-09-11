@@ -325,7 +325,7 @@ def primary_busco_status_column(configured_lineages: Sequence[str]) -> str:
 
 
 def assert_medium_statuses_allowed(sample_status_path: Path) -> None:
-    """Allow only the expected medium-run `gcode_na` status pattern."""
+    """Allow only documented failures of a secondary BUSCO lineage."""
     _header, rows = read_tsv(sample_status_path)
     primary_busco_column = primary_busco_status_column(
         run_acceptance_tests.DEFAULT_DBPREP_BUSCO_LINEAGES
@@ -339,8 +339,6 @@ def assert_medium_statuses_allowed(sample_status_path: Path) -> None:
             continue
 
         warning_tokens = split_warning_tokens(row.get("warnings", ""))
-        if failed_columns == ["gcode_status"] and "gcode_na" in warning_tokens:
-            continue
         if (
             len(failed_columns) == 1
             and failed_columns[0].startswith("busco_")

@@ -131,8 +131,13 @@ def make_stub(args: argparse.Namespace) -> None:
                     "Coding_Density",
                     "Average_Gene_Length",
                     "Total_Coding_Sequences",
+                    "Translation_Table_Used",
                 ],
-                [[internal_id, completeness, "1", "0.9", "900", "800"]],
+                [[
+                    internal_id, completeness, "1", "0.9",
+                    "300" if args.translation_table == "4" else "150",
+                    "800", args.translation_table,
+                ]],
             )
         write("checkm2.log", f"exit_code={1 if failed else 0}\n")
     elif tool == "busco":

@@ -200,8 +200,8 @@ class ValidateHpcMatrixTestCase(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, msg=result.stderr)
 
-    def test_medium_run_validation_accepts_isolated_gcode_na_failure(self) -> None:
-        """Allow one medium run where only gcode assignment remains unresolved."""
+    def test_medium_run_validation_rejects_unresolved_gcode(self) -> None:
+        """Unresolved genetic code is a failed comparison under the ratio rule."""
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             outdir = root / "out"
@@ -248,7 +248,8 @@ class ValidateHpcMatrixTestCase(unittest.TestCase):
                 "Bacillota",
             )
 
-            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("unexpected medium sample-status failures", result.stderr)
 
     def test_medium_run_validation_accepts_isolated_secondary_busco_failure(self) -> None:
         """Allow one medium run where only the non-primary BUSCO lineage failed."""

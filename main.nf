@@ -12,6 +12,9 @@ include { PER_SAMPLE_ANNOTATION } from './subworkflows/local/per_sample_annotati
 include { PER_SAMPLE_QC } from './subworkflows/local/per_sample_qc'
 
 workflow {
+    if (params.containsKey('gcode_rule')) {
+        error "--gcode_rule has been removed. Genetic-code selection uses the mean-gene-length ratio threshold of 1.5."
+    }
     def normaliseBuscoLineages = { rawValue ->
         def rawItems = rawValue instanceof List ? rawValue : [rawValue]
         def lineages = rawItems

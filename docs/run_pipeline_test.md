@@ -53,16 +53,13 @@ bin/run_oist_hpc_matrix.sh --hpc-root /path/on/hpc/root all
 
 That wrapper keeps using the coded OIST resource defaults. It does not add
 `--max_cpus`, `--max_memory`, or `--max_time` overrides.
-It also accepts `--gcode-rule strict_delta|delta_then_11` when you need to
-override the pipeline's default gcode-resolution policy.
+The genetic-code rule is fixed: a paired mean-gene-length ratio above 1.5 selects
+code 4; a valid ratio at or below 1.5 selects code 11.
 Codetta remains helper-prepared in the HPC matrix, so a directory with
 `Pfam-A_enone.hmm` and the `.h3*` files but without `.nf_myco_ready.json` is
 an expected `db-matrix` failure unless force rebuild is used.
-For the fixed medium `p2` run, the validator now allows the expected
-`strict_delta` edge case where a row has only `gcode_status=failed`,
-`warnings` includes `gcode_na`, and downstream annotation statuses are
-non-failed.
-It also allows an isolated failure in the secondary BUSCO lineage when the row
+The fixed medium `p2` validator rejects unresolved genetic-code assignments.
+It allows an isolated failure in the secondary BUSCO lineage when the row
 records `busco_summary_failed`. The primary BUSCO lineage remains strict.
 
 The medium Mycoplasmatota/Bacillota cohort is now prepared in the same way as

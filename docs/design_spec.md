@@ -88,16 +88,14 @@ This is a **behaviour-preserving v1 refactor**, not a methodological redesign.
 - Run CheckM2 twice for every sample:
   - forced `--ttable 4`
   - forced `--ttable 11`
-- Gcode assignment must expose a selectable rule via `params.gcode_rule`.
-- Supported rules are:
-  - `strict_delta`
-    - assign `4` if `Completeness_gcode4 - Completeness_gcode11 > 10`
-    - assign `11` if `Completeness_gcode11 - Completeness_gcode4 > 10`
-    - assign `NA` otherwise
-  - `delta_then_11`
-    - apply the `strict_delta` thresholds first
-    - if both CheckM2 reports are valid and internally consistent and the thresholds do not resolve gcode, assign `11`
-- Default rule: `strict_delta`
+- Select code 4 when `Average_Gene_Length_gcode4 / Average_Gene_Length_gcode11 > 1.5`.
+- Select code 11 when the valid ratio is at or below 1.5, including exactly 1.5.
+- Require valid reports for translation tables 4 and 11, matching genome identities
+  and shared statistics, and finite, strictly positive mean lengths.
+- Record both means, the ratio, rule, threshold and selection reason. Compare
+  decimal values without rounding before selection. Calculate QC from the
+  selected code's completeness and contamination.
+- The former `gcode_rule` selector is removed; there is one selection rule.
 - If gcode is `NA`:
   - record a warning in `sample_status.tsv`;
   - do **not** run Prokka, eggNOG, CRISPRCasFinder, or PADLOC for that sample.
@@ -219,8 +217,8 @@ These were not fully specified, so they are fixed here for v1.
   - `ANI_to_Representative`
   - `Score`
 - `sample_status.tsv` must record the exclusion reason as `gcode_na`.
-- `Gcode = NA` remains reserved for genuine CheckM2 failure or inconsistency
-  paths, or for the `strict_delta` rule when neither threshold is met.
+- `Gcode = NA` is reserved for failed, missing, invalid or inconsistent paired
+  CheckM2 reports. A valid ratio at or below 1.5 resolves to code 11.
 
 ### 3.2 Atypical-genome detection rule
 

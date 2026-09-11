@@ -79,7 +79,11 @@ class MasterTableContractTestCase(unittest.TestCase):
         """Keep the Codetta fields directly after the chosen gcode column."""
         columns = master_table_contract.build_append_columns()
 
-        self.assertEqual(columns[columns.index("Gcode") + 1], "Codetta_Genetic_Code")
+        provenance_start = columns.index("Gcode") + 1
+        self.assertEqual(
+            columns[provenance_start:provenance_start + len(master_table_contract.GCODE_PROVENANCE_COLUMNS)],
+            list(master_table_contract.GCODE_PROVENANCE_COLUMNS),
+        )
         self.assertEqual(
             columns[columns.index("Codetta_Genetic_Code") + 1],
             "Codetta_NCBI_Table_Candidates",
