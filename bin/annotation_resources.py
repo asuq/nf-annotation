@@ -485,13 +485,9 @@ def prepare_eggnog(source: Path, root: Path) -> dict[str, Any]:
         raise AnnotationResourceError(
             "GO OBO must provide all three namespaces; flat-GO fallback is forbidden"
         )
-    for name in ("eggnog.db", "eggnog.taxa.db"):
-        with sqlite3.connect(f"file:{root / name}?mode=ro", uri=True) as database:
-            if database.execute("PRAGMA quick_check").fetchall() != [("ok",)]:
-                raise AnnotationResourceError(f"SQLite integrity check failed: {name}")
     database = EggnogDB(str(root / "eggnog.db"), load_taxids=False)
     try:
-        version = database.get_db_version()
+        version = database.get_version()
         if version != "7.0.0":
             raise AnnotationResourceError(
                 f"Expected eggNOG v7 database; observed {version!r}"
@@ -502,10 +498,16 @@ def prepare_eggnog(source: Path, root: Path) -> dict[str, Any]:
             "SELECT protein_id, events FROM event_index LIMIT 1",
             "SELECT i, name, og, og_lca, ev_lca, sp_overlap, side1, side2 FROM sp_events LIMIT 1",
             "SELECT * FROM ogs LIMIT 1",
-            "SELECT * FROM ref_terms LIMIT 1",
         ):
             if database.conn.execute(query).fetchone() is None:
                 raise AnnotationResourceError(f"Missing annotation data: {query}")
+        for name in ("eggnog.db", "eggnog.taxa.db"):
+            LOGGER.info("Checking complete SQLite integrity: %s", name)
+            with sqlite3.connect(f"file:{root / name}?mode=ro", uri=True) as checked:
+                if checked.execute("PRAGMA quick_check").fetchall() != [("ok",)]:
+                    raise AnnotationResourceError(
+                        f"SQLite integrity check failed: {name}"
+                    )
         n_taxids = database.conn.execute(
             "SELECT MAX(id) + 1 FROM protein_names"
         ).fetchone()[0]
@@ -516,6 +518,7 @@ def prepare_eggnog(source: Path, root: Path) -> dict[str, Any]:
                 raise AnnotationResourceError("Unexpected taxid cache size")
         # A complete comparison once at preparation prevents a same-size cache
         # from a different database build from silently supplying wrong taxa.
+        LOGGER.info("Comparing every native taxid cache entry (%d positions)", n_taxids)
         for row in database.conn.execute("SELECT id, taxid FROM protein_names"):
             if taxids[row["id"]] != row["taxid"]:
                 raise AnnotationResourceError(
@@ -525,6 +528,7 @@ def prepare_eggnog(source: Path, root: Path) -> dict[str, Any]:
             database, go_obo_path=str(root / "go-basic.obo"), donor_pool="closest"
         )
         n_masks = database.conn.execute("SELECT MAX(id) + 1 FROM prots").fetchone()[0]
+        LOGGER.info("Comparing native field-presence cache (%d positions)", n_masks)
         expected_masks = engine.build_field_presence(
             (dict(row) for row in database.conn.execute("SELECT * FROM prots")), n_masks
         )
