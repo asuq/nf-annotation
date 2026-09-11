@@ -50,7 +50,15 @@ workflow FUNCTIONAL_ANNOTATION {
     collectedBundles = bundles.toList().map { items ->
         items.sort(false) { left, right -> left[0].accession <=> right[0].accession }.collect { it[1] }
     }
-    PLAN_ANNOTATIONS(samples, preflight, collectedBundles, source_results)
+    // The planner rechecks these small files at their recorded absolute paths.
+    // Staging them makes their parent directories visible inside its container.
+    resourceManifests = preflight.map { receipt ->
+        def record = new groovy.json.JsonSlurper().parse(receipt.toFile())
+        record.tools.values().findAll { it.resource_path }.collect {
+            file("${it.resource_path}/annotation_resource.json", checkIfExists: true)
+        }
+    }
+    PLAN_ANNOTATIONS(samples, preflight, collectedBundles, source_results, resourceManifests)
     plannedTasks = PLAN_ANNOTATIONS.out.table
         .splitCsv(header: true, sep: '\t')
         .filter { row -> row.action != 'skip' }

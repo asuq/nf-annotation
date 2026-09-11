@@ -40,6 +40,7 @@ process PLAN_ANNOTATIONS {
     path receipt
     path bundles, stageAs: 'bundles/bundle??'
     path source_results, name: 'source_results'
+    path resource_manifests, stageAs: 'resource_manifests/manifest??.json'
 
     output:
     path 'planned', emit: tasks
