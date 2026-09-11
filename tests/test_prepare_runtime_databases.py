@@ -708,6 +708,43 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
             self.assertIn("--out", first_call)
             self.assertEqual(first_call[-1], "https://example.invalid/taxdump.zip")
 
+    def test_busco_lineage_checksums_are_verified_before_preparation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            lineage = "bacillota_odb12"
+            archive = self.create_tar_archive(
+                self.create_busco_lineage_dir(root / "fixture"),
+                root / "lineage.tar.gz", "payload",
+            )
+            config = {
+                "kind": "lineage_archives",
+                "lineage_url_template": "https://example.invalid/{lineage}.tar.gz",
+                "checksums": {lineage: {"type": "md5", "value": self.checksum_md5(archive)}},
+            }
+            manifest = {"busco": {"default_version": "pinned", "versions": {"pinned": config}}}
+            arguments = dict(
+                manifest=manifest, remote_component="busco", component_label=f"busco:{lineage}",
+                version="pinned", validator=prepare_runtime_databases.build_busco_lineage_validator(lineage),
+                scratch_root=None, lineage=lineage,
+            )
+            with (
+                mock.patch.object(prepare_runtime_databases.shutil, "which", return_value="aria2c"),
+                mock.patch.object(prepare_runtime_databases.subprocess, "run", self.make_fake_aria2(
+                    {f"https://example.invalid/{lineage}.tar.gz": archive}, [],
+                )),
+            ):
+                _, _, metadata = prepare_runtime_databases.prepare_remote_component(
+                    destination=root / "valid", **arguments,
+                )
+                self.assertEqual(metadata["checksum"], f"md5:{self.checksum_md5(archive)}")
+                config["checksums"][lineage]["value"] = "0" * 32
+                with self.assertRaises(prepare_runtime_databases.ChecksumMismatchError):
+                    prepare_runtime_databases.prepare_remote_component(destination=root / "bad", **arguments)
+                self.assertFalse((root / "bad").exists())
+                config["checksums"] = {}
+                with self.assertRaisesRegex(prepare_runtime_databases.PrepareRuntimeDatabasesError, "no checksum"):
+                    prepare_runtime_databases.prepare_remote_component(destination=root / "missing", **arguments)
+
     def test_main_remote_version_pin_selects_the_requested_release(self) -> None:
         """Use the requested remote version rather than the default remote version."""
         with tempfile.TemporaryDirectory() as tmpdir_name:

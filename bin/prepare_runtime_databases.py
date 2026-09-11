@@ -954,6 +954,13 @@ def prepare_remote_component(
             archive_name_template = "{lineage}.tar.gz"
         url = url_template.format(lineage=lineage)
         archive_name = archive_name_template.format(lineage=lineage)
+        checksum_config = None
+        if "checksums" in version_config:
+            checksum_config = version_config["checksums"].get(lineage)
+            if not isinstance(checksum_config, dict) or not checksum_config:
+                raise PrepareRuntimeDatabasesError(
+                    f"Remote BUSCO version {version_key!r} has no checksum for {lineage}."
+                )
         validation, source, metadata = prepare_remote_archive_component(
             component=component_label,
             destination=destination,
@@ -961,7 +968,7 @@ def prepare_remote_component(
             scratch_root=scratch_root,
             url=url,
             archive_name=archive_name,
-            checksum_config=None,
+            checksum_config=checksum_config,
         )
         metadata.update(metadata_prefix)
         metadata["lineage"] = lineage

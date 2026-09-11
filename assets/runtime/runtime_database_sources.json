@@ -39,12 +39,16 @@
     }
   },
   "busco": {
-    "default_version": "2025-05-14",
+    "default_version": "2026-05-22",
     "versions": {
-      "2025-05-14": {
+      "2026-05-22": {
         "kind": "lineage_archives",
-        "lineage_url_template": "https://busco-data.ezlab.org/v5/data/lineages/{lineage}.2025-05-14.tar.gz",
-        "archive_name_template": "{lineage}.2025-05-14.tar.gz"
+        "lineage_url_template": "https://busco-data.ezlab.org/v5/data/lineages/{lineage}.2026-05-22.tar.gz",
+        "archive_name_template": "{lineage}.2026-05-22.tar.gz",
+        "checksums": {
+          "bacillota_odb12": {"type": "md5", "value": "4b161668f14f58f00c85ed988c9bcdcf"},
+          "mycoplasmatota_odb12": {"type": "md5", "value": "39cdc09ac23c528ae09e514ecce47782"}
+        }
       }
     }
   },
