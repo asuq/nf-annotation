@@ -1,0 +1,16 @@
+[workspace]
+name = "nf-annotation-eggnog"
+channels = ["conda-forge", "bioconda"]
+platforms = ["linux-64"]
+
+[dependencies]
+python = "3.12.*"
+biopython = "1.84.*"
+diamond = "2.1.25.*"
+hmmer = "3.4.*"
+psutil = ">=5.7,<8"
+xlsxwriter = ">=1.4,<4"
+cxx-compiler = "*"
+
+[pypi-dependencies]
+eggnog-mapper = { url = "https://github.com/eggnogdb/eggnog-mapper/archive/b3757a6d226047527a729546e58ff530d76a5d7d.tar.gz" }

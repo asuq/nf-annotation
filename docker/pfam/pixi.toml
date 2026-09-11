@@ -1,0 +1,13 @@
+[workspace]
+name = "nf-annotation-pfam"
+channels = ["conda-forge", "bioconda"]
+platforms = ["linux-64"]
+
+[dependencies]
+python = "3.12.*"
+hmmer = "3.4.*"
+perl = "5.32.*"
+perl-moose = ">=2,<3"
+perl-bioperl-core = ">=1.7,<2"
+perl-json = ">=4,<5"
+perl-ipc-run = "*"

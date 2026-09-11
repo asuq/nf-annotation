@@ -1,27 +1,19 @@
-FROM quay.io/biocontainers/eggnog-mapper:2.1.13--pyhdfd78af_2
+# syntax=docker/dockerfile:1
+FROM ghcr.io/prefix-dev/pixi:0.76.2@sha256:8b206ef57005a902cb53f50dbaa47893a4038ca269f0b00038b51f18b1313cd4
 
-RUN set -eu; \
-    script_path="$(command -v download_eggnog_data.py)"; \
-    python - "${script_path}" <<'PY'
-from pathlib import Path
-import sys
+WORKDIR /opt/nf-annotation/eggnog
+COPY pixi.toml pixi.lock ./
+RUN --mount=type=cache,target=/root/.cache/rattler \
+    --mount=type=cache,target=/root/.cache/uv \
+    pixi install --locked
 
-path = Path(sys.argv[1])
-source = path.read_text(encoding="utf-8")
-source = source.replace(
-    "http://eggnogdb.embl.de/download/emapperdb-",
-    "http://eggnog5.embl.de/download/emapperdb-",
-)
-source = source.replace(
-    "http://eggnogdb.embl.de/download/novel_fams-",
-    "http://eggnog5.embl.de/download/novel_fams-",
-)
-path.write_text(source, encoding="utf-8")
-PY
+ENV PATH="/opt/nf-annotation/eggnog/.pixi/envs/default/bin:${PATH}"
+COPY install_go_export.py go_namespace_export.py verify_go_export.py ./
+RUN python install_go_export.py \
+    && python -c 'import eggnogmapper.annotator._codec, eggnogmapper.annotator._collect_inner' \
+    && python verify_go_export.py \
+    && emapper.py --version \
+    && diamond version \
+    && hmmsearch -h >/dev/null
 
-RUN set -eu; \
-    script_path="$(command -v download_eggnog_data.py)"; \
-    ! grep -F 'http://eggnogdb.embl.de/download/emapperdb-' "${script_path}"; \
-    ! grep -F 'http://eggnogdb.embl.de/download/novel_fams-' "${script_path}"; \
-    grep -F 'http://eggnog5.embl.de/download/emapperdb-' "${script_path}" >/dev/null; \
-    grep -F 'http://eggnog5.embl.de/download/novel_fams-' "${script_path}" >/dev/null
+WORKDIR /data

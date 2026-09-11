@@ -7,14 +7,15 @@ import subprocess
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 DOCKERFILE = ROOT / "docker" / "eggnog" / "Dockerfile"
 IMAGE = "codex-eggnog:test"
 RUN_DOCKER_TESTS = os.environ.get("RUN_DOCKER_TESTS") == "1"
 
 
-def run_command(args: list[str], *, timeout: int | None = None) -> subprocess.CompletedProcess[str]:
+def run_command(
+    args: list[str], *, timeout: int | None = None
+) -> subprocess.CompletedProcess[str]:
     """Run one subprocess and return the completed process."""
     return subprocess.run(
         args,
@@ -29,26 +30,23 @@ def run_command(args: list[str], *, timeout: int | None = None) -> subprocess.Co
 class EggnogContainerContractTestCase(unittest.TestCase):
     """Lock the custom eggNOG image contract."""
 
-    def test_dockerfile_patches_the_downloader_at_build_time(self) -> None:
-        """Require the custom image to fix the stale download hosts."""
+    def test_dockerfile_uses_locked_v3_with_namespace_export(self) -> None:
+        """Require the v3 source contract and qualified namespace export."""
         dockerfile_text = DOCKERFILE.read_text(encoding="utf-8")
-
-        self.assertIn(
-            "FROM quay.io/biocontainers/eggnog-mapper:2.1.13--pyhdfd78af_2",
-            dockerfile_text,
-        )
-        self.assertIn('script_path="$(command -v download_eggnog_data.py)"', dockerfile_text)
-        self.assertIn("http://eggnogdb.embl.de/download/emapperdb-", dockerfile_text)
-        self.assertIn("http://eggnog5.embl.de/download/emapperdb-", dockerfile_text)
-        self.assertIn("http://eggnogdb.embl.de/download/novel_fams-", dockerfile_text)
-        self.assertIn("http://eggnog5.embl.de/download/novel_fams-", dockerfile_text)
+        manifest = DOCKERFILE.with_name("pixi.toml").read_text(encoding="utf-8")
+        self.assertIn("@sha256:", dockerfile_text)
+        self.assertIn("pixi install --locked", dockerfile_text)
+        self.assertIn("b3757a6d226047527a729546e58ff530d76a5d7d", manifest)
+        self.assertIn("python install_go_export.py", dockerfile_text)
+        self.assertIn("python verify_go_export.py", dockerfile_text)
+        self.assertNotIn("2.1.13", dockerfile_text)
 
     @unittest.skipUnless(
         RUN_DOCKER_TESTS,
         "Set RUN_DOCKER_TESTS=1 to run the eggNOG container image contract test.",
     )
-    def test_custom_image_installs_the_fixed_downloader(self) -> None:
-        """Build the custom image and require the downloader URLs to be fixed."""
+    def test_custom_image_qualifies_namespace_export(self) -> None:
+        """Build v3 and compare its namespace export with the original engine."""
         build_result = run_command(
             [
                 "docker",
@@ -59,7 +57,7 @@ class EggnogContainerContractTestCase(unittest.TestCase):
                 str(DOCKERFILE),
                 "-t",
                 IMAGE,
-                ".",
+                str(DOCKERFILE.parent),
             ]
         )
         self.assertEqual(
@@ -78,25 +76,16 @@ class EggnogContainerContractTestCase(unittest.TestCase):
                 IMAGE,
                 "bash",
                 "-lc",
-                (
-                    "set -euo pipefail; "
-                    'SCRIPT_PATH="$(command -v download_eggnog_data.py)"; '
-                    "test -f \"$SCRIPT_PATH\"; "
-                    "! grep -F 'http://eggnogdb.embl.de/download/emapperdb-' \"$SCRIPT_PATH\"; "
-                    "! grep -F 'http://eggnogdb.embl.de/download/novel_fams-' \"$SCRIPT_PATH\"; "
-                    "grep -F 'http://eggnog5.embl.de/download/emapperdb-' \"$SCRIPT_PATH\" >/dev/null; "
-                    "grep -F 'http://eggnog5.embl.de/download/novel_fams-' \"$SCRIPT_PATH\" >/dev/null; "
-                    "python -c \"import importlib.metadata as m; print(m.version('eggnog-mapper'))\""
-                ),
+                "python /opt/nf-annotation/eggnog/verify_go_export.py && emapper.py --version",
             ],
-            timeout=30,
+            timeout=120,
         )
         self.assertEqual(
             result.returncode,
             0,
             msg=f"Custom eggNOG image contract failed.\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}",
         )
-        self.assertIn("2.1.13", result.stdout + result.stderr)
+        self.assertIn("emapper-3.0.0-beta6", result.stdout + result.stderr)
 
 
 if __name__ == "__main__":
