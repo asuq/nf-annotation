@@ -171,7 +171,9 @@ def commands(tool: str, cpus: int, memory_gib: float) -> dict[str, Any]:
             ]
         ]
         version = [["exec_annotation", "--version"], ["hmmsearch", "-h"]]
-        environment = {}
+        # GNU Parallel also needs temporary storage outside KOfam's --tmp-dir.
+        # The shared runner creates this task-local directory before exporting it.
+        environment = {"TMPDIR": "scratch"}
     elif tool == "padloc":
         steps = [
             [

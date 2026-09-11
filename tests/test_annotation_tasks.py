@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -9,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
 import test_annotation_bundle as bundle_fixture
 from aggregate_annotations import aggregate
-from annotation_commands import commands
+from annotation_commands import commands, shell_script
 from annotation_common import (
     TOOLS,
     AnnotationError,
@@ -123,6 +125,33 @@ class AnnotationTaskTests(unittest.TestCase):
         self.assertEqual(command[command.index("--tax_scope") + 1], "auto")
         self.assertIn("--dmnd_block_size", command)
         self.assertIn("--dmnd_index_chunks", command)
+
+    def test_kofam_uses_task_temporary_storage_with_invalid_inherited_directory(self):
+        command = commands("kofam", 2, 32)
+        command["version_commands"] = [[sys.executable, "--version"]]
+        command["steps"] = [
+            [
+                sys.executable,
+                "-c",
+                """
+import tempfile
+from pathlib import Path
+with tempfile.NamedTemporaryFile() as temporary:
+    assert Path(temporary.name).parent == (Path.cwd() / 'scratch').resolve()
+""",
+            ]
+        ]
+        work = self.root / "native-temp"
+        work.mkdir()
+        script = work / "run.sh"
+        script.write_text(shell_script(command))
+        subprocess.run(
+            ["bash", str(script)],
+            cwd=work,
+            check=True,
+            env={**os.environ, "TMPDIR": str(work / "missing")},
+        )
+        self.assertEqual((work / "raw/exit_code.txt").read_text().strip(), "0")
 
     def test_search_reuse_interpretation_change_and_tampering(self):
         record = self.result()
