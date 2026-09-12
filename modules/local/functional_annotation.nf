@@ -48,11 +48,14 @@ process PLAN_ANNOTATIONS {
     path 'annotation_plan.tsv', emit: table
 
     script:
-    def bundleArgs = (bundles instanceof Collection ? bundles : [bundles]).collect { "--bundle '${it}'" }.join(' ')
+    def bundleList = groovy.json.JsonOutput.toJson((bundles instanceof Collection ? bundles : [bundles]).collect { it.toString() })
     def sourceArgs = source_results ? "--source '${source_results}'" : ''
     """
+    cat > bundle_list.json <<'ANNOTATION_BUNDLE_LIST'
+${bundleList}
+ANNOTATION_BUNDLE_LIST
     python3 "\$(command -v prepare_annotation_tasks.py)" plan \
-        --samples '${samples}' --preflight '${receipt}' ${bundleArgs} \
+        --samples '${samples}' --preflight '${receipt}' --bundle-list bundle_list.json \
         ${sourceArgs} --output planned
     cp planned/annotation_plan.json annotation_plan.json
     cp planned/annotation_plan.tsv annotation_plan.tsv
@@ -152,12 +155,18 @@ process AGGREGATE_ANNOTATIONS {
     path 'report/annotation_acceptance.json', emit: acceptance
 
     script:
-    def bundleArgs = (bundles instanceof Collection ? bundles : [bundles]).collect { "--bundle '${it}'" }.join(' ')
-    def resultArgs = (results instanceof Collection ? results : [results]).collect { "--result '${it}'" }.join(' ')
+    def bundleList = groovy.json.JsonOutput.toJson((bundles instanceof Collection ? bundles : [bundles]).collect { it.toString() })
+    def resultList = groovy.json.JsonOutput.toJson((results instanceof Collection ? results : [results]).collect { it.toString() })
     """
+    cat > bundle_list.json <<'ANNOTATION_BUNDLE_LIST'
+${bundleList}
+ANNOTATION_BUNDLE_LIST
+    cat > result_list.json <<'ANNOTATION_RESULT_LIST'
+${resultList}
+ANNOTATION_RESULT_LIST
     python3 "\$(command -v aggregate_annotations.py)" --plan '${plan}' \
         --master upstream_master.tsv --sample-status upstream_sample_status.tsv \
-        ${bundleArgs} ${resultArgs} --output report
+        --bundle-list bundle_list.json --result-list result_list.json --output report
     """
 }
 

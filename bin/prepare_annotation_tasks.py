@@ -22,6 +22,7 @@ from annotation_common import (
     write_json,
     write_tsv,
 )
+from annotation_path_lists import read_path_list
 from annotation_resources import AnnotationResourceError
 from annotation_result import validate_result
 from annotation_source import import_source, validate_source
@@ -187,9 +188,9 @@ def main() -> int:
     check = sub.add_parser("preflight")
     check.add_argument("--config", type=Path, required=True)
     check.add_argument("--output", type=Path, required=True)
-    planner = sub.add_parser("plan")
+    planner = sub.add_parser("plan", allow_abbrev=False)
     planner.add_argument("--samples", type=Path, required=True)
-    planner.add_argument("--bundle", type=Path, action="append", default=[])
+    planner.add_argument("--bundle-list", type=Path, required=True)
     planner.add_argument("--preflight", type=Path, required=True)
     planner.add_argument("--source", type=Path)
     planner.add_argument("--output", type=Path, required=True)
@@ -209,7 +210,13 @@ def main() -> int:
         if args.command == "preflight":
             write_json(args.output, preflight(read_json(args.config)))
         elif args.command == "plan":
-            plan(args.samples, args.bundle, args.preflight, args.output, args.source)
+            plan(
+                args.samples,
+                read_path_list(args.bundle_list),
+                args.preflight,
+                args.output,
+                args.source,
+            )
         elif args.command == "normalize":
             normalize_task(args.task, args.raw, args.bundle, args.resource, args.output)
         elif args.command == "reuse":

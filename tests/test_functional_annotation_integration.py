@@ -201,6 +201,27 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
             if row["tool"] == "kofam"
         ]
 
+    def test_empty_path_lists_preserve_portable_source_order(self):
+        for accession in ("B", "A"):
+            shutil.rmtree(self.source / "samples" / accession / "annotation")
+        publish_disabled(self.source, ["B", "A"])
+        portable = self.root / "portable source"
+        self.source.rename(portable)
+        output = self.run_pipeline("empty", portable, enabled=False)
+        self.assertEqual(
+            read_json(output / "annotation_results.json")["accessions"], ["B", "A"]
+        )
+        self.assertEqual(
+            [row["Accession"] for row in read_tsv(output / "tables/master_table.tsv")],
+            ["B", "A"],
+        )
+        lists = list((self.root / "work-empty").rglob("*_list.json"))
+        self.assertEqual(
+            sorted(path.name for path in lists),
+            ["bundle_list.json", "bundle_list.json", "result_list.json"],
+        )
+        self.assertTrue(all(read_json(path) == [] for path in lists))
+
     def test_padloc_stages_the_bundle_without_an_external_resource(self):
         entry = preflight(
             dict(

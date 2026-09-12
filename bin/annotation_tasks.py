@@ -89,6 +89,7 @@ def planning_code_identity() -> dict[str, str]:
         name: digest(root / name)
         for name in (
             "prepare_annotation_tasks.py",
+            "annotation_path_lists.py",
             "annotation_tasks.py",
             "annotation_source.py",
             "annotation_summary.py",
