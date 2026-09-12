@@ -21,6 +21,7 @@ from annotation_common import (
 )
 from annotation_resources import RESOURCE_FILE, validate_resource
 from annotation_result import inventory, native_exit_code, validate_result
+from eggnog_native import NATIVE_CODE_FILES
 from prepare_padloc_input import prepare_gff
 
 PADLOC_RESOURCE = {
@@ -61,7 +62,7 @@ def code_identity(tool: str) -> dict[str, str]:
         "annotation_result.py",
     ]
     if tool == "eggnog":
-        names.append("annotation_batch_tasks.py")
+        names.extend(("annotation_batch_tasks.py", "eggnog_native.py"))
     return {name: digest(root / name) for name in names}
 
 
@@ -99,6 +100,8 @@ def planning_code_identity() -> dict[str, str]:
             "annotation_result.py",
             "annotation_batch_tasks.py",
             "eggnog_batches.py",
+            "eggnog_native.py",
+            "run_eggnog_batch.py",
             "validate_inputs.py",
         )
     }
@@ -130,9 +133,10 @@ def preflight(config: dict[str, Any]) -> dict[str, Any]:
             manifest_sha = digest(Path(resource_path) / RESOURCE_FILE)
         native_code = {}
         if tool == "eggnog":
-            native_code["eggnog_batches.py"] = digest(
-                Path(__file__).with_name("eggnog_batches.py")
-            )
+            native_code = {
+                name: digest(Path(__file__).with_name(name))
+                for name in NATIVE_CODE_FILES
+            }
         elif tool == "cogclassifier":
             native_code["classify_cog_hits.py"] = digest(
                 Path(__file__).with_name("classify_cog_hits.py")
@@ -243,6 +247,8 @@ def plan_task(
     bundle_data: tuple[dict[str, Any], list[dict[str, str]]],
 ) -> dict[str, Any]:
     """Plan a tool from the bundle validated once in this planner invocation."""
+    if tool == "eggnog":
+        raise AnnotationError("eggNOG execution requires the shared batch planner")
     manifest, proteins = bundle_data
     task = task_identity(manifest, tool, entry)
     task.update(action="run", reason="no_compatible_native_result")
@@ -293,6 +299,8 @@ def normalize_task(
 ) -> dict[str, Any]:
     """Validate a native execution and publish a result even when that tool fails."""
     task = read_json(taskdir / "task.json")
+    if task.get("tool") == "eggnog":
+        raise AnnotationError("eggNOG normalization requires the shared batch result")
     manifest, proteins = bundle_proteins(bundle)
     if (
         manifest["input_id"] != task["input_id"]

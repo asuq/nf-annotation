@@ -37,7 +37,7 @@ from annotation_workflow_fixture import publish_disabled
 
 NEXTFLOW = shutil.which("nextflow")
 
-EMAPPER = r'''import csv
+EMAPPER = r"""import csv
 import json
 import sys
 from pathlib import Path
@@ -47,27 +47,56 @@ if sys.argv[1:] == ['--version']:
     print('emapper-3.0.0-beta6 synthetic orchestration control')
     sys.exit(0)
 source = Path(sys.argv[sys.argv.index('-i') + 1])
+mode = sys.argv[sys.argv.index('-m') + 1]
 proteins = []
 for line in source.read_text().splitlines():
     if line.startswith('>'):
         proteins.append(dict(query=line[1:].split()[0], sequence=''))
     else:
         proteins[-1]['sequence'] += line
+input_count = len(proteins)
 with Path(__LEDGER__).open('a') as handle:
-    handle.write(json.dumps([protein['query'] for protein in proteins]) + '\n')
-if Path(__FAIL__).exists():
+    handle.write(json.dumps(dict(mode=mode, queries=[protein['query'] for protein in proteins])) + '\n')
+if Path(__FAIL__).exists() and Path(__FAIL__).read_text().strip() in ('', mode):
     print('Intentional synthetic whole-batch native failure', file=sys.stderr)
     sys.exit(9)
 output = Path(sys.argv[sys.argv.index('--output_dir') + 1])
 prefix = sys.argv[sys.argv.index('-o') + 1]
+if mode == 'diamond':
+    omitted = set(json.loads(Path(__NOHITS__).read_text())) if Path(__NOHITS__).exists() else set()
+    proteins = [protein for protein in proteins if protein['query'] not in omitted]
+    with (output / (prefix + '.emapper.seed_orthologs')).open('w') as handle:
+        handle.write('#' + '\t'.join(egg.SEED_NATIVE_COLUMNS) + '\n')
+        for protein in proteins:
+            length = len(protein['sequence'])
+            handle.write(f"{protein['query']}\t1\t0\t100\t1\t{length}\t1\t{length}\t90\t100\t100\n")
+        handle.write(f'## {len(proteins)} queries scanned\n')
+    (output / (prefix + '.emapper.hits')).write_text('synthetic native search diagnostics\n')
+    if '--no_annot' in sys.argv and '--report_orthologs' not in sys.argv:
+        sys.exit(0)
+elif mode == 'no_search':
+    source_seeds = Path(sys.argv[sys.argv.index('--annotate_hits_table') + 1])
+    seeds = [line.split('\t') for line in source_seeds.read_text().splitlines()
+             if line and not line.startswith('#')]
+    seeds.sort(key=lambda row: (int(row[1]), row[0]))
+    Path(str(source_seeds) + '.sorted').write_text(''.join('\t'.join(row) + '\n' for row in seeds))
+    identifiers = {row[0] for row in seeds}
+    assert identifiers <= {protein['query'] for protein in proteins}
+    proteins = [protein for protein in proteins if protein['query'] in identifiers]
+else:
+    raise ValueError('Unexpected synthetic mapper mode')
 rows, namespaces = [], []
 for protein in proteins:
     query = protein['query']
     row = dict.fromkeys(egg.HEADER, '-')
     row.update(query=query, seed_ortholog='1234', evalue='0', score='100',
-               COG_category='J', GOs='GO:0000001', EC='ec:1.2.3.4', KEGG_ko='K00001')
+               COG_category='J', GOs='GO:0000001', EC='ec:1.2.3.4', KEGG_ko='K00001',
+               Preferred_name='hflB')
+    # Model the observed native medium/low name change under pooled context.
     row['annotation_confidence'] = ''.join(
-        'h' if name in ('GOs', 'EC', 'KEGG_ko') else '-' for name in egg.FIELDS
+        ('m' if input_count == 1 else 'l') if name == 'Preferred_name'
+        else 'h' if name in ('GOs', 'EC', 'KEGG_ko') else '-'
+        for name in egg.FIELDS
     )
     rows.append(row)
     namespace = dict.fromkeys(egg.GO_HEADER, '-')
@@ -80,12 +109,6 @@ with (output / (prefix + '.emapper.annotations')).open('w') as handle:
     writer = csv.DictWriter(handle, fieldnames=egg.HEADER, delimiter='\t', lineterminator='\n')
     writer.writerows(rows)
     handle.write(f'## {len(rows)} queries scanned\n')
-with (output / (prefix + '.emapper.seed_orthologs')).open('w') as handle:
-    handle.write('#' + '\t'.join(egg.SEED_NATIVE_COLUMNS) + '\n')
-    for protein in proteins:
-        length = len(protein['sequence'])
-        handle.write(f"{protein['query']}\t1\t0\t100\t1\t{length}\t1\t{length}\t90\t100\t100\n")
-    handle.write(f'## {len(proteins)} queries scanned\n')
 with (output / (prefix + '.emapper.annotations.go_namespaces.tsv')).open('w') as handle:
     writer = csv.DictWriter(handle, fieldnames=egg.GO_HEADER, delimiter='\t', lineterminator='\n')
     writer.writeheader()
@@ -95,7 +118,7 @@ with (output / (prefix + '.emapper.orthologs')).open('w') as handle:
     for protein in proteins:
         handle.write(f"{protein['query']}\tone2one\tSynthetic species(1)\t*synthetic_ortholog\n")
     handle.write(f'## {len(proteins)} queries scanned\n')
-'''
+"""
 
 CHANGE_WORKFLOW = """nextflow.enable.dsl = 2
 include { ANNOTATION_RESOURCES; FUNCTIONAL_ANNOTATION } from './subworkflows/local/functional_annotation'
@@ -163,45 +186,65 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
         )
         self.ledger = self.root / "native-calls.jsonl"
         self.fail_native = self.root / "fail-native"
+        self.no_hits = self.root / "no-hits.json"
         executable = self.project / "bin/emapper.py"
         executable.write_text(
             f"#!{sys.executable}\n"
-            + EMAPPER.replace("__LEDGER__", repr(str(self.ledger))).replace(
-                "__FAIL__", repr(str(self.fail_native))
-            )
+            + EMAPPER.replace("__LEDGER__", repr(str(self.ledger)))
+            .replace("__FAIL__", repr(str(self.fail_native)))
+            .replace("__NOHITS__", repr(str(self.no_hits)))
         )
         executable.chmod(0o755)
         diamond = self.project / "bin/diamond"
-        diamond.write_text(
-            "#!/bin/sh\nprintf 'Synthetic DIAMOND version control\\n'\n"
-        )
+        diamond.write_text("#!/bin/sh\nprintf 'Synthetic DIAMOND version control\\n'\n")
         diamond.chmod(0o755)
         (self.project / "batch_change_control.nf").write_text(CHANGE_WORKFLOW)
 
-    def calls(self):
+    def calls(self, mode="diamond"):
         if not self.ledger.exists():
             return []
-        return [json.loads(line) for line in self.ledger.read_text().splitlines()]
+        records = [json.loads(line) for line in self.ledger.read_text().splitlines()]
+        return [record["queries"] for record in records if record["mode"] == mode]
 
     def run_pipeline(
-        self, name, previous, *, current=None, succeeds=True, resume=False,
+        self,
+        name,
+        previous,
+        *,
+        current=None,
+        succeeds=True,
+        resume=False,
         incompatible_archives=False,
     ):
         configuration = self.root / f"{name}.config"
         configuration.write_text(
             "params {\n annotation_tools = 'eggnog'\n"
             + f" eggnog_db = '{self.database}'\n"
-            + " eggnog_container = 'sha256:" + "1" * 64 + "'\n"
-            + " python_container = 'sha256:" + "2" * 64 + "'\n"
+            + " eggnog_container = 'sha256:"
+            + "1" * 64
+            + "'\n"
+            + " python_container = 'sha256:"
+            + "2" * 64
+            + "'\n"
             + " annotation_cpus = 1\n annotation_memory = 18.GB\n"
             + " max_cpus = 1\n max_memory = 18.GB\n}\n"
         )
         output = self.root / name
         entrypoint = "reannotate.nf" if current is None else "batch_change_control.nf"
         command = [
-            NEXTFLOW, "run", str(self.project / entrypoint), "-profile", "test",
-            "-c", str(configuration), "--annotation_from", str(previous),
-            "--outdir", str(output), "-work-dir", str(self.root / f"work-{name}"),
+            NEXTFLOW,
+            "run",
+            str(self.project / entrypoint),
+            "-profile",
+            "test",
+            "-c",
+            str(configuration),
+            "--annotation_from",
+            str(previous),
+            "--outdir",
+            str(output),
+            "-work-dir",
+            str(self.root / f"work-{name}"),
         ]
         if current is not None:
             command.extend(["--fixture_source", str(current)])
@@ -213,9 +256,7 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
             text=True,
             capture_output=True,
             timeout=120,
-            env=dict(
-                os.environ, NXF_ANSI_LOG="false", NXF_DISABLE_CHECK_LATEST="true"
-            ),
+            env=dict(os.environ, NXF_ANSI_LOG="false", NXF_DISABLE_CHECK_LATEST="true"),
         )
         (self.root / f"{name}.log").write_text(result.stdout + result.stderr)
         self.assertEqual(
@@ -227,9 +268,7 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
             )
             self.assertIn("fresh --outdir", result.stdout + result.stderr)
             trace = read_tsv(output / "pipeline_info/trace.tsv")
-            self.assertFalse(
-                any(":ANNOTATION_SEARCH " in row["name"] for row in trace)
-            )
+            self.assertFalse(any(":ANNOTATION_SEARCH " in row["name"] for row in trace))
             return output
         self.assertTrue(
             (output / "annotation_results.json").is_file(),
@@ -295,6 +334,10 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
                     result["evidence"]["features"]["ko"],
                     {protein["gene_id"]: ["K00001"]},
                 )
+                self.assertEqual(
+                    result["evidence"]["features"]["Preferred_name"],
+                    {protein["gene_id"]: ["hflB"]},
+                )
         self.assertEqual(set(original_ids), {"gene_1"})
         self.assertEqual(len(set(tool_ids)), len(accessions))
         if succeeds:
@@ -302,11 +345,19 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
                 read_tsv(output / "tables/functional_matrices/eggnog_ko_counts.tsv"),
                 [dict(accession=accession, K00001="1") for accession in accessions],
             )
-            for name in ("annotations", "seed_orthologs", "orthologs"):
-                text = (native.root / "raw" / f"eggnog.emapper.{name}").read_text()
-                self.assertTrue(
-                    text.endswith(f"## {len(accessions)} queries scanned\n")
-                )
+            search = native.root / "raw/search/eggnog.emapper.seed_orthologs"
+            self.assertTrue(
+                search.read_text().endswith(f"## {len(accessions)} queries scanned\n")
+            )
+            self.assertFalse(search.with_name("eggnog.emapper.annotations").exists())
+            for index in range(len(accessions)):
+                member = native.root / "raw/annotations" / f"member{index:08d}"
+                for name in ("annotations", "orthologs"):
+                    self.assertTrue(
+                        (member / f"eggnog.emapper.{name}")
+                        .read_text()
+                        .endswith("## 1 queries scanned\n")
+                    )
         return native.record, results
 
     def input_source(self, name, accessions, changed=None):
@@ -321,15 +372,18 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
             shutil.copytree(origin, destination)
             bundles.append(destination)
         write_tsv(
-            source / "tables/master_table.tsv", ("Accession", "Gcode"),
+            source / "tables/master_table.tsv",
+            ("Accession", "Gcode"),
             [dict(Accession=acc, Gcode=4) for acc in accessions],
         )
         write_tsv(
-            source / "tables/sample_status.tsv", ("accession", "gcode_status"),
+            source / "tables/sample_status.tsv",
+            ("accession", "gcode_status"),
             [dict(accession=acc, gcode_status="done") for acc in accessions],
         )
         write_tsv(
-            source / "tables/validated_samples.tsv", ("accession",),
+            source / "tables/validated_samples.tsv",
+            ("accession",),
             [dict(accession=acc) for acc in accessions],
         )
         publish_disabled(source, accessions, bundles)
@@ -340,10 +394,18 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
         packet, results = self.assert_publication(first, ["B", "A"], "run")
         self.assertEqual(len(self.calls()), 1)
         self.assertEqual(len(set(self.calls()[0])), 2)
+        annotations = self.calls("no_search")
+        self.assertEqual(len(annotations), 2)
+        self.assertEqual(
+            sorted(query for call in annotations for query in call),
+            sorted(self.calls()[0]),
+        )
+        self.assertTrue(all(len(call) == 1 for call in annotations))
         resumed = self.run_pipeline("initial", self.source, resume=True)
         self.assert_publication(resumed, ["B", "A"], "run")
         searches = [
-            row for row in read_tsv(resumed / "pipeline_info/trace.tsv")
+            row
+            for row in read_tsv(resumed / "pipeline_info/trace.tsv")
             if ":ANNOTATION_SEARCH " in row["name"]
         ]
         self.assertEqual({row["status"] for row in searches}, {"CACHED"})
@@ -374,6 +436,7 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(changed_packet, packet)
         self.assertEqual(len(self.calls()), 1)
+        self.assertEqual(self.calls("no_search"), annotations)
         for accession in results:
             self.assertEqual(
                 changed_results[accession]["search_fingerprint"],
@@ -392,7 +455,10 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
         resource["resource_id"] = identity(resource["contract"])
         write_json(resource_file, resource)
         self.run_pipeline(
-            "renormalized", reused, resume=True, succeeds=False,
+            "renormalized",
+            reused,
+            resume=True,
+            succeeds=False,
             incompatible_archives=True,
         )
         self.assertEqual(len(self.calls()), 1)
@@ -408,7 +474,8 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(subset_results["A"]["input_id"], results["A"]["input_id"])
         self.assertNotEqual(
-            subset_results["A"]["search_fingerprint"], results["A"]["search_fingerprint"]
+            subset_results["A"]["search_fingerprint"],
+            results["A"]["search_fingerprint"],
         )
         fixture = bundle_fixture.AnnotationBundleTests()
         fixture.setUp()
@@ -437,7 +504,8 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
         self.assertNotEqual(changed_results["A"]["input_id"], results["A"]["input_id"])
         self.assertEqual(changed_results["B"]["input_id"], results["B"]["input_id"])
         self.assertNotEqual(
-            changed_results["B"]["search_fingerprint"], results["B"]["search_fingerprint"]
+            changed_results["B"]["search_fingerprint"],
+            results["B"]["search_fingerprint"],
         )
         self.assertEqual([len(call) for call in self.calls()], [2, 1, 2])
 
@@ -463,7 +531,7 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
         native = next(iter(validate_source(failed)[1].values()))
         self.assertIn(
             "Intentional synthetic whole-batch native failure",
-            (native.root / "raw/tool.log").read_text(),
+            (native.root / "raw/search/tool.log").read_text(),
         )
 
 

@@ -28,6 +28,7 @@ from annotation_result import (
 )
 from annotation_tasks import code_identity, task_identity
 from eggnog_batches import validate_batch
+from eggnog_native import NATIVE_CODE_FILES
 
 IDENTITY_FIELDS = frozenset(
     {
@@ -216,6 +217,17 @@ def plan_batch(
         shutil.copyfile(batchdir / "input.faa", outdir / "input.faa")
         if digest(outdir / "input.faa") != batch["files"]["input.faa"]:
             raise AnnotationError("Copied eggNOG batch input differs from its receipt")
+        for name in NATIVE_CODE_FILES:
+            source = Path(__file__).with_name(name)
+            if digest(source) != entry["search_method"]["native_code"].get(name):
+                raise AnnotationError(
+                    "Native batch execution code changed after preflight"
+                )
+            shutil.copyfile(source, outdir / name)
+        write_json(
+            outdir / "native_commands.json",
+            entry["search_method"]["command"]["native_stages"],
+        )
         (outdir / "run.sh").write_text(shell_script(entry["search_method"]["command"]))
     else:
         copied = _copy_native(previous, outdir / "previous_batch")
@@ -345,6 +357,15 @@ def complete_batch(
             or digest(taskdir / "input.faa") != batch["files"]["input.faa"]
             or (taskdir / "run.sh").read_text()
             != shell_script(entry["search_method"]["command"])
+            or (taskdir / "native_commands.json").is_symlink()
+            or read_json(taskdir / "native_commands.json")
+            != entry["search_method"]["command"]["native_stages"]
+            or any(
+                (taskdir / name).is_symlink()
+                or digest(taskdir / name)
+                != entry["search_method"]["native_code"].get(name)
+                for name in NATIVE_CODE_FILES
+            )
         ):
             raise AnnotationError("Planned eggNOG input or native command changed")
     else:
@@ -414,7 +435,7 @@ def complete_batch(
     elif action != "reuse":
         try:
             normalized = normalize_eggnog.normalize_batch(
-                packet_root / "raw", proteins, resource
+                packet_root / "raw", proteins, resource, batch=batch
             )
             if list(normalized) != [member["accession"] for member in members]:
                 raise AnnotationError(

@@ -67,7 +67,8 @@ The main analysis workflow is designed around these steps:
 - publish final cohort tables and a combined versions report
 
 Functional counts and status are merged into `master_table.tsv`. Native eggNOG
-evidence is retained once per whole-proteome batch under `annotation_batches/`,
+searches share whole-proteome batches; native annotation runs separately for each
+proteome. The complete native evidence is retained once under `annotation_batches/`,
 with normalized evidence and shared-batch references retained per sample. The
 other four callers retain native evidence per sample. Assembly statistics supply
 `GC_Content`; Codetta supplies `Codetta_Genetic_Code`,

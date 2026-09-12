@@ -15,6 +15,7 @@ from annotation_common import (
     read_json,
 )
 from eggnog_batches import validate_batch
+from eggnog_native import validate_execution
 
 
 def inventory(root: Path) -> dict[str, str]:
@@ -73,7 +74,7 @@ def validate_native_batch(root: Path) -> NativeBatch:
         raise AnnotationError(f"Invalid native batch result: {root}")
     if (root / "inputs").is_symlink():
         raise AnnotationError("Linked native batch inputs are unsupported")
-    batch, _ = validate_batch(root / "inputs")
+    batch, proteins = validate_batch(root / "inputs")
     if record["batch"] != batch:
         raise AnnotationError("Native batch input receipt differs from its result")
     if inventory(root / "raw") != record["raw_files"]:
@@ -84,6 +85,8 @@ def validate_native_batch(root: Path) -> NativeBatch:
         raise AnnotationError(
             "Native batch exit status differs from its retained evidence"
         )
+    if record["exit_code"] == 0:
+        validate_execution(root / "raw", batch, proteins)
     return NativeBatch(
         root, record, {member["accession"]: member for member in batch["members"]}
     )

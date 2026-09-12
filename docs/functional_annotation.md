@@ -10,13 +10,14 @@ requires a new eggNOG search. The other four callers retain their methods.
 Lower sensitivity can miss distant homologues; the completed ultra-sensitive
 cohort is retained as a comparison reference, and 10,000-sample performance
 has not been established.
-The ultra-sensitive five-genome reference passes independent reconciliation.
-The changed setting and its reuse checks remain under qualification; see the
+Both five-genome sensitivity references pass independent reconciliation.
+The shared-search workflow and its final reuse checks remain under qualification; see the
 [release specification](development/v0.4.md) for the open release gates.
 
 The scaling candidate groups eggNOG inputs into deterministic batches of whole
-proteomes. Its native pooling comparison and final portable workflow checks are
-still in progress. The checks below describe the implemented candidate contract;
+proteomes. DIAMOND searches share a batch, while native annotation runs separately
+for each original proteome. Pooling native annotation changed one preferred-name
+confidence in the five-genome control and was rejected. The checks below describe the implemented candidate contract;
 they do not establish performance at 10,000 samples.
 
 Bundle validation matches native contig DNA to the source using Prokka's
@@ -147,9 +148,15 @@ byte offsets, packing policy and code, runtime, resource and command identities.
 Every member's search fingerprint includes its batch identity. Reordering
 metadata does not change packing. Adding or changing a proteome can change its
 batch and subsequent packing boundaries, requiring new searches for all members
-of the affected batches. Native annotation is performed for the pooled input;
-the retained native output is then validated once and projected by the unique
-canonical query IDs. Original protein names may repeat across samples.
+of the affected batches. One mapper invocation performs only the pooled DIAMOND
+search (`--no_annot`, without `--report_orthologs`). Its original 11-column seed
+table is partitioned by canonical query ID, retaining every field and recording
+explicit derived-input receipts. Each proteome then receives a native
+`-m no_search --annotate_hits_table` invocation with its unchanged FASTA and seed
+partition, including a valid empty partition when no seeds matched. These phases
+run sequentially within one batch allocation and share its concurrency limit.
+Original protein names may repeat across samples; native joins use canonical
+query IDs exclusively.
 
 Planning and aggregation use JSON path-list files so their command arguments
 stay bounded with cohort size. Aggregation spools detailed rows, exact global
@@ -198,7 +205,8 @@ the same functional plan while analysing newly added genomes upstream.
 For eggNOG, the action applies to a complete batch. Every member must have a
 matching successful normalized result for reuse. A compatible successful native
 batch can be normalized again when member interpretation or normalized results
-change. A failed native batch requires another search. The other callers retain
+change. Failure of any native phase fails the complete batch and requires another
+search. The other callers retain
 their individual sample actions.
 
 The complete accession/tool grid, actions and fingerprints are published in
@@ -211,10 +219,22 @@ their respective reuse. Linked work-directory artefacts are rejected.
 
 Native eggNOG files, version output, logs and exit codes are retained once under
 `annotation_batches/<batch_id>/raw/`, beside the exact batch inputs and an
-immutable `batch_result.json`. Each member's
+immutable `batch_result.json`. The archive contains:
+
+- `raw/search/`: the untouched native shared search outputs.
+- `raw/derived/memberXXXXXXXX/`: the unchanged proteome FASTA, explicit seed
+  partition and receipt, and the mapper's retained sorted seed input.
+- `raw/annotations/memberXXXXXXXX/`: that proteome's native annotation, GO
+  namespace sidecar, ortholog report, log and exit status.
+- `raw/execution.json`: the accession mapping, actual command, exit status and
+  elapsed time of every native phase. Member directory numbers follow the
+  accession-sorted batch input receipt.
+
+Each member's
 `samples/<accession>/annotation/eggnog/result.json` identifies that shared packet
 and accompanies its own normalized tables. Native files and completion footers
-are preserved without inventing per-sample native outputs. The other four tools
+are preserved. Derived seed tables are labelled explicitly and have no invented
+native completion footer. The other four tools
 retain their native evidence under `samples/<accession>/annotation/<tool>/raw/`.
 `annotation_results.json` records table checksums, bundles, results and shared
 batch references. Portable reuse requires the complete published directory,

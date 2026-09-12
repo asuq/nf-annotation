@@ -144,6 +144,7 @@ def validate_search_method(method: dict[str, Any]) -> None:
         "environment",
         "cpus",
         "memory_gib",
+        "native_stages",
     }:
         raise AnnotationError("Batch search requires its explicit native command")
     if (
@@ -167,6 +168,20 @@ def validate_search_method(method: dict[str, Any]) -> None:
             )
         ):
             raise AnnotationError("Malformed batch native command arguments")
+    stages = command["native_stages"]
+    if (
+        not isinstance(stages, dict)
+        or set(stages) != {"search", "annotation"}
+        or any(
+            not isinstance(step, list)
+            or not step
+            or any(not isinstance(arg, str) or not arg for arg in step)
+            for step in stages.values()
+        )
+    ):
+        raise AnnotationError(
+            "Missing shared-search and per-proteome annotation commands"
+        )
 
 
 def _write_batch(

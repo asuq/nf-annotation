@@ -157,7 +157,9 @@ and final table assembly live in small CLIs under `bin/`.
 EggNOG inputs use deterministic accession-sorted packing with a 4 MiB FASTA
 target and retain whole proteomes, including explicitly oversized singletons.
 Batch membership is part of every member's search identity. The native packet
-is published once under `annotation_batches/`; aggregation receives its emitted
+contains one shared DIAMOND search, checked seed partitions and separate native
+annotation outputs for each proteome. All phases run sequentially in one batch
+allocation. The packet is published once under `annotation_batches/`; aggregation receives its emitted
 path and the individual normalized result paths directly. Portable reannotation
 requires those shared packets as part of the published source.
 
@@ -165,7 +167,7 @@ Planning and aggregation read JSON path lists rather than cohort-sized command
 arguments. Aggregation uses a temporary SQLite database to spool detailed rows
 and sparse counts while retaining one sample's evidence at a time. The ANI reader
 uses two streaming validation passes, but clustering still requires a dense
-matrix and quadratic pairwise work. Native pooling and larger-cohort performance
+matrix and quadratic pairwise work. The shared-search workflow and larger-cohort performance
 remain under [qualification](development/v0.4_qualification.md).
 
 Importers publish to destinations separate from rebuilt annotation outputs.

@@ -20,13 +20,14 @@ def commands(tool: str, cpus: int, memory_gib: float) -> dict[str, Any]:
     if cpus < 1 or not math.isfinite(memory_gib) or memory_gib <= 0:
         raise AnnotationError("Annotation CPU and memory allocations must be positive")
     threads = str(cpus)
+    native_stages = None
     if tool == "eggnog":
         budget = memory_gib - 8 - 24 / 4 - cpus * 0.5
         block = min(8, math.floor(budget / 6 * 10) / 10)
         if block < 0.5:
             raise AnnotationError("eggNOG requires more memory for this CPU allocation")
-        steps = [
-            [
+        native_stages = {
+            "search": [
                 "emapper.py",
                 "-i",
                 "task/input.faa",
@@ -34,6 +35,7 @@ def commands(tool: str, cpus: int, memory_gib: float) -> dict[str, Any]:
                 "proteins",
                 "-m",
                 "diamond",
+                "--no_annot",
                 "--dmnd_sensmode",
                 "sensitive",
                 "--dmnd_iterate",
@@ -51,6 +53,38 @@ def commands(tool: str, cpus: int, memory_gib: float) -> dict[str, Any]:
                 "auto",
                 "--target_orthologs",
                 "all",
+                "--annot_evalue",
+                "0.001",
+                "--pfam_realign",
+                "none",
+                "--cpu",
+                threads,
+                "--data_dir",
+                "eggnog_data",
+                "--temp_dir",
+                "scratch/search",
+                "--output_dir",
+                "raw/search",
+                "-o",
+                "eggnog",
+            ],
+            "annotation": [
+                "emapper.py",
+                "-i",
+                "raw/derived/{member}/input.faa",
+                "--itype",
+                "proteins",
+                "-m",
+                "no_search",
+                "--annotate_hits_table",
+                "raw/derived/{member}/seeds.tsv",
+                "--donor_pool",
+                "closest",
+                "--lazy_cascade",
+                "--tax_scope",
+                "auto",
+                "--target_orthologs",
+                "all",
                 "--report_orthologs",
                 "--annot_evalue",
                 "0.001",
@@ -61,11 +95,23 @@ def commands(tool: str, cpus: int, memory_gib: float) -> dict[str, Any]:
                 "--data_dir",
                 "eggnog_data",
                 "--temp_dir",
-                "scratch",
+                "scratch/annotations/{member}",
                 "--output_dir",
-                "raw",
+                "raw/annotations/{member}",
                 "-o",
                 "eggnog",
+            ],
+        }
+        steps = [
+            [
+                "python3",
+                "task/run_eggnog_batch.py",
+                "--batch",
+                "bundle",
+                "--commands",
+                "task/native_commands.json",
+                "--output",
+                "raw",
             ]
         ]
         version = [["emapper.py", "--version"], ["diamond", "version"]]
@@ -90,7 +136,10 @@ def commands(tool: str, cpus: int, memory_gib: float) -> dict[str, Any]:
             ],
             *steps,
         ]
-        environment = {"EGGNOG_GO_OBO": "eggnog_data/go-basic.obo"}
+        environment = {
+            "EGGNOG_GO_OBO": "eggnog_data/go-basic.obo",
+            "PYTHONDONTWRITEBYTECODE": "1",
+        }
     elif tool == "cogclassifier":
         steps = [
             [
@@ -198,13 +247,16 @@ def commands(tool: str, cpus: int, memory_gib: float) -> dict[str, Any]:
         environment = {}
     else:
         raise AnnotationError(f"Unsupported annotation tool: {tool}")
-    return dict(
-        steps=steps,
-        version_commands=version,
-        environment=environment,
-        cpus=cpus,
-        memory_gib=memory_gib,
-    )
+    command = {
+        "steps": steps,
+        "version_commands": version,
+        "environment": environment,
+        "cpus": cpus,
+        "memory_gib": memory_gib,
+    }
+    if native_stages is not None:
+        command["native_stages"] = native_stages
+    return command
 
 
 def shell_script(command: dict[str, Any]) -> str:

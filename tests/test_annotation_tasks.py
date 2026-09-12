@@ -118,11 +118,7 @@ class AnnotationTaskTests(unittest.TestCase):
         self.assertTrue(runtime_identity(str(sif)).startswith("sif-sha256:"))
         with self.assertRaisesRegex(AnnotationError, "memory"):
             commands("eggnog", 8, 8)
-        command = next(
-            step
-            for step in commands("eggnog", 4, 32)["steps"]
-            if step[0] == "emapper.py"
-        )
+        command = commands("eggnog", 4, 32)["native_stages"]["search"]
         self.assertEqual(command[command.index("--tax_scope") + 1], "auto")
         self.assertEqual(command[command.index("--dmnd_sensmode") + 1], "sensitive")
         self.assertEqual(command[command.index("--dmnd_iterate") + 1], "yes")
@@ -131,11 +127,9 @@ class AnnotationTaskTests(unittest.TestCase):
 
     def test_eggnog_sensitivity_change_invalidates_native_search(self):
         previous_entry = self.entry("eggnog")
-        previous_command = next(
-            step
-            for step in previous_entry["search_method"]["command"]["steps"]
-            if step[0] == "emapper.py"
-        )
+        previous_command = previous_entry["search_method"]["command"]["native_stages"][
+            "search"
+        ]
         previous_command[previous_command.index("--dmnd_sensmode") + 1] = (
             "ultra-sensitive"
         )
@@ -147,23 +141,22 @@ class AnnotationTaskTests(unittest.TestCase):
         )
         previous = self.result("eggnog")
         previous.update(task_identity(self.metadata, "eggnog", previous_entry))
-        old = self.write_result(previous, "ultra-sensitive")
         current_entry = self.entry("eggnog")
-        planned = plan_task(
-            self.bundle,
-            "eggnog",
-            current_entry,
-            self.root / "sensitive",
-            old,
-            bundle_data=(self.metadata, self.proteins),
-        )
-        self.assertEqual(planned["action"], "run")
+        planned = task_identity(self.metadata, "eggnog", current_entry)
         self.assertNotEqual(
             planned["search_fingerprint"], previous["search_fingerprint"]
         )
         self.assertEqual(
             current_entry["interpretation"], previous_entry["interpretation"]
         )
+        with self.assertRaisesRegex(AnnotationError, "shared batch planner"):
+            plan_task(
+                self.bundle,
+                "eggnog",
+                current_entry,
+                self.root / "sensitive",
+                bundle_data=(self.metadata, self.proteins),
+            )
 
     def test_kofam_uses_task_temporary_storage_with_invalid_inherited_directory(self):
         command = commands("kofam", 2, 32)

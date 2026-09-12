@@ -27,6 +27,7 @@ from annotation_resources import RESOURCE_FILE, file_records
 from annotation_result import inventory, validate_native_batch, validate_result
 from annotation_tasks import POLICY, code_identity, task_identity
 from eggnog_batches import prepare_batches
+from eggnog_native_fixture import phased_raw
 
 
 class AnnotationBatchTaskTests(unittest.TestCase):
@@ -98,6 +99,9 @@ class AnnotationBatchTaskTests(unittest.TestCase):
             engine.member_task_identity(manifest, self.entry, self.batch)
             for manifest in self.manifests
         ]
+        source = self.raw
+        self.raw = self.root / "phased_raw"
+        phased_raw(self.batchdir, self.raw, source)
 
     def annotation(self, query, **fields):
         row = dict.fromkeys(egg.HEADER, "-")
@@ -210,7 +214,10 @@ class AnnotationBatchTaskTests(unittest.TestCase):
                 (paths["C"] / "normalized" / name).read_text(),
                 "\t".join(egg.TABLE_COLUMNS[name]) + "\n",
             )
-        for name in ("eggnog.emapper.annotations", "eggnog.emapper.seed_orthologs"):
+        for name in (
+            "annotations/member00000000/eggnog.emapper.annotations",
+            "search/eggnog.emapper.seed_orthologs",
+        ):
             self.assertEqual(
                 (native.root / "raw" / name).read_bytes(),
                 (self.raw / name).read_bytes(),
@@ -340,13 +347,12 @@ class AnnotationBatchTaskTests(unittest.TestCase):
 
     def test_native_failure_and_native_parse_failure_publish_all_failed_members(self):
         self.plan("run-task")
-        original = (self.raw / "eggnog.emapper.seed_orthologs").read_text()
+        annotations = self.raw / "annotations/member00000000/eggnog.emapper.annotations"
+        original = annotations.read_text()
         for name, exit_code in (("native-failed", 7), ("parse-failed", 0)):
             (self.raw / "exit_code.txt").write_text(f"{exit_code}\n")
             if exit_code == 0:
-                (self.raw / "eggnog.emapper.seed_orthologs").write_text(
-                    original.replace("## 2 queries scanned\n", "")
-                )
+                annotations.write_text(original.replace("#query\t", "#unexpected\t"))
             with patch.object(
                 egg, "normalize_batch", wraps=egg.normalize_batch
             ) as parser:

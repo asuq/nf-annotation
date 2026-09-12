@@ -3,23 +3,29 @@
 from __future__ import annotations
 
 import csv
-import json
 import re
 import sqlite3
 from pathlib import Path
+from typing import Any
 
 from annotation_common import (
     AnnotationError,
     integer,
     number,
     query,
-    validate_accession,
 )
 from annotation_normalization import (
     Normalized,
     json_cell,
     native_rows,
     ordered_categories,
+)
+from eggnog_native import (
+    SEED_NATIVE_COLUMNS,
+    member_name,
+    query_lookup,
+    read_native_seeds,
+    validate_execution,
 )
 
 FIELDS = (
@@ -123,97 +129,21 @@ def values(raw: str, name: str) -> list[str]:
     return terms
 
 
-SEED_NATIVE_COLUMNS = (
-    "qseqid",
-    "sseqid",
-    "evalue",
-    "bitscore",
-    "qstart",
-    "qend",
-    "sstart",
-    "send",
-    "pident",
-    "qcov",
-    "scov",
-)
-
-
-def query_lookup(proteins: list[dict[str, str]]) -> dict[str, dict[str, str]]:
-    """Index only canonical native tool IDs; original protein IDs are sample-local."""
-    if not proteins:
-        raise AnnotationError("eggNOG input contains no declared proteins")
-    lookup, genes = {}, set()
-    for protein in proteins:
-        identifier, gene = protein.get("tool_id"), protein.get("gene_id")
-        validate_accession(protein.get("accession"))
-        if (
-            not isinstance(identifier, str)
-            or not identifier
-            or any(char.isspace() for char in identifier)
-            or not isinstance(gene, str)
-            or not gene
-        ):
-            raise AnnotationError("Invalid canonical eggNOG query or gene ID")
-        if identifier in lookup or gene in genes:
-            raise AnnotationError("Duplicate canonical eggNOG query or gene ID")
-        lookup[identifier] = protein
-        genes.add(gene)
-    return lookup
-
-
-def seed_hits(
-    raw: Path,
+def _seed_evidence(
+    rows: list[dict[str, str]],
     lookup: dict[str, dict[str, str]],
     resource: Path,
     result: Normalized,
 ) -> dict[str, dict[str, str]]:
-    """Separate mapped seed hits from proteins receiving functional annotations."""
-    columns = SEED_NATIVE_COLUMNS
-    text = (raw / "eggnog.emapper.seed_orthologs").read_text()
-    lines = text.splitlines()
-    if not text.endswith("\n") or [
-        line for line in lines if line.startswith("#") and not line.startswith("##")
-    ] != ["#" + "\t".join(columns)]:
-        raise AnnotationError(
-            "Missing native eggNOG seed header or complete final line"
-        )
-    rows = [line.split("\t") for line in lines if line and not line.startswith("#")]
-    if [line for line in lines if re.fullmatch(r"## [0-9]+ queries scanned", line)] != [
-        f"## {len(rows)} queries scanned"
-    ]:
-        raise AnnotationError(
-            "Missing or inconsistent native eggNOG seed completion count"
-        )
+    """Resolve validated native integer seeds without rewriting their input rows."""
     seeds, evidence = {}, []
     with sqlite3.connect(
         f"file:{resource / 'eggnog.db'}?mode=ro", uri=True
     ) as database:
-        for values in rows:
-            if len(values) != len(columns):
-                raise AnnotationError("Truncated eggNOG seed ortholog row")
-            row = dict(zip(columns, values, strict=True))
+        for native in rows:
+            row = dict(native)
             protein = query(lookup, row["qseqid"])
-            if row["qseqid"] in seeds:
-                raise AnnotationError("Duplicate eggNOG seed query")
             seed_id = integer(row["sseqid"], "eggNOG integer seed ID")
-            for key in ("evalue", "bitscore"):
-                number(row[key], key, minimum=0)
-            for key in ("pident", "qcov", "scov"):
-                if number(row[key], key, minimum=0) > 100:
-                    raise AnnotationError(
-                        "eggNOG seed identity/coverage exceeds 100 percent"
-                    )
-            for key in ("qstart", "qend", "sstart", "send"):
-                integer(row[key], key, minimum=1)
-            if (
-                not 1
-                <= int(row["qstart"])
-                <= int(row["qend"])
-                <= int(protein["length"])
-            ):
-                raise AnnotationError(
-                    "eggNOG seed coordinates exceed the input protein"
-                )
             display = database.execute(
                 "SELECT name FROM protein_names WHERE id = ?", (seed_id,)
             ).fetchone()
@@ -228,11 +158,22 @@ def seed_hits(
                 dict(accession=protein["accession"], gene_id=protein["gene_id"], **row)
             )
     result.tables["eggnog_seed_hits.tsv"] = (
-        ("accession", "gene_id", *columns, "seed_display"),
+        ("accession", "gene_id", *SEED_NATIVE_COLUMNS, "seed_display"),
         evidence,
     )
     result.reported_hits = len(rows)
     return seeds
+
+
+def seed_hits(
+    raw: Path,
+    lookup: dict[str, dict[str, str]],
+    resource: Path,
+    result: Normalized,
+) -> dict[str, dict[str, str]]:
+    """Separate complete native seed evidence from functional annotation."""
+    rows = read_native_seeds(raw / "eggnog.emapper.seed_orthologs", lookup)
+    return _seed_evidence(rows, lookup, resource, result)
 
 
 COLUMNS = (
@@ -254,6 +195,17 @@ def normalize(raw: Path, proteins: list[dict[str, str]], resource: Path) -> Norm
     lookup = query_lookup(proteins)
     seeds = seed_hits(raw, lookup, resource, result)
     ontology = ontology_terms(resource / "go-basic.obo")
+    return _normalize_annotations(raw, lookup, seeds, result, ontology)
+
+
+def _normalize_annotations(
+    raw: Path,
+    lookup: dict[str, dict[str, str]],
+    seeds: dict[str, dict[str, str]],
+    result: Normalized,
+    ontology: dict[str, tuple[str, str]],
+) -> Normalized:
+    """Interpret one proteome's native annotation and its own validated seed rows."""
     path = raw / "eggnog.emapper.annotations"
     comments, rows, header = [], [], None
     with path.open(newline="") as handle:
@@ -419,70 +371,48 @@ def normalize(raw: Path, proteins: list[dict[str, str]], resource: Path) -> Norm
 
 
 def normalize_batch(
-    raw: Path, proteins: list[dict[str, str]], resource: Path
+    raw: Path,
+    proteins: list[dict[str, str]],
+    resource: Path,
+    *,
+    batch: dict[str, Any],
 ) -> dict[str, Normalized]:
-    """Parse one complete native batch once and project its evidence by accession.
-
-    Native files and their completion markers remain untouched. Each member
-    receives normalized tables in native row order, including header-only tables
-    for members without hits. Used definitions and validated empty GO evidence
-    remain specific to each member.
-    """
-    complete = normalize(raw, proteins, resource)
-    accessions = {protein["gene_id"]: protein["accession"] for protein in proteins}
-    members = {
-        accession: Normalized() for accession in dict.fromkeys(accessions.values())
-    }
-
-    def member_for_gene(gene: str) -> Normalized:
-        if gene not in accessions:
-            raise AnnotationError("Normalized eggNOG evidence contains an unknown gene")
-        return members[accessions[gene]]
-
-    for name, (columns, rows) in complete.tables.items():
-        for member in members.values():
-            member.tables[name] = columns, []
-        for row in rows:
-            member = member_for_gene(row["gene_id"])
-            if row["accession"] != accessions[row["gene_id"]]:
-                raise AnnotationError(
-                    "Normalized eggNOG row has a mismatched accession"
-                )
-            member.tables[name][1].append(row)
-            if name == "eggnog_annotations.tsv" and "GOs" in json.loads(
-                row["accepted_fields"]
-            ):
-                # The single-proteome parser records valid empty GO evidence as
-                # an empty definition dictionary; absent/invalid GO has no key.
-                member.definitions.setdefault("go", {})
-    for name, genes in complete.features.items():
-        for gene, values in genes.items():
-            member_for_gene(gene).features.setdefault(name, {})[gene] = set(values)
-    for gene in complete.mapped:
-        member_for_gene(gene).mapped.add(gene)
-    for gene in complete.accepted:
-        member_for_gene(gene).accepted.add(gene)
-    for error in complete.errors:
-        member_for_gene(error["gene_id"]).errors.append(dict(error))
-    for member in members.values():
-        member.reported_hits = len(member.tables["eggnog_seed_hits.tsv"][1])
-        for name, definitions in complete.definitions.items():
-            used = {
-                term
-                for terms in member.features.get(name, {}).values()
-                for term in terms
-            }
-            selected = {
-                term: definitions[term] for term in sorted(used) if term in definitions
-            }
-            if selected:
-                member.definitions[name] = selected
-    if (
-        sum(member.reported_hits for member in members.values())
-        != complete.reported_hits
-    ):
-        raise AnnotationError("Batch projection does not conserve reported seed hits")
-    return members
+    """Normalize a shared search and genuinely separate per-proteome annotations."""
+    partitions = validate_execution(raw, batch, proteins)
+    lookup = query_lookup(proteins)
+    search = Normalized()
+    seeds = _seed_evidence(
+        [row for rows in partitions.values() for row in rows],
+        lookup,
+        resource,
+        search,
+    )
+    ontology = ontology_terms(resource / "go-basic.obo")
+    columns, evidence = search.tables["eggnog_seed_hits.tsv"]
+    grouped_proteins = {member["accession"]: [] for member in batch["members"]}
+    grouped_evidence = {accession: [] for accession in grouped_proteins}
+    for protein in proteins:
+        if protein["accession"] not in grouped_proteins:
+            raise AnnotationError("Protein belongs to an undeclared annotation member")
+        grouped_proteins[protein["accession"]].append(protein)
+    for row in evidence:
+        grouped_evidence[row["accession"]].append(row)
+    results = {}
+    for index, member in enumerate(batch["members"]):
+        accession = member["accession"]
+        selected = grouped_evidence[accession]
+        result = Normalized()
+        result.tables["eggnog_seed_hits.tsv"] = columns, selected
+        result.reported_hits = len(selected)
+        result.mapped = {row["gene_id"] for row in selected}
+        results[accession] = _normalize_annotations(
+            raw / "annotations" / member_name(index),
+            query_lookup(grouped_proteins[accession]),
+            {row["qseqid"]: seeds[row["qseqid"]] for row in selected},
+            result,
+            ontology,
+        )
+    return results
 
 
 TABLE_COLUMNS = {"eggnog_annotations.tsv": COLUMNS}

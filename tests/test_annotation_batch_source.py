@@ -7,8 +7,6 @@ import shutil
 import unittest
 from unittest.mock import patch
 
-from Bio import SeqIO
-
 import test_annotation_batch_results as fixture
 from annotation_common import (
     AnnotationError,
@@ -22,7 +20,9 @@ from annotation_common import (
 from annotation_result import inventory, validate_native_batch, validate_raw_evidence
 from annotation_source import import_source, validate_source
 from annotation_workflow_fixture import publish_disabled, refresh_tables
+from Bio import SeqIO
 from eggnog_batches import prepare_batches
+from eggnog_native_fixture import phased_raw
 
 
 class AnnotationBatchSourceTests(unittest.TestCase):
@@ -262,7 +262,7 @@ class AnnotationBatchSourceTests(unittest.TestCase):
         native = self.source / "annotation_batches" / batch["batch_id"]
         native.mkdir()
         shutil.copytree(inputs, native / "inputs")
-        shutil.copytree(self.native / "raw", native / "raw")
+        phased_raw(native / "inputs", native / "raw")
         packet = dict(
             schema_version=1,
             kind="eggnog_native_batch",

@@ -21,6 +21,7 @@ from annotation_common import (
     write_json,
 )
 from eggnog_batches import prepare_batches, validate_batch
+from eggnog_native import NATIVE_CODE_FILES
 
 
 class EggnogBatchTests(unittest.TestCase):
@@ -37,7 +38,10 @@ class EggnogBatchTests(unittest.TestCase):
             "runtime_id": "sha256:" + "1" * 64,
             "resource_id": "2" * 64,
             "command": commands("eggnog", 16, 64),
-            "native_code": {},
+            "native_code": {
+                name: digest(Path(__file__).resolve().parents[1] / "bin" / name)
+                for name in NATIVE_CODE_FILES
+            },
         }
         self.size = (self.bundles[0] / "proteins.faa").stat().st_size
 

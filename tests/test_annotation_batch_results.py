@@ -20,6 +20,7 @@ from annotation_result import (
     validate_raw_evidence,
     validate_result,
 )
+from eggnog_native_fixture import phased_raw
 
 
 class AnnotationBatchResultTests(unittest.TestCase):
@@ -37,6 +38,7 @@ class AnnotationBatchResultTests(unittest.TestCase):
         (self.native / "raw").mkdir()
         (self.native / "raw/exit_code.txt").write_text("0\n")
         (self.native / "raw/native.txt").write_text("unchanged native batch evidence\n")
+        phased_raw(self.native / "inputs", self.native / "raw")
         self.native_record = {
             "schema_version": 1,
             "kind": "eggnog_native_batch",

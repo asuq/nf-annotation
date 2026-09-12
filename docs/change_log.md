@@ -8,9 +8,12 @@
   results; the other four callers remain reusable. Native sensitivity and
   large-cohort performance comparisons are tracked in the qualification record.
 - Added deterministic whole-proteome eggNOG batching with a 4 MiB FASTA target,
-  one immutable native archive per batch and normalized per-sample projections.
+  one shared DIAMOND search, separate native annotation per proteome and one
+  immutable archive per batch. Seed partitions retain the original native fields
+  with explicit derivation receipts. A native confidence difference rejected the
+  initial pooled-annotation design; no pooled annotation feeds primary results.
   Batch membership participates in search invalidation, and portable reuse
-  includes the shared `annotation_batches/` directory. Pooling is under native
+  includes the shared `annotation_batches/` directory. The corrected workflow is under native
   qualification.
 - Bounded planning command arguments through JSON path lists and reduced
   aggregation memory through SQLite spooling. Source-table validation projects
