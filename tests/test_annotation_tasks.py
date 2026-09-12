@@ -7,6 +7,7 @@ import subprocess
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
 import test_annotation_bundle as bundle_fixture
@@ -36,6 +37,7 @@ from annotation_tasks import (
     runtime_identity,
     task_identity,
 )
+from prepare_annotation_tasks import plan
 
 
 class AnnotationTaskTests(unittest.TestCase):
@@ -148,7 +150,12 @@ class AnnotationTaskTests(unittest.TestCase):
         old = self.write_result(previous, "ultra-sensitive")
         current_entry = self.entry("eggnog")
         planned = plan_task(
-            self.bundle, "eggnog", current_entry, self.root / "sensitive", old
+            self.bundle,
+            "eggnog",
+            current_entry,
+            self.root / "sensitive",
+            old,
+            bundle_data=(self.metadata, self.proteins),
         )
         self.assertEqual(planned["action"], "run")
         self.assertNotEqual(
@@ -189,22 +196,73 @@ with tempfile.NamedTemporaryFile() as temporary:
         record = self.result()
         old = self.write_result(record, "old")
         planned = plan_task(
-            self.bundle, "kofam", self.entry(), self.root / "reuse", old
+            self.bundle,
+            "kofam",
+            self.entry(),
+            self.root / "reuse",
+            old,
+            bundle_data=(self.metadata, self.proteins),
         )
         self.assertEqual(planned["action"], "reuse")
+        self.assertFalse((self.root / "reuse/input.faa").exists())
+        self.assertFalse((self.root / "reuse/run.sh").exists())
         changed = self.entry()
         changed["interpretation"]["policy"] = {"test_policy": "changed"}
         planned = plan_task(
-            self.bundle, "kofam", changed, self.root / "renormalize", old
+            self.bundle,
+            "kofam",
+            changed,
+            self.root / "renormalize",
+            old,
+            bundle_data=(self.metadata, self.proteins),
         )
         self.assertEqual(planned["action"], "renormalize")
+        self.assertFalse((self.root / "renormalize/input.faa").exists())
+        self.assertFalse((self.root / "renormalize/run.sh").exists())
         changed = self.entry()
         changed["search_method"]["resource_id"] = "new_resource"
-        planned = plan_task(self.bundle, "kofam", changed, self.root / "rerun", old)
+        planned = plan_task(
+            self.bundle,
+            "kofam",
+            changed,
+            self.root / "rerun",
+            old,
+            bundle_data=(self.metadata, self.proteins),
+        )
         self.assertEqual(planned["action"], "run")
         (old / "raw" / "native.txt").write_text("changed native evidence\n")
         with self.assertRaisesRegex(AnnotationError, "changed"):
             validate_result(old)
+
+    def test_planner_validates_each_bundle_once_across_enabled_tools(self):
+        samples = self.root / "samples.tsv"
+        write_tsv(samples, ("accession",), [{"accession": "A"}])
+        enabled = ["cogclassifier", "pfam", "kofam"]
+        receipt = self.root / "preflight.json"
+        entries = {}
+        for tool in enabled:
+            entry = self.entry(tool)
+            entry["resource_path"] = str(self.root / "resource")
+            entries[tool] = entry
+        write_json(
+            receipt,
+            {"enabled_tools": enabled, "preflight_id": "fixture", "tools": entries},
+        )
+        with (
+            patch("prepare_annotation_tasks.validate_preflight"),
+            patch(
+                "prepare_annotation_tasks.bundle_proteins", wraps=bundle_proteins
+            ) as validate,
+        ):
+            planned = plan(samples, [self.bundle], receipt, self.root / "planned")
+        self.assertEqual(validate.call_count, 1)
+        self.assertEqual(sum(row["action"] == "run" for row in planned["tasks"]), 3)
+        (self.bundle / "proteins.faa").write_text(">changed\nM\n")
+        with (
+            patch("prepare_annotation_tasks.validate_preflight"),
+            self.assertRaises(AnnotationError),
+        ):
+            plan(samples, [self.bundle], receipt, self.root / "tampered-plan")
 
     def test_field_errors_invalidate_every_dependent_count(self):
         gene = self.proteins[0]["gene_id"]

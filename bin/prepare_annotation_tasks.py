@@ -63,7 +63,8 @@ def plan(
     validate_preflight(checked)
     rows = read_tsv(samples, ["accession"])
     accessions = [row["accession"] for row in rows]
-    if not accessions or len(set(accessions)) != len(accessions):
+    accession_set = set(accessions)
+    if not accessions or len(accession_set) != len(accessions):
         raise AnnotationError(
             "Annotation sample manifest is empty or contains duplicates"
         )
@@ -75,13 +76,11 @@ def plan(
         accession = record.get("accession")
         if (
             record.get("schema_version") != SCHEMA_VERSION
-            or accession not in accessions
+            or accession not in accession_set
             or accession in by_accession
         ):
             raise AnnotationError("Unexpected or duplicate annotation bundle")
-        if record["status"] == "success":
-            bundle_proteins(bundle)
-        elif record["status"] not in ("upstream_failed", "incompatible_input"):
+        if record["status"] not in ("success", "upstream_failed", "incompatible_input"):
             raise AnnotationError("Unsupported bundle status")
         by_accession[accession] = (bundle.resolve(), record)
     if source is not None:
@@ -90,6 +89,13 @@ def plan(
     tasks = []
     for accession in accessions:
         bundle, bundle_record = by_accession.get(accession, (None, {}))
+        proteins = []
+        if bundle_record.get("status") == "success":
+            bundle_record, proteins = bundle_proteins(bundle)
+            if bundle_record["accession"] != accession:
+                raise AnnotationError(
+                    "Bundle accession changed during annotation planning"
+                )
         for tool in TOOLS:
             row: dict[str, Any] = dict.fromkeys(PLAN_COLUMNS)
             row.update(
@@ -117,7 +123,14 @@ def plan(
                     if source
                     else None
                 )
-                task = plan_task(bundle, tool, entry, output / name, old)
+                task = plan_task(
+                    bundle,
+                    tool,
+                    entry,
+                    output / name,
+                    old,
+                    bundle_data=(bundle_record, proteins),
+                )
                 row.update(
                     action=task["action"],
                     reason=task["reason"],

@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "bin"))
 import test_annotation_bundle as bundle_fixture
 from annotation_common import (
+    bundle_proteins,
     digest,
     identity,
     read_json,
@@ -212,7 +213,9 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
         )["tools"]["padloc"]
         bundle = self.source / "samples/A/annotation/bundle"
         directory = self.root / "padloc-task"
-        plan_task(bundle, "padloc", entry, directory)
+        plan_task(
+            bundle, "padloc", entry, directory, bundle_data=bundle_proteins(bundle)
+        )
         raw = directory / "native_control"
         raw.mkdir()
         (raw / "input.domtblout").write_text("# Program: hmmsearch\n# [ok]\n")

@@ -231,9 +231,11 @@ def plan_task(
     entry: dict[str, Any],
     outdir: Path,
     previous: Path | None = None,
+    *,
+    bundle_data: tuple[dict[str, Any], list[dict[str, str]]],
 ) -> dict[str, Any]:
-    """Prepare one task, retaining native IDs for PADLOC and compact IDs otherwise."""
-    manifest, proteins = bundle_proteins(bundle)
+    """Plan a tool from the bundle validated once in this planner invocation."""
+    manifest, proteins = bundle_data
     task = task_identity(manifest, tool, entry)
     task.update(action="run", reason="no_compatible_native_result")
     if previous is not None and (previous / "result.json").is_file():
@@ -254,18 +256,20 @@ def plan_task(
                 else "interpretation_changed",
             )
     outdir.mkdir(parents=True)
-    shutil.copyfile(
-        bundle / ("source.faa" if tool == "padloc" else "proteins.faa"),
-        outdir / "input.faa",
-    )
-    if tool == "padloc":
-        prepare_gff(bundle, proteins, outdir / "input.gff")
-    if tool == "cogclassifier":
+    if task["action"] == "run":
         shutil.copyfile(
-            Path(__file__).with_name("classify_cog_hits.py"),
-            outdir / "classify_cog_hits.py",
+            bundle / ("source.faa" if tool == "padloc" else "proteins.faa"),
+            outdir / "input.faa",
         )
-    if task["action"] != "run":
+        if tool == "padloc":
+            prepare_gff(bundle, proteins, outdir / "input.gff")
+        if tool == "cogclassifier":
+            shutil.copyfile(
+                Path(__file__).with_name("classify_cog_hits.py"),
+                outdir / "classify_cog_hits.py",
+            )
+        (outdir / "run.sh").write_text(shell_script(entry["search_method"]["command"]))
+    else:
         shutil.copytree(previous / "raw", outdir / "previous" / "raw")
         if task["action"] == "reuse":
             shutil.copytree(previous / "normalized", outdir / "previous" / "normalized")
@@ -273,7 +277,6 @@ def plan_task(
                 previous / "result.json", outdir / "previous" / "result.json"
             )
     write_json(outdir / "task.json", task)
-    (outdir / "run.sh").write_text(shell_script(entry["search_method"]["command"]))
     return task
 
 
