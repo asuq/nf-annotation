@@ -164,9 +164,13 @@ ANNOTATION_BUNDLE_LIST
     cat > result_list.json <<'ANNOTATION_RESULT_LIST'
 ${resultList}
 ANNOTATION_RESULT_LIST
+    cat > batch_list.json <<'ANNOTATION_BATCH_LIST'
+[]
+ANNOTATION_BATCH_LIST
     python3 "\$(command -v aggregate_annotations.py)" --plan '${plan}' \
         --master upstream_master.tsv --sample-status upstream_sample_status.tsv \
-        --bundle-list bundle_list.json --result-list result_list.json --output report
+        --bundle-list bundle_list.json --result-list result_list.json \
+        --batch-list batch_list.json --output report
     """
 }
 

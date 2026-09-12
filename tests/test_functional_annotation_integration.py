@@ -218,7 +218,12 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
         lists = list((self.root / "work-empty").rglob("*_list.json"))
         self.assertEqual(
             sorted(path.name for path in lists),
-            ["bundle_list.json", "bundle_list.json", "result_list.json"],
+            [
+                "batch_list.json",
+                "bundle_list.json",
+                "bundle_list.json",
+                "result_list.json",
+            ],
         )
         self.assertTrue(all(read_json(path) == [] for path in lists))
 
