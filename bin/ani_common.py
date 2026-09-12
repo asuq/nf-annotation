@@ -4,11 +4,13 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import logging
 import re
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Sequence, TextIO
 
 
 REQUIRED_SCORING_METADATA_COLS: set[str] = {
@@ -184,52 +186,61 @@ def try_parse_busco(busco_str: Any) -> tuple[float, float] | None:
     return float(match.group("C")), float(match.group("M"))
 
 
-def load_phylip_lower_triangular(path: Path) -> tuple[list[str], list[list[str]]]:
-    """Load a PHYLIP lower-triangular matrix with strict structure checks."""
-    if not path.is_file():
-        raise AniInputError(f"ANI matrix file not found: {path}")
+def _hashed_matrix_lines(
+    handle: TextIO, update: Callable[[bytes], None]
+) -> Iterator[str]:
+    """Hash every input line while exposing only the current line to parsing."""
+    for line in handle:
+        update(line.encode("utf-8"))
+        yield line
 
-    lines: list[str] = []
-    with path.open("rt", encoding="utf-8") as handle:
-        for line in handle:
-            stripped = line.strip()
-            if stripped:
-                lines.append(stripped)
 
-    if not lines:
+def _matrix_sample_count(lines: Iterator[str]) -> int:
+    """Read the first nonblank line without retaining matrix text."""
+    for line in lines:
+        header = line.strip()
+        if header:
+            break
+    else:
         raise AniInputError("ANI matrix: empty file or missing taxon count.")
     try:
-        sample_count = int(lines[0])
-    except Exception as error:
+        sample_count = int(header)
+    except ValueError as error:
         raise AniInputError(
-            f"First ANI matrix line must be an integer taxon count: {lines[0]!r}"
+            f"First ANI matrix line must be an integer taxon count: {header!r}"
         ) from error
-
-    if sample_count == 0:
+    if sample_count <= 0:
         raise AniInputError("ANI matrix does not contain any sample.")
-    if len(lines) - 1 != sample_count:
-        raise AniInputError(
-            f"Expected {sample_count} ANI matrix rows, found {len(lines) - 1}."
-        )
+    return sample_count
 
-    names: list[str] = []
-    rows: list[list[str]] = []
-    for row_index in range(1, sample_count + 1):
-        raw = lines[row_index]
-        expected_values = row_index - 1
-        parts = raw.rsplit(maxsplit=expected_values)
-        if len(parts) != expected_values + 1:
+
+def _matrix_rows(
+    lines: Iterator[str], sample_count: int
+) -> Iterator[tuple[str, list[float]]]:
+    """Validate and yield one lower-triangular row, preserving spaced names."""
+    row_index = 0
+    for line in lines:
+        raw = line.strip()
+        if not raw:
+            continue
+        if row_index == sample_count:
             raise AniInputError(
-                f"ANI matrix row {row_index} expected {expected_values} values: {raw!r}"
+                f"Expected {sample_count} ANI matrix rows, found more."
+            )
+        parts = raw.rsplit(maxsplit=row_index)
+        if len(parts) != row_index + 1:
+            raise AniInputError(
+                f"ANI matrix row {row_index + 1} expected {row_index} values: {raw!r}"
             )
         name = parts[0].strip()
-        values = [part.strip() for part in parts[1:]]
-        for column_index, token in enumerate(values, start=1):
+        values: list[float] = []
+        for column_index, token in enumerate(parts[1:], start=1):
             if token == "NA":
+                values.append(float("nan"))
                 continue
             try:
                 parsed = float(token)
-            except Exception as error:
+            except ValueError as error:
                 raise AniInputError(
                     f"ANI matrix token is not numeric or NA at row {name!r}, "
                     f"column {column_index}: {token!r}"
@@ -239,34 +250,49 @@ def load_phylip_lower_triangular(path: Path) -> tuple[list[str], list[list[str]]
                     f"ANI value out of range [0,100] at row {name!r}, "
                     f"column {column_index}: {parsed}"
                 )
-        names.append(name)
-        rows.append(values)
-    return names, rows
+            values.append(parsed)
+        yield name, values
+        row_index += 1
+    if row_index != sample_count:
+        raise AniInputError(
+            f"Expected {sample_count} ANI matrix rows, found {row_index}."
+        )
 
 
 def load_matrix(path: Path) -> tuple[list[str], "np.ndarray", dict[str, int]]:
-    """Convert a PHYLIP lower-triangular ANI file into a full symmetric matrix."""
+    """Validate, then stream a PHYLIP ANI file into one symmetric float64 array."""
     import numpy as np
 
-    names, rows = load_phylip_lower_triangular(path)
-    sample_count = len(names)
-    ani = np.full((sample_count, sample_count), np.nan, dtype=np.float64)
+    if not path.is_file():
+        raise AniInputError(f"ANI matrix file not found: {path}")
+    names: list[str] = []
     name_to_idx: dict[str, int] = {}
+    with path.open("rt", encoding="utf-8", newline="") as handle:
+        first_hash = hashlib.sha256()
+        lines = _hashed_matrix_lines(handle, first_hash.update)
+        sample_count = _matrix_sample_count(lines)
+        # Validate the complete structure before allocating from an untrusted
+        # sample count. Keep only names and the current row in memory.
+        for name, _ in _matrix_rows(lines, sample_count):
+            if name in name_to_idx:
+                raise AniInputError(f"Duplicate name in ANI matrix: {name!r}")
+            name_to_idx[name] = len(names)
+            names.append(name)
 
-    for index, name in enumerate(names):
-        if name in name_to_idx:
-            raise AniInputError(f"Duplicate name in ANI matrix: {name!r}")
-        name_to_idx[name] = index
-        ani[index, index] = 100.0
-
-    for row_index, values in enumerate(rows):
-        for column_index, token in enumerate(values):
-            if token == "NA":
-                continue
-            value = float(token)
-            ani[row_index, column_index] = value
-            ani[column_index, row_index] = value
-
+        ani = np.full((sample_count, sample_count), np.nan, dtype=np.float64)
+        np.fill_diagonal(ani, 100.0)
+        handle.seek(0)
+        second_hash = hashlib.sha256()
+        lines = _hashed_matrix_lines(handle, second_hash.update)
+        if _matrix_sample_count(lines) != sample_count:
+            raise AniInputError("ANI matrix sample count changed while reading.")
+        for row_index, (name, values) in enumerate(_matrix_rows(lines, sample_count)):
+            if name != names[row_index]:
+                raise AniInputError("ANI matrix row names changed while reading.")
+            ani[row_index, :row_index] = values
+            ani[:row_index, row_index] = values
+        if first_hash.digest() != second_hash.digest():
+            raise AniInputError("ANI matrix content changed while reading.")
     return names, ani, name_to_idx
 
 
