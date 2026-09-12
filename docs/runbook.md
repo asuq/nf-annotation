@@ -289,8 +289,13 @@ nextflow run . -c annotation.config -profile local,docker \
 
 Supply the intended `--busco_lineages` in order, plus any non-default ANI
 settings, on every update. Requested BUSCO lineages must already be available
-for retained samples. Their QC/annotation settings and outcomes remain as
-published; newly supplied per-sample tool settings govern additions only.
+for retained samples. Their upstream QC, genetic-code decisions and native
+gene predictions remain as published; newly supplied upstream tool settings
+govern additions only. The current bundle adapter revalidates retained Prokka
+outputs. Functional tool selection, resources and search/interpretation settings
+apply to every eligible genome in the revised cohort and determine whether each
+result is reused, renormalized or rerun; see
+[functional annotation](functional_annotation.md#entrypoints-and-reuse).
 The ANI threshold, scoring profile, primary BUSCO column and optional
 incomplete-16S gate apply to the whole revised cohort. ANI pairs are recomputed,
 including retained-to-retained comparisons; this is not a pairwise ANI cache.
@@ -303,6 +308,13 @@ changed genomes under a retained accession cause an explicit error. Older or
 partial results lacking the required published format must be repaired before
 they can be used for a routine update; the recovery helper below has a
 different purpose.
+
+A native v0.4 source with a complete published contract and a recorded bundle
+failure can be updated using its retained genome and Prokka files. The current
+adapter rebuilds the bundle without repeating gene prediction; corrected inputs
+then enter the ordinary functional plan. A failed functional result is rerun,
+while valid results with matching protein/coordinate and method identities are
+reused. Original source results remain unchanged.
 
 The updated CSV must resolve each genome, including retained genomes. A
 retained input can be moved, rewrapped or gzip-compressed, and its FASTA

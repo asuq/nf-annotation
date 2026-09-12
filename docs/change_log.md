@@ -21,6 +21,10 @@
 - Hardened native container mounts, runtime overrides, task temporary storage,
   PADLOC protein joins and offline BUSCO preparation. Full biological
   qualification remains tracked in the [release specification](development/v0.4.md).
+- Recorded native Prokka ambiguity masking in source-contig provenance and
+  enabled bundle recovery from retained native files during cohort updates.
+  Removed overlapping parent-directory publication in both import paths so
+  repeated cached resumes preserve bundles and functional results.
 
 ## v0.3.1 - 2026-09-10
 

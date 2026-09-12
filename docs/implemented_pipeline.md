@@ -97,7 +97,10 @@ prepare_databases.nf
 main.nf
   -> INPUT_VALIDATION_AND_STAGING
      -> VALIDATE_INPUTS
-     -> STAGE_INPUTS
+     -> STAGE_INPUTS (new genomes)
+     -> PUBLISHED_RESULTS_IMPORT (retained genomes)
+        -> IMPORT_PUBLISHED_SAMPLE
+        -> PREPARE_ANNOTATION_BUNDLE (retained native Prokka outputs)
   -> BUSCO_DATASET_PREP
   -> COHORT_TAXONOMY
      -> TAXONOMY_EXPAND
@@ -149,6 +152,12 @@ reannotate.nf
 
 The orchestration layer stays in Nextflow. Parsing, summarisation, join logic,
 and final table assembly live in small CLIs under `bin/`.
+
+Importers publish to destinations separate from rebuilt annotation outputs.
+The main workflow publishes retained upstream entries individually, and the
+annotation-only importer publishes inherited files without copying their parent
+sample/table directories. This prevents cached resume from replacing concurrently
+published bundles, functional results or cohort tables.
 
 ## Key inputs and runtime parameters
 

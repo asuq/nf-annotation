@@ -31,9 +31,9 @@ Provide a configuration file with immutable runtimes and prepared databases:
 ```groovy
 params {
     annotation_tools = 'eggnog,cogclassifier,pfam,kofam,padloc'
-    annotation_cpus = 4
-    annotation_memory = '32 GB'
-    annotation_max_forks = 2
+    annotation_cpus = 16
+    annotation_memory = '64 GB'
+    annotation_max_forks = 4
 
     python_container = '/path/to/python-scipy.sif'
     eggnog_container = '/path/to/eggnog.sif'
@@ -72,9 +72,52 @@ The CPU and memory settings are bounded by `max_cpus` and `max_memory` and
 recorded in the method identity. Native task allocations must match the plan.
 DIAMOND's block size and index chunks are explicit and derived from that
 allocation, with reserved memory for annotation. They do not use host RAM.
-The `local` profile caps task memory at 16 GB by default. Full eggNOG runs need
-a larger explicitly provisioned budget, for example `--max_memory '32 GB'`
-with `annotation_memory = '32 GB'`, when that memory is available to the runtime.
+The example uses the native qualification allocation. Pipeline defaults remain
+four CPUs, 32 GB and two concurrent searches; the full-resource eggNOG runtime
+has not been qualified at those defaults. The `local` profile also caps task
+memory at 16 GB unless explicitly increased. Supply matching CPU/memory limits
+for the selected profile and resources actually available to the runtime.
+
+Use this overlay in the same configuration file to reproduce the per-process
+allocations used in the five-genome OIST run and cap submitted tasks at 16.
+Set the execution directives explicitly: the OIST site profile supplies its
+own queue and submission limit, so changing only the corresponding parameters
+does not override those resolved values.
+
+```groovy
+profiles {
+    oist {
+        params {
+            max_cpus = 16
+            max_memory = 64.GB
+            max_time = 4.h
+            slurm_queue = 'compute'
+        }
+        executor.queueSize = 16
+        process {
+            queue = 'compute'
+            resourceLimits = [cpus: 16, memory: 64.GB, time: 4.h]
+            withLabel: process_medium {
+                cpus = 4
+                memory = 32.GB
+                time = 2.h
+            }
+            withLabel: process_high {
+                cpus = 8
+                memory = 64.GB
+                time = 2.h
+            }
+        }
+    }
+}
+```
+
+Four concurrent functional searches can request 64 CPUs and 256 GB in total;
+upstream tasks have separate allocations. The four-hour compute allocation
+avoids the tested site's two-hour short-queue association limit. These settings
+do not establish a minimum memory requirement or a throughput guarantee.
+See the [qualification record](development/v0.4_qualification.md) for measured
+runtimes, resource identities and outstanding checks.
 
 ## Entrypoints and reuse
 
