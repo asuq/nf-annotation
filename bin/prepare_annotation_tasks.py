@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from annotation_batch_tasks import complete_batch, member_task_identity, plan_batch
 from annotation_common import (
     SCHEMA_VERSION,
     TOOLS,
@@ -32,6 +33,7 @@ from annotation_tasks import (
     preflight,
     validate_preflight,
 )
+from eggnog_batches import prepare_batches
 
 PLAN_COLUMNS = (
     "accession",
@@ -41,6 +43,7 @@ PLAN_COLUMNS = (
     "status",
     "input_proteins",
     "task_directory",
+    "batch_id",
     "bundle",
     "resource",
     "container",
@@ -84,9 +87,29 @@ def plan(
         if record["status"] not in ("success", "upstream_failed", "incompatible_input"):
             raise AnnotationError("Unsupported bundle status")
         by_accession[accession] = (bundle.resolve(), record)
-    if source is not None:
-        validate_source(source)
+    previous_batches = validate_source(source)[1] if source is not None else {}
     output.mkdir()
+    successful = [
+        bundle
+        for bundle, record in by_accession.values()
+        if record["status"] == "success"
+    ]
+    batches = (
+        prepare_batches(
+            successful,
+            checked["tools"]["eggnog"]["search_method"],
+            output / "batch_inputs",
+        )
+        if "eggnog" in checked["enabled_tools"] and successful
+        else []
+    )
+    batch_for_accession = {
+        member["accession"]: (directory, record)
+        for directory, record in batches
+        for member in record["members"]
+    }
+    eggnog_members = {}
+    eggnog_rows = {}
     tasks = []
     for accession in accessions:
         bundle, bundle_record = by_accession.get(accession, (None, {}))
@@ -124,20 +147,30 @@ def plan(
                     if source
                     else None
                 )
-                task = plan_task(
-                    bundle,
-                    tool,
-                    entry,
-                    output / name,
-                    old,
-                    bundle_data=(bundle_record, proteins),
-                )
+                if tool == "eggnog":
+                    batchdir, batch = batch_for_accession[accession]
+                    task = member_task_identity(bundle_record, entry, batch)
+                    eggnog_members[accession] = task
+                    eggnog_rows[accession] = row
+                    name = "eggnog_" + batch["batch_id"]
+                    row["batch_id"] = batch["batch_id"]
+                    input_directory = batchdir.resolve()
+                else:
+                    task = plan_task(
+                        bundle,
+                        tool,
+                        entry,
+                        output / name,
+                        old,
+                        bundle_data=(bundle_record, proteins),
+                    )
+                    input_directory = bundle
                 row.update(
-                    action=task["action"],
-                    reason=task["reason"],
+                    action=task.get("action"),
+                    reason=task.get("reason"),
                     status="planned",
                     task_directory=name,
-                    bundle=str(bundle),
+                    bundle=str(input_directory),
                     resource=entry["resource_path"],
                     container=entry["container"],
                     cpus=entry["search_method"]["command"]["cpus"],
@@ -147,6 +180,23 @@ def plan(
                     method_id=task["method_id"],
                 )
             tasks.append(row)
+    for directory, batch in batches:
+        member_accessions = [member["accession"] for member in batch["members"]]
+        task = plan_batch(
+            directory,
+            checked["tools"]["eggnog"],
+            [eggnog_members[accession] for accession in member_accessions],
+            output / ("eggnog_" + batch["batch_id"]),
+            previous_batches.get(batch["batch_id"]),
+            {
+                accession: source / "samples" / accession / "annotation" / "eggnog"
+                for accession in member_accessions
+            }
+            if source is not None
+            else {},
+        )
+        for accession in member_accessions:
+            eggnog_rows[accession].update(action=task["action"], reason=task["reason"])
     record = dict(
         schema_version=SCHEMA_VERSION,
         accessions=accessions,
@@ -201,6 +251,9 @@ def main() -> int:
     reuser = sub.add_parser("reuse")
     reuser.add_argument("--task", type=Path, required=True)
     reuser.add_argument("--output", type=Path, required=True)
+    batcher = sub.add_parser("complete-batch", allow_abbrev=False)
+    for name in ("task", "raw", "batch", "resource", "output"):
+        batcher.add_argument("--" + name, type=Path, required=True)
     importer = sub.add_parser("import")
     importer.add_argument("--source", type=Path, required=True)
     importer.add_argument("--output", type=Path, required=True)
@@ -221,6 +274,8 @@ def main() -> int:
             normalize_task(args.task, args.raw, args.bundle, args.resource, args.output)
         elif args.command == "reuse":
             reuse(args.task, args.output)
+        elif args.command == "complete-batch":
+            complete_batch(args.task, args.raw, args.batch, args.resource, args.output)
         else:
             import_source(args.source, args.output)
     except (AnnotationError, AnnotationResourceError, OSError) as error:

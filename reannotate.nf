@@ -34,6 +34,7 @@ workflow {
         FUNCTIONAL_ANNOTATION.out.plan, IMPORT_ANNOTATION_SOURCE.out.master,
         IMPORT_ANNOTATION_SOURCE.out.sample_status, FUNCTIONAL_ANNOTATION.out.bundle_files,
         FUNCTIONAL_ANNOTATION.out.results.map { item -> item[1] }.toList(),
+        FUNCTIONAL_ANNOTATION.out.native_batches.toList(),
     )
     ANNOTATION_ACCEPTANCE(AGGREGATE_ANNOTATIONS.out.acceptance, IMPORT_ANNOTATION_SOURCE.out.samples)
 }

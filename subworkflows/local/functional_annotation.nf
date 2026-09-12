@@ -3,6 +3,7 @@ include { PLAN_ANNOTATIONS } from '../../modules/local/functional_annotation'
 include { ANNOTATION_SEARCH } from '../../modules/local/functional_annotation'
 include { NORMALIZE_ANNOTATION } from '../../modules/local/functional_annotation'
 include { REUSE_ANNOTATION } from '../../modules/local/functional_annotation'
+include { COMPLETE_EGGNOG_BATCH } from '../../modules/local/functional_annotation'
 
 /* Resolve all requested methods before starting expensive per-sample searches. */
 workflow ANNOTATION_RESOURCES {
@@ -38,7 +39,7 @@ workflow ANNOTATION_RESOURCES {
     receipt = ANNOTATION_PREFLIGHT.out.receipt
 }
 
-/* Run, reuse or renormalize each task from an explicit full-cohort plan. */
+/* Keep the full sample/tool plan while executing each shared batch once. */
 workflow FUNCTIONAL_ANNOTATION {
     take:
     samples
@@ -59,10 +60,31 @@ workflow FUNCTIONAL_ANNOTATION {
         }
     }
     PLAN_ANNOTATIONS(samples, preflight, collectedBundles, source_results, resourceManifests)
+    checkedTaskDirectories = PLAN_ANNOTATIONS.out.tasks.combine(PLAN_ANNOTATIONS.out.plan)
+        .map { item ->
+            def directory = item[0]
+            def plan = item[1]
+            def record = new groovy.json.JsonSlurper().parse(plan.toFile())
+            def expected = record.tasks.findAll { it.batch_id }.collect { it.batch_id } as Set
+            def published = file("${params.outdir}/annotation_batches")
+            if (published.exists() || java.nio.file.Files.isSymbolicLink(published)) {
+                if (java.nio.file.Files.isSymbolicLink(published) || !published.toFile().isDirectory()) {
+                    error 'Published annotation_batches must be an ordinary directory; use a fresh --outdir'
+                }
+                def incompatible = published.toFile().listFiles().findAll {
+                    !(it.name in expected) || !it.isDirectory() || java.nio.file.Files.isSymbolicLink(it.toPath())
+                }
+                if (incompatible) {
+                    error 'Existing annotation_batches are incompatible with the current plan; use a fresh --outdir'
+                }
+            }
+            directory
+        }
     plannedTasks = PLAN_ANNOTATIONS.out.table
         .splitCsv(header: true, sep: '\t')
         .filter { row -> row.action != 'skip' }
-        .combine(PLAN_ANNOTATIONS.out.tasks)
+        .unique { row -> row.task_directory }
+        .combine(checkedTaskDirectories)
         .map { item ->
             def row = item[0]
             def taskDir = item[1].resolve(row.task_directory)
@@ -70,15 +92,29 @@ workflow FUNCTIONAL_ANNOTATION {
             tuple(row, taskDir, file(row.bundle, checkIfExists: true), resource)
         }
     ANNOTATION_SEARCH(plannedTasks.filter { item -> item[0].action == 'run' })
-    normalizationInputs = ANNOTATION_SEARCH.out.raw_results.mix(
-        plannedTasks.filter { item -> item[0].action == 'renormalize' }
+    individualTasks = plannedTasks.filter { item -> item[0].batch_id == 'NA' }
+    normalizationInputs = ANNOTATION_SEARCH.out.raw_results
+        .filter { item -> item[0].batch_id == 'NA' }.mix(
+        individualTasks.filter { item -> item[0].action == 'renormalize' }
             .map { item -> tuple(item[0], item[1], item[2], item[3], item[1].resolve('previous/raw')) }
     )
     NORMALIZE_ANNOTATION(normalizationInputs)
-    REUSE_ANNOTATION(plannedTasks.filter { item -> item[0].action == 'reuse' }.map { item -> tuple(item[0], item[1]) })
+    REUSE_ANNOTATION(individualTasks.filter { item -> item[0].action == 'reuse' }.map { item -> tuple(item[0], item[1]) })
+    batchInputs = ANNOTATION_SEARCH.out.raw_results
+        .filter { item -> item[0].batch_id != 'NA' }.mix(
+        plannedTasks.filter { item -> item[0].batch_id != 'NA' && item[0].action in ['reuse', 'renormalize'] }
+            .map { item -> tuple(item[0], item[1], item[2], item[3], item[1].resolve('previous_batch/raw')) }
+    )
+    COMPLETE_EGGNOG_BATCH(batchInputs)
+    batchResults = COMPLETE_EGGNOG_BATCH.out.members.flatMap { members ->
+        (members instanceof Collection ? members : [members]).collect { member ->
+            tuple([accession: member.parent.parent.name, tool: 'eggnog'], member)
+        }
+    }
 
     emit:
-    results = NORMALIZE_ANNOTATION.out.result.mix(REUSE_ANNOTATION.out.result)
+    results = NORMALIZE_ANNOTATION.out.result.mix(REUSE_ANNOTATION.out.result, batchResults)
+    native_batches = COMPLETE_EGGNOG_BATCH.out.native_batch
     plan = PLAN_ANNOTATIONS.out.plan
     bundle_files = collectedBundles
 }

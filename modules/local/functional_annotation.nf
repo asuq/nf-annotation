@@ -63,7 +63,7 @@ ANNOTATION_BUNDLE_LIST
 }
 
 process ANNOTATION_SEARCH {
-    tag "${meta.accession}:${meta.tool}"
+    tag { meta.batch_id && meta.batch_id != 'NA' ? "eggnog-batch:${meta.batch_id.substring(0, 12)}" : "${meta.accession}:${meta.tool}" }
     cpus { meta.cpus as int }
     memory { "${meta.memory_gib} GB" }
     time { params.max_time }
@@ -133,6 +133,29 @@ process REUSE_ANNOTATION {
     """
 }
 
+process COMPLETE_EGGNOG_BATCH {
+    tag "${meta.batch_id.substring(0, 12)}:${meta.action}"
+    label 'process_single'
+    container params.python_container
+    errorStrategy 'finish'
+    maxRetries 0
+    publishDir params.outdir, mode: 'copy', overwrite: true,
+        saveAs: { name -> name.startsWith('published/') ? name.substring(10) : null }
+
+    input:
+    tuple val(meta), path(task_directory, name: 'task'), path(batch, name: 'batch'), path(resource, name: 'resource'), path(raw, name: 'raw')
+
+    output:
+    path 'published/annotation_batches/*', emit: native_batch
+    path 'published/samples/*/annotation/eggnog', emit: members
+
+    script:
+    """
+    python3 "\$(command -v prepare_annotation_tasks.py)" complete-batch \
+        --task task --raw raw --batch batch --resource resource --output published
+    """
+}
+
 process AGGREGATE_ANNOTATIONS {
     label 'process_single'
     container params.python_container
@@ -148,6 +171,7 @@ process AGGREGATE_ANNOTATIONS {
     path sample_status, name: 'upstream_sample_status.tsv'
     path bundles, stageAs: 'bundles/bundle??'
     path results, stageAs: 'results/result???'
+    path batches, stageAs: 'batches/batch???'
 
     output:
     path 'report/tables/*', emit: tables
@@ -157,6 +181,7 @@ process AGGREGATE_ANNOTATIONS {
     script:
     def bundleList = groovy.json.JsonOutput.toJson((bundles instanceof Collection ? bundles : [bundles]).collect { it.toString() })
     def resultList = groovy.json.JsonOutput.toJson((results instanceof Collection ? results : [results]).collect { it.toString() })
+    def batchList = groovy.json.JsonOutput.toJson((batches instanceof Collection ? batches : [batches]).collect { it.toString() })
     """
     cat > bundle_list.json <<'ANNOTATION_BUNDLE_LIST'
 ${bundleList}
@@ -165,7 +190,7 @@ ANNOTATION_BUNDLE_LIST
 ${resultList}
 ANNOTATION_RESULT_LIST
     cat > batch_list.json <<'ANNOTATION_BATCH_LIST'
-[]
+${batchList}
 ANNOTATION_BATCH_LIST
     python3 "\$(command -v aggregate_annotations.py)" --plan '${plan}' \
         --master upstream_master.tsv --sample-status upstream_sample_status.tsv \

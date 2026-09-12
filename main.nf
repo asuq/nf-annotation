@@ -175,6 +175,7 @@ workflow {
         FUNCTIONAL_ANNOTATION.out.results,
         FUNCTIONAL_ANNOTATION.out.plan,
         FUNCTIONAL_ANNOTATION.out.bundle_files,
+        FUNCTIONAL_ANNOTATION.out.native_batches,
         COHORT_ANI.out.clusters,
         COHORT_ANI.out.ani_metadata,
         COHORT_ANI.out.assembly_stats,

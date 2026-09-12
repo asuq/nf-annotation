@@ -32,6 +32,7 @@ POLICY = {
     "eggnog": {
         "confidence": ["high", "medium"],
         "go": "native_namespace_confidence_no_expansion",
+        "batch": "whole_proteome_tool_id_projection",
     },
     "cogclassifier": {
         "best_hit": "native_first",
@@ -52,16 +53,16 @@ POLICY = {
 def code_identity(tool: str) -> dict[str, str]:
     """Identify the actual parser and common interpretation code for this tool."""
     root = Path(__file__).resolve().parent
-    return {
-        name: digest(root / name)
-        for name in (
-            f"normalize_{tool}.py",
-            "annotation_normalization.py",
-            "annotation_common.py",
-            "annotation_tasks.py",
-            "annotation_result.py",
-        )
-    }
+    names = [
+        f"normalize_{tool}.py",
+        "annotation_normalization.py",
+        "annotation_common.py",
+        "annotation_tasks.py",
+        "annotation_result.py",
+    ]
+    if tool == "eggnog":
+        names.append("annotation_batch_tasks.py")
+    return {name: digest(root / name) for name in names}
 
 
 def runtime_identity(reference: str) -> str:
@@ -89,12 +90,14 @@ def planning_code_identity() -> dict[str, str]:
         name: digest(root / name)
         for name in (
             "prepare_annotation_tasks.py",
+            "annotation_commands.py",
             "annotation_path_lists.py",
             "annotation_tasks.py",
             "annotation_source.py",
             "annotation_summary.py",
             "annotation_common.py",
             "annotation_result.py",
+            "annotation_batch_tasks.py",
             "eggnog_batches.py",
             "validate_inputs.py",
         )
@@ -126,7 +129,11 @@ def preflight(config: dict[str, Any]) -> dict[str, Any]:
             resource_id = resource["resource_id"]
             manifest_sha = digest(Path(resource_path) / RESOURCE_FILE)
         native_code = {}
-        if tool == "cogclassifier":
+        if tool == "eggnog":
+            native_code["eggnog_batches.py"] = digest(
+                Path(__file__).with_name("eggnog_batches.py")
+            )
+        elif tool == "cogclassifier":
             native_code["classify_cog_hits.py"] = digest(
                 Path(__file__).with_name("classify_cog_hits.py")
             )

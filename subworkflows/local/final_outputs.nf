@@ -23,6 +23,7 @@ workflow FINAL_OUTPUTS {
     annotation_results
     annotation_plan
     annotation_bundles
+    annotation_batches
     ani_clusters
     ani_metadata
     assembly_stats
@@ -183,6 +184,7 @@ workflow FINAL_OUTPUTS {
         WRITE_SAMPLE_STATUS.out.sample_status,
         annotation_bundles,
         annotation_results.map { item -> item[1] }.toList(),
+        annotation_batches.toList(),
     )
 
     final_versions = SELECT_ANI_REPRESENTATIVES.out.versions

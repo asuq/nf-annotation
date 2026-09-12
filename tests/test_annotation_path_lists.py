@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -73,19 +74,24 @@ class AnnotationPathListTests(unittest.TestCase):
             text=True,
             capture_output=True,
             timeout=30,
+            check=False,
         )
 
     def test_planner_cli_accepts_explicit_empty_array_and_preserves_sample_order(self):
         samples, receipt = self.root / "samples.tsv", self.root / "receipt.json"
-        write_tsv(
-            samples, ("accession",), [{"accession": acc} for acc in ("B", "A")]
-        )
+        write_tsv(samples, ("accession",), [{"accession": acc} for acc in ("B", "A")])
         write_json(receipt, preflight({"annotation_tools": ""}))
         write_json(self.manifest, [])
         output = self.root / "planned"
         result = self.planner_cli(
-            "--samples", str(samples), "--preflight", str(receipt),
-            "--bundle-list", str(self.manifest), "--output", str(output),
+            "--samples",
+            str(samples),
+            "--preflight",
+            str(receipt),
+            "--bundle-list",
+            str(self.manifest),
+            "--output",
+            str(output),
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         plan = read_json(output / "annotation_plan.json")
@@ -93,14 +99,16 @@ class AnnotationPathListTests(unittest.TestCase):
         self.assertEqual(
             [row["accession"] for row in plan["tasks"]], ["B"] * 5 + ["A"] * 5
         )
-        self.assertEqual(
-            {row["status"] for row in plan["tasks"]}, {"skipped_disabled"}
-        )
+        self.assertEqual({row["status"] for row in plan["tasks"]}, {"skipped_disabled"})
 
     def test_planner_cli_requires_new_flag_and_rejects_invalid_manifest(self):
         common = [
-            "--samples", "samples.tsv", "--preflight", "receipt.json",
-            "--output", "planned",
+            "--samples",
+            "samples.tsv",
+            "--preflight",
+            "receipt.json",
+            "--output",
+            "planned",
         ]
         for arguments in (common, [*common, "--bundle", "bundle"]):
             result = self.planner_cli(*arguments)
@@ -111,6 +119,50 @@ class AnnotationPathListTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Duplicate path", result.stderr)
         self.assertFalse((self.root / "planned").exists())
+
+    def test_wrapper_change_invalidates_an_existing_preflight_receipt(self):
+        helpers = self.root / "helpers"
+        shutil.copytree(
+            ROOT / "bin", helpers, ignore=shutil.ignore_patterns("__pycache__")
+        )
+        samples, receipt = self.root / "samples.tsv", self.root / "receipt.json"
+        write_tsv(samples, ("accession",), [{"accession": "A"}])
+        write_json(receipt, preflight({"annotation_tools": ""}))
+        write_json(self.manifest, [])
+        command = [
+            sys.executable,
+            str(helpers / "prepare_annotation_tasks.py"),
+            "plan",
+            "--samples",
+            str(samples),
+            "--preflight",
+            str(receipt),
+            "--bundle-list",
+            str(self.manifest),
+            "--output",
+        ]
+        before = subprocess.run(
+            [*command, str(self.root / "before")],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        self.assertEqual(before.returncode, 0, before.stderr)
+        wrapper = helpers / "annotation_commands.py"
+        wrapper.write_text(
+            wrapper.read_text() + "\n# Changed native wrapper implementation.\n"
+        )
+        after = subprocess.run(
+            [*command, str(self.root / "after")],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        self.assertNotEqual(after.returncode, 0)
+        self.assertIn("planning code changed after preflight", after.stderr)
+        self.assertFalse((self.root / "after").exists())
 
     def render_shell(self, process: str, bundles: list[str], results: list[str]) -> str:
         """Interpolate the real module's shell template without a Nextflow runtime."""
@@ -124,6 +176,7 @@ class AnnotationPathListTests(unittest.TestCase):
         replacements = {
             "bundleList": json.dumps(bundles),
             "resultList": json.dumps(results),
+            "batchList": json.dumps(results),
             "samples": "samples.tsv",
             "receipt": "receipt.json",
             "sourceArgs": "",
@@ -162,6 +215,7 @@ class AnnotationPathListTests(unittest.TestCase):
             text=True,
             capture_output=True,
             timeout=30,
+            check=False,
             env={
                 **os.environ,
                 "PATH": str(executables) + os.pathsep + os.environ["PATH"],
@@ -171,14 +225,20 @@ class AnnotationPathListTests(unittest.TestCase):
         self.assertEqual(read_json(work / "bundle_list.json"), bundles)
         if process == "AGGREGATE_ANNOTATIONS":
             self.assertEqual(read_json(work / "result_list.json"), results)
+            self.assertEqual(read_json(work / "batch_list.json"), results)
         self.assertFalse((work / "INJECTED_DOLLAR").exists())
         self.assertFalse((work / "INJECTED_BACKTICK").exists())
         return read_json(work / "argv.json")
 
     def test_module_heredocs_preserve_literals_and_keep_argv_bounded(self):
         literals = [
-            "z path", "a'quote", 'double"quote', "back\\slash", "line\nbreak",
-            "$(touch INJECTED_DOLLAR)", "`touch INJECTED_BACKTICK`",
+            "z path",
+            "a'quote",
+            'double"quote',
+            "back\\slash",
+            "line\nbreak",
+            "$(touch INJECTED_DOLLAR)",
+            "`touch INJECTED_BACKTICK`",
         ]
         bundles = [f"bundles/bundle{i:02d}" for i in range(10000)]
         results = [f"results/result{i:03d}" for i in range(50000)]
@@ -188,7 +248,9 @@ class AnnotationPathListTests(unittest.TestCase):
                 small = self.execute_shell(
                     process, literals, list(reversed(literals)), process + "-literal"
                 )
-                large = self.execute_shell(process, bundles, results, process + "-large")
+                large = self.execute_shell(
+                    process, bundles, results, process + "-large"
+                )
                 self.assertEqual(empty, small)
                 self.assertEqual(small, large)
                 self.assertLess(sum(len(value.encode()) + 1 for value in large), 1024)
