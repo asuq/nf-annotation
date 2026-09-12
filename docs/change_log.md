@@ -13,8 +13,9 @@
   with explicit derivation receipts. A native confidence difference rejected the
   initial pooled-annotation design; no pooled annotation feeds primary results.
   Batch membership participates in search invalidation, and portable reuse
-  includes the shared `annotation_batches/` directory. The corrected workflow is under native
-  qualification.
+  includes the shared `annotation_batches/` directory. The corrected workflow
+  matches all compared native fields and normalized tables from five independent
+  sensitive-mode proteome runs.
 - Bounded planning command arguments through JSON path lists and reduced
   aggregation memory through SQLite spooling. Source-table validation projects
   required fields while streaming; ANI matrix reading uses two passes while
