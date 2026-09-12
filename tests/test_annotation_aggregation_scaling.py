@@ -26,8 +26,8 @@ from annotation_common import (
     write_json,
     write_tsv,
 )
+from annotation_result import inventory
 from annotation_summary import FIELDS
-from annotation_tasks import inventory
 
 
 class AnnotationAggregationScalingTests(unittest.TestCase):
@@ -274,7 +274,9 @@ class AnnotationAggregationScalingTests(unittest.TestCase):
         with self.assertRaisesRegex(AnnotationError, "Mixed annotation methods"):
             aggregate_annotations.aggregate(*args, self.root / "methods")
         (directory / "raw/native.txt").write_text("changed evidence\n")
-        with self.assertRaisesRegex(AnnotationError, "Raw evidence changed"):
+        with self.assertRaisesRegex(
+            AnnotationError, "Native annotation evidence changed"
+        ):
             aggregate_annotations.aggregate(*args, self.root / "raw")
         self.assertFalse(list(self.root.glob(".annotation-aggregation-*")))
 

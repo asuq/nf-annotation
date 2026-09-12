@@ -11,7 +11,7 @@ import logging
 import sqlite3
 import sys
 import tempfile
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -31,7 +31,13 @@ from annotation_common import (
     write_tsv,
 )
 from annotation_normalization import json_cell
-from annotation_result import inventory
+from annotation_path_lists import read_path_list
+from annotation_result import (
+    NativeBatch,
+    inventory,
+    native_batch_index,
+    validate_raw_evidence,
+)
 from annotation_summary import (
     ANNOTATION_COLUMNS,
     FIELDS,
@@ -170,6 +176,7 @@ def result_record(
     intended: dict[str, Any],
     metadata: dict[str, Any],
     proteins: list[dict[str, str]],
+    batches: dict[str, NativeBatch],
 ) -> dict[str, Any]:
     """Validate one task against its plan, bundle and immutable evidence."""
     record = read_json(directory / "result.json")
@@ -193,8 +200,7 @@ def result_record(
         "input_proteins"
     ) != len(proteins):
         raise AnnotationError("Result input identity differs from the canonical bundle")
-    if inventory(directory / "raw") != record["raw_files"]:
-        raise AnnotationError("Raw evidence changed before aggregation")
+    validate_raw_evidence(directory, record, batches)
     if record["status"] == "success":
         if inventory(directory / "normalized") != record["normalized_files"]:
             raise AnnotationError("Normalized evidence changed before aggregation")
@@ -280,6 +286,8 @@ def aggregate(
     bundles: list[Path],
     result_dirs: list[Path],
     output: Path,
+    *,
+    batch_dirs: Sequence[Path] = (),
 ) -> dict[str, Any]:
     """Reconcile the planned grid using one sample plus compact cohort metadata."""
     with tempfile.TemporaryDirectory(
@@ -297,6 +305,7 @@ def aggregate(
                 output,
                 work,
                 spool,
+                native_batch_index(list(batch_dirs)),
             )
         finally:
             spool.connection.close()
@@ -311,6 +320,7 @@ def aggregate_samples(
     output: Path,
     work: Path,
     spool: TableSpool,
+    batches: dict[str, NativeBatch],
 ) -> dict[str, Any]:
     """Validate and spool every sample before publishing the complete report."""
     plan = read_json(plan_path)
@@ -326,6 +336,12 @@ def aggregate_samples(
     order = {acc: index for index, acc in enumerate(accessions)}
     if len(accessions) != len(order) or set(accessions) != set(plan["accessions"]):
         raise AnnotationError("Master table and annotation accession sets differ")
+    for batch in batches.values():
+        if not batch.members.keys() <= order.keys():
+            raise AnnotationError(
+                "Native eggNOG batch contains undeclared cohort members"
+            )
+    batch_members: dict[str, set[str]] = {batch_id: set() for batch_id in batches}
     status_rows = read_tsv(sample_status, ["accession"])
     status_index = {row["accession"]: row for row in status_rows}
     if len(status_index) != len(status_rows) or set(status_index) != set(accessions):
@@ -402,7 +418,9 @@ def aggregate_samples(
                         "Annotation result has no successful canonical bundle"
                     )
                 source_order, directory = result_index[key]
-                record = result_record(directory, intended, metadata, proteins)
+                record = result_record(directory, intended, metadata, proteins, batches)
+                if "native_batch" in record:
+                    batch_members[record["native_batch"]["batch_id"]].add(accession)
                 result_manifest.setdefault(accession, {})[tool] = dict(
                     path=f"samples/{accession}/annotation/{tool}",
                     result_id=record["result_id"],
@@ -486,6 +504,13 @@ def aggregate_samples(
         # Do not retain the last tool's evidence while loading the next sample.
         del group, proteins, record
         evidence = None
+    for batch_id, members in batch_members.items():
+        if not members:
+            raise AnnotationError(f"Unused native eggNOG batch artefact: {batch_id}")
+        if members != batches[batch_id].members.keys():
+            raise AnnotationError(
+                f"Missing result references for native eggNOG batch members: {batch_id}"
+            )
     tables = work / "tables"
     tables.mkdir()
     matrix_root = tables / "functional_matrices"
@@ -562,6 +587,14 @@ def aggregate_samples(
             for path in sorted(tables.rglob("*.tsv"))
         },
     )
+    if batches:
+        manifest["native_batches"] = {
+            batch_id: {
+                "path": f"annotation_batches/{batch_id}",
+                "batch_result_id": native.record["batch_result_id"],
+            }
+            for batch_id, native in batches.items()
+        }
     # No acceptance or partial report is published before the cohort validates.
     output.mkdir()
     tables.rename(output / "tables")
@@ -574,11 +607,17 @@ def aggregate_samples(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    for name in ("plan", "master", "sample-status", "output"):
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
+    for name in (
+        "plan",
+        "master",
+        "sample-status",
+        "output",
+        "bundle-list",
+        "result-list",
+        "batch-list",
+    ):
         parser.add_argument("--" + name, type=Path, required=True)
-    parser.add_argument("--bundle", type=Path, action="append", default=[])
-    parser.add_argument("--result", type=Path, action="append", default=[])
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     try:
@@ -586,9 +625,10 @@ def main() -> int:
             args.plan,
             args.master,
             args.sample_status,
-            args.bundle,
-            args.result,
+            read_path_list(args.bundle_list),
+            read_path_list(args.result_list),
             args.output,
+            batch_dirs=read_path_list(args.batch_list),
         )
     except (AnnotationError, OSError, sqlite3.Error) as error:
         logging.error("%s", error)
