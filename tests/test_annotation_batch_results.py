@@ -122,6 +122,8 @@ class AnnotationBatchResultTests(unittest.TestCase):
         for change in (
             lambda record: record.update(accession="foreign"),
             lambda record: record.update(input_id="0" * 64),
+            lambda record: record.update(input_proteins=True),
+            lambda record: record.update(exit_code=False),
             lambda record: record.update(raw_files={}),
             lambda record: record.update(native_batch=None),
             lambda record: record["native_batch"].update(batch_result_id="0" * 64),
@@ -156,6 +158,31 @@ class AnnotationBatchResultTests(unittest.TestCase):
                     validate_native_batch(self.native)
                 original.unlink()
                 moved.rename(original)
+
+    def test_failed_native_execution_cannot_be_declared_successful(self):
+        (self.native / "raw/exit_code.txt").write_text("4\n")
+        self.native_record["exit_code"] = 4
+        self.native_record["raw_files"] = inventory(self.native / "raw")
+        self.native_record["batch_result_id"] = identity(
+            {
+                key: value
+                for key, value in self.native_record.items()
+                if key != "batch_result_id"
+            }
+        )
+        write_json(self.native / "batch_result.json", self.native_record)
+        batches = native_batch_index([self.native])
+        path, record = self.results[0]
+        record["exit_code"] = 4
+        record["raw_files"] = self.native_record["raw_files"]
+        record["native_batch"]["batch_result_id"] = self.native_record[
+            "batch_result_id"
+        ]
+        self.save_result(path, record)
+        with self.assertRaisesRegex(AnnotationError, "nonzero"):
+            validate_result(path, batches=batches)
+        record["status"] = "failed"
+        validate_raw_evidence(path, record, batches)
 
 
 if __name__ == "__main__":

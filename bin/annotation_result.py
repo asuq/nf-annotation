@@ -112,6 +112,12 @@ def validate_raw_evidence(
     batches: dict[str, NativeBatch] | None = None,
 ) -> None:
     """Validate individual raw files or an explicit, already checked shared batch."""
+    if record.get("status") == "success" and (
+        type(record.get("exit_code")) is not int or record["exit_code"] != 0
+    ):
+        raise AnnotationError(
+            "Successful annotation result has a nonzero or missing native exit status"
+        )
     if "native_batch" not in record:
         if "batch" in record.get("search", {}):
             raise AnnotationError("Shared native eggNOG batch reference is missing")
@@ -138,13 +144,16 @@ def validate_raw_evidence(
         or record.get("raw_files") != native.record["raw_files"]
         or member is None
         or record.get("input_id") != member["input_id"]
+        or type(record.get("input_proteins")) is not int
         or record.get("input_proteins") != member["protein_count"]
         or record.get("search", {}).get("batch") != batch_search_identity(batch)
         or record.get("search", {}).get("method") != batch["search_method"]
         or record.get("search", {}).get("input_id") != member["input_id"]
+        or type(record.get("search", {}).get("genetic_code")) is not int
         or record.get("search", {}).get("genetic_code") != member["genetic_code"]
         or record.get("search", {}).get("source_genome_sha256")
         != member["source_genome_sha256"]
+        or type(record.get("exit_code")) is not int
         or record.get("exit_code") != native.record["exit_code"]
     ):
         raise AnnotationError("Member result differs from its shared native batch")
