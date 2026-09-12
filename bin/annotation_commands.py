@@ -35,7 +35,7 @@ def commands(tool: str, cpus: int, memory_gib: float) -> dict[str, Any]:
                 "-m",
                 "diamond",
                 "--dmnd_sensmode",
-                "ultra-sensitive",
+                "sensitive",
                 "--dmnd_iterate",
                 "yes",
                 "--dmnd_top",

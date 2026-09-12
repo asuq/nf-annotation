@@ -123,8 +123,41 @@ class AnnotationTaskTests(unittest.TestCase):
             if step[0] == "emapper.py"
         )
         self.assertEqual(command[command.index("--tax_scope") + 1], "auto")
+        self.assertEqual(command[command.index("--dmnd_sensmode") + 1], "sensitive")
+        self.assertEqual(command[command.index("--dmnd_iterate") + 1], "yes")
         self.assertIn("--dmnd_block_size", command)
         self.assertIn("--dmnd_index_chunks", command)
+
+    def test_eggnog_sensitivity_change_invalidates_native_search(self):
+        previous_entry = self.entry("eggnog")
+        previous_command = next(
+            step
+            for step in previous_entry["search_method"]["command"]["steps"]
+            if step[0] == "emapper.py"
+        )
+        previous_command[previous_command.index("--dmnd_sensmode") + 1] = (
+            "ultra-sensitive"
+        )
+        previous_entry["method_id"] = identity(
+            {
+                "search": previous_entry["search_method"],
+                "interpretation": previous_entry["interpretation"],
+            }
+        )
+        previous = self.result("eggnog")
+        previous.update(task_identity(self.metadata, "eggnog", previous_entry))
+        old = self.write_result(previous, "ultra-sensitive")
+        current_entry = self.entry("eggnog")
+        planned = plan_task(
+            self.bundle, "eggnog", current_entry, self.root / "sensitive", old
+        )
+        self.assertEqual(planned["action"], "run")
+        self.assertNotEqual(
+            planned["search_fingerprint"], previous["search_fingerprint"]
+        )
+        self.assertEqual(
+            current_entry["interpretation"], previous_entry["interpretation"]
+        )
 
     def test_kofam_uses_task_temporary_storage_with_invalid_inherited_directory(self):
         command = commands("kofam", 2, 32)

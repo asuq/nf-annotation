@@ -2,6 +2,11 @@
 
 ## v0.4.0 - unreleased
 
+- Set eggNOG's DIAMOND ceiling to `sensitive` with iteration enabled, matching
+  the pinned mapper's default and reducing search cost for large-cohort work.
+  The changed search identity invalidates earlier ultra-sensitive eggNOG
+  results; the other four callers remain reusable. Native sensitivity and
+  large-cohort performance comparisons are tracked in the qualification record.
 - Added shared annotation planning and execution for eggNOG-mapper v3,
   COGclassifier, direct Pfam, KOfamScan and PADLOC, with separate pinned runtimes
   and prepared resource identities.

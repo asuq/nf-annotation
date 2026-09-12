@@ -1,8 +1,18 @@
 # Functional annotation in v0.4
 
 The shared annotation workflow is implemented in `main.nf` and `reannotate.nf`.
-Biological qualification of the complete five-genome cohort remains in progress;
-see the [release specification](development/v0.4.md) for the open release gates.
+
+EggNOG uses DIAMOND's `sensitive` ceiling with iterative search enabled,
+matching the pinned eggNOG v3 default. This replaces the initial qualification
+candidate's `ultra-sensitive` ceiling to reduce search cost for large cohorts.
+The resolved command is fingerprinted, so an existing ultra-sensitive result
+requires a new eggNOG search. The other four callers retain their methods.
+Lower sensitivity can miss distant homologues; the completed ultra-sensitive
+cohort is retained as a comparison reference, and 10,000-sample performance
+has not been established.
+The ultra-sensitive five-genome reference passes independent reconciliation.
+The changed setting and its reuse checks remain under qualification; see the
+[release specification](development/v0.4.md) for the open release gates.
 
 Bundle validation matches native contig DNA to the source using Prokka's
 native preprocessing: uppercase sequence and IUPAC ambiguity codes replaced
