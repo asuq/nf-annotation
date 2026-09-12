@@ -239,11 +239,21 @@ def build_bundle(
         )
     features_text, contigs_text = text.split("\n##FASTA\n", 1)
     contigs = fasta_records(contigs_text, "GFF genome")
+    original_sequences = {
+        record.id: str(record.seq).upper() for record in source_contigs
+    }
+    # Prokka 1.15.6 uppercases DNA and replaces non-ACGT IUPAC bases with N.
+    # Source gaps/pads are rejected above: their removal would shift coordinates.
+    masking = str.maketrans({base: "N" for base in "RYSWKMBDHV"})
+    source_ids = {
+        name: sequence.translate(masking)
+        for name, sequence in original_sequences.items()
+    }
     source_by_sequence = defaultdict(list)
-    for record in source_contigs:
-        source_by_sequence[str(record.seq).upper()].append(record.id)
-    source_ids = {record.id: str(record.seq).upper() for record in source_contigs}
+    for name, sequence in source_ids.items():
+        source_by_sequence[sequence].append(name)
     contig_sources = {}
+    sequence_provenance = []
     lengths = {}
     for record in contigs:
         sequence = str(record.seq).upper()
@@ -262,6 +272,20 @@ def build_bundle(
             )
         contig_sources[record.id] = source_id
         lengths[record.id] = len(record.seq)
+        original = original_sequences[source_id]
+        sequence_provenance.append(
+            {
+                "contig_id": record.id,
+                "source_contig_id": source_id,
+                "length": len(sequence),
+                "source_sequence_sha256": hashlib.sha256(original.encode()).hexdigest(),
+                "native_sequence_sha256": hashlib.sha256(sequence.encode()).hexdigest(),
+                "masked_iupac_bases": sum(
+                    source != native
+                    for source, native in zip(original, sequence, strict=True)
+                ),
+            }
+        )
 
     protein_ids = {record.id for record in proteins}
     cds_by_protein = defaultdict(list)
@@ -395,6 +419,8 @@ def build_bundle(
         ),
         "coordinate_id": files["gene_coordinates.tsv"],
         "source_genome_sha256": digest(genome),
+        "source_sequence_policy": "prokka_uppercase_iupac_to_n",
+        "contig_sequence_provenance": sequence_provenance,
         "coordinate_convention": "1-based-closed; segments in GenBank biological order",
         "producer_sha256": digest(Path(__file__)),
         "common_contract_sha256": digest(

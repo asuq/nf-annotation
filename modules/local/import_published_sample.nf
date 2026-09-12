@@ -31,9 +31,6 @@ process IMPORT_PUBLISHED_SAMPLE {
                 shutil.copytree(source, destination)
             else:
                 shutil.copyfile(source, destination)
-    bundle = Path('source_sample/annotation/bundle')
-    if bundle.is_dir():
-        shutil.copytree(bundle, 'sample/annotation/bundle')
     PY
     cp sample/16s/best_16S.fna channels/${meta.internal_id}_best_16S.fna
     cp sample/16s/16S_status.tsv channels/${meta.internal_id}_16S_status.tsv

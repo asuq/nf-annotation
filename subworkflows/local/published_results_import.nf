@@ -1,5 +1,6 @@
 include { PREPARE_COHORT_UPDATE } from '../../modules/local/prepare_cohort_update'
 include { IMPORT_PUBLISHED_SAMPLE } from '../../modules/local/import_published_sample'
+include { PREPARE_ANNOTATION_BUNDLE } from '../../modules/local/prepare_annotation_bundle'
 
 /* Adapt published samples to the existing per-sample output channel contracts. */
 workflow PUBLISHED_RESULTS_IMPORT {
@@ -49,6 +50,16 @@ workflow PUBLISHED_RESULTS_IMPORT {
     IMPORT_PUBLISHED_SAMPLE(reusedSamples, busco_lineages)
     imported = IMPORT_PUBLISHED_SAMPLE.out.results
     annotated = imported.filter { item -> item[3] in ['4', '11'] }
+    // Revalidate retained native inputs with the current bundle adapter. Search
+    // reuse remains keyed to protein/coordinate identities, not producer code.
+    bundleInputs = annotated.map { item ->
+        tuple(
+            item[0], item[1].resolve("staged/${item[0].internal_id}.fasta"), item[3],
+            item[1].resolve('prokka/prokka.faa'), item[1].resolve('prokka/prokka.gff'),
+            item[1].resolve('prokka/prokka.gbk'), item[1].resolve('prokka/prokka.log'),
+        )
+    }
+    PREPARE_ANNOTATION_BUNDLE(bundleInputs)
 
     emit:
     validated_samples = PREPARE_COHORT_UPDATE.out.validated_samples
@@ -64,7 +75,9 @@ workflow PUBLISHED_RESULTS_IMPORT {
     codetta_summary = imported.map { item -> tuple(item[0], item[1].resolve('codetta/codetta_summary.tsv')) }
     ccfinder_summary = annotated.map { item -> tuple(item[0], item[1].resolve('ccfinder/ccfinder_strains.tsv'), item[1].resolve('ccfinder/ccfinder_contigs.tsv'), item[1].resolve('ccfinder/ccfinder_crisprs.tsv')) }
     prokka = annotated.map { item -> tuple(item[0], item[1].resolve('prokka'), item[1].resolve('prokka/prokka.gff'), item[1].resolve('prokka/prokka.faa'), item[1].resolve('prokka/prokka.gbk'), item[1].resolve('prokka/prokka.log')) }
-    bundles = imported.filter { item -> item[1].resolve('annotation/bundle/bundle.json').exists() }.map { item -> tuple(item[0], item[1].resolve('annotation/bundle')) }
+    bundles = PREPARE_ANNOTATION_BUNDLE.out.bundle
     inherited_versions = PREPARE_COHORT_UPDATE.out.inherited_versions.map { report -> [report] }
-    versions = PREPARE_COHORT_UPDATE.out.versions.mix(IMPORT_PUBLISHED_SAMPLE.out.versions)
+    versions = PREPARE_COHORT_UPDATE.out.versions
+        .mix(IMPORT_PUBLISHED_SAMPLE.out.versions)
+        .mix(PREPARE_ANNOTATION_BUNDLE.out.versions)
 }

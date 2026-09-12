@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -198,6 +199,7 @@ class CohortUpdateIntegrationTestCase(unittest.TestCase):
             text=True,
             capture_output=True,
             timeout=180,
+            check=False,
         )
         (launch / "captured.log").write_text(result.stdout + result.stderr)
         if expected_code == 0:
@@ -233,6 +235,48 @@ class CohortUpdateIntegrationTestCase(unittest.TestCase):
             if row["name"].split(":")[-1].split(" (")[0].lower().split("_gcode")[0]
             in TOOLS - {"fastani"}
         ]
+
+    def test_update_rebuilds_failed_bundle_from_retained_native_inputs(self) -> None:
+        source = self.run_pipeline("bundle-source-b", ["B"])
+        bundle = source / "samples/B/annotation/bundle"
+        original = json.loads((bundle / "bundle.json").read_text())
+        shutil.rmtree(bundle)
+        bundle.mkdir()
+        (bundle / "bundle.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": original["schema_version"],
+                    "accession": "B",
+                    "status": "incompatible_input",
+                    "reason": "previous bundle adapter rejected valid native input",
+                }
+            )
+            + "\n"
+        )
+        manifest_path = source / "annotation_results.json"
+        manifest = json.loads(manifest_path.read_text())
+        manifest["bundles"]["B"]["manifest_sha256"] = hashlib.sha256(
+            (bundle / "bundle.json").read_bytes()
+        ).hexdigest()
+        manifest_path.write_text(json.dumps(manifest) + "\n")
+        before = fingerprints(source)
+        shutil.rmtree(self.root / "work-bundle-source-b")
+        shutil.rmtree(self.root / "launch-bundle-source-b/.nextflow")
+
+        updated = self.run_pipeline("bundle-rebuilt-b", ["B"], source=source)
+        rebuilt = json.loads(
+            (updated / "samples/B/annotation/bundle/bundle.json").read_text()
+        )
+        self.assertEqual(rebuilt["status"], "success")
+        self.assertEqual(rebuilt["input_id"], original["input_id"])
+        self.assertEqual(rebuilt["coordinate_id"], original["coordinate_id"])
+        self.assertEqual(self.heavy_tasks(updated), [])
+        self.assertEqual(fingerprints(source), before)
+        for name in ("prokka.faa", "prokka.gff", "prokka.gbk"):
+            self.assertEqual(
+                (source / "samples/B/prokka" / name).read_bytes(),
+                (updated / "samples/B/prokka" / name).read_bytes(),
+            )
 
     def test_add_remove_and_successive_updates_without_original_work(self) -> None:
         source = self.run_pipeline("ab", ["A", "B"])
@@ -364,15 +408,15 @@ class CohortUpdateIntegrationTestCase(unittest.TestCase):
             row["accession"]: row
             for row in read_rows(updated / "tables/sample_status.tsv")
         }
-        for accession in initial:
+        for accession, initial_row in initial.items():
             self.assertEqual(
-                final[accession]["internal_id"], initial[accession]["internal_id"]
+                final[accession]["internal_id"], initial_row["internal_id"]
             )
-            for column in initial[accession]:
+            for column in initial_row:
                 if column.endswith("_status"):
                     self.assertEqual(
                         final[accession][column],
-                        initial[accession][column],
+                        initial_row[column],
                         (accession, column),
                     )
         self.assertNotEqual(final["ID-X"]["internal_id"], final["ID.X"]["internal_id"])

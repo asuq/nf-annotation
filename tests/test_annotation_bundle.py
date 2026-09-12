@@ -126,6 +126,56 @@ class AnnotationBundleTests(unittest.TestCase):
         with self.assertRaisesRegex(AnnotationError, "outside source"):
             self.build()
 
+    def test_native_iupac_masking_preserves_sources_and_records_provenance(self):
+        source = "ATGTGAYCTTAARYSWKMBDHV"
+        native = "ATGTGANCTTAA" + "N" * 10
+        self.genome.write_text(f">original_contig\n{source.lower()}\n")
+        self.faa.write_text(">gene_1\nMWX\n")
+        self.gff.write_text(self.gff.read_text().replace("ATGTGAGCTTAA", native))
+        self.write_gbk(translation="MWX")
+        record = SeqIO.read(self.gbk, "genbank")
+        record.seq = Seq(native)
+        SeqIO.write([record], self.gbk, "genbank")
+        output = self.build()
+        manifest, proteins = bundle_proteins(output)
+        self.assertEqual(
+            manifest["source_sequence_policy"], "prokka_uppercase_iupac_to_n"
+        )
+        provenance = manifest["contig_sequence_provenance"][0]
+        self.assertEqual(provenance["masked_iupac_bases"], 11)
+        self.assertEqual(provenance["length"], 22)
+        self.assertEqual(provenance["source_contig_id"], "original_contig")
+        self.assertNotEqual(
+            provenance["source_sequence_sha256"], provenance["native_sequence_sha256"]
+        )
+        self.assertEqual(proteins[0]["source_contig_id"], "original_contig")
+        self.assertEqual((output / "source.faa").read_bytes(), self.faa.read_bytes())
+        self.assertEqual(
+            (output / "genome.fasta").read_bytes(), self.genome.read_bytes()
+        )
+        self.assertEqual((output / "source.gff").read_bytes(), self.gff.read_bytes())
+        self.assertEqual((output / "source.gbk").read_bytes(), self.gbk.read_bytes())
+
+    def test_iupac_masking_does_not_resolve_nonunique_contigs(self):
+        self.genome.write_text(">first\nATGTGAYCTTAA\n>second\nATGTGANCTTAA\n")
+        self.gff.write_text(
+            self.gff.read_text().replace("ATGTGAGCTTAA", "ATGTGANCTTAA")
+        )
+        with self.assertRaisesRegex(AnnotationError, "uniquely map"):
+            self.build()
+
+    def test_source_substitutions_indels_and_ambiguity_resolution_fail(self):
+        for native in ("ATGAGANCTTAA", "ATGTGANCTTA", "ATGTGACCTTAA"):
+            with self.subTest(native=native):
+                # Even resolving source Y to a possible base is not Prokka's rule.
+                self.genome.write_text(">original_contig\nATGTGAYCTTAA\n")
+                self.gff.write_text(
+                    "##gff-version 3\nrenamed\tProkka\tCDS\t1\t12\t.\t+\t0\tID=gene_1\n"
+                    f"##FASTA\n>renamed\n{native}\n"
+                )
+                with self.assertRaisesRegex(AnnotationError, "uniquely map"):
+                    self.build()
+
     def test_empty_protein_input_fails(self):
         self.faa.write_text("")
         with self.assertRaisesRegex(AnnotationError, "empty_proteome"):
@@ -236,6 +286,7 @@ class AnnotationBundleTests(unittest.TestCase):
             ],
             capture_output=True,
             text=True,
+            check=False,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(

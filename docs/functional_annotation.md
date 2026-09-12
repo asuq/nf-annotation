@@ -4,6 +4,20 @@ The shared annotation workflow is implemented in `main.nf` and `reannotate.nf`.
 Biological qualification of the complete five-genome cohort remains in progress;
 see the [release specification](development/v0.4.md) for the open release gates.
 
+Bundle validation matches native contig DNA to the source using Prokka's
+native preprocessing: uppercase sequence and IUPAC ambiguity codes replaced
+with `N`. Gaps and pads are rejected because deleting them would shift source
+coordinates. Other substitutions, indels and non-unique contig matches fail.
+`bundle.json` records the sequence policy and, for each native contig, its source
+ID, length, uppercase source/native DNA checksums and masked-base count. Original
+FASTA, FAA, GFF and GenBank bytes remain in the published bundle. Native OY-M
+output qualifies this rule with three masked bases.
+
+Main-workflow cohort updates rebuild bundles from validated retained Prokka
+outputs using the current adapter. Gene prediction is reused. This allows a
+corrected bundle adapter to recover a previous bundle failure while compatible
+functional searches remain reusable through their protein/coordinate identities.
+
 ## Configuration
 
 All five tools are enabled by default: `eggnog,cogclassifier,pfam,kofam,padloc`.
