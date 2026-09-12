@@ -6,8 +6,9 @@ import csv
 import hashlib
 import json
 import math
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 SCHEMA_VERSION = 1
 TOOLS = ("eggnog", "cogclassifier", "pfam", "kofam", "padloc")
@@ -131,24 +132,32 @@ def write_tsv(
 
 def read_tsv(path: Path, required: Iterable[str] = ()) -> list[dict[str, str]]:
     """Read a TSV with unique column names and complete rows."""
-    with path.open(newline="") as handle:
-        reader = csv.DictReader(handle, delimiter="\t")
-        header = reader.fieldnames
-        if (
-            not header
-            or any(not name for name in header)
-            or len(header) != len(set(header))
-            or not set(required) <= set(header)
-        ):
-            raise AnnotationError(
-                f"Invalid table header in {path}; required: {list(required)}"
-            )
-        rows = []
-        for line, row in enumerate(reader, 2):
-            if None in row or None in row.values():
-                raise AnnotationError(f"Malformed table row in {path}:{line}")
-            rows.append(row)
-        return rows
+    # Detailed per-protein validation flags can exceed csv's default field
+    # limit. A field cannot exceed its source file's byte length. Restore the
+    # process-wide parser setting after this synchronous read, including errors.
+    previous_limit = csv.field_size_limit()
+    csv.field_size_limit(max(previous_limit, path.stat().st_size))
+    try:
+        with path.open(newline="") as handle:
+            reader = csv.DictReader(handle, delimiter="\t")
+            header = reader.fieldnames
+            if (
+                not header
+                or any(not name for name in header)
+                or len(header) != len(set(header))
+                or not set(required) <= set(header)
+            ):
+                raise AnnotationError(
+                    f"Invalid table header in {path}; required: {list(required)}"
+                )
+            rows = []
+            for line, row in enumerate(reader, 2):
+                if None in row or None in row.values():
+                    raise AnnotationError(f"Malformed table row in {path}:{line}")
+                rows.append(row)
+            return rows
+    finally:
+        csv.field_size_limit(previous_limit)
 
 
 def number(value: str, field: str, *, minimum: float | None = None) -> float:

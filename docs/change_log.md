@@ -25,6 +25,9 @@
   enabled bundle recovery from retained native files during cohort updates.
   Removed overlapping parent-directory publication in both import paths so
   repeated cached resumes preserve bundles and functional results.
+- Preserved large validation-detail cells when reading published annotation
+  tables, allowing complete native evidence to survive cohort updates and
+  reannotation despite Python's default CSV field-size limit.
 
 ## v0.3.1 - 2026-09-10
 
