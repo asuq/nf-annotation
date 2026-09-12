@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import csv
 import re
 import shutil
+from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -15,12 +18,47 @@ from annotation_common import (
     digest,
     identity,
     read_json,
-    read_tsv,
     validate_accession,
 )
 from annotation_result import NativeBatch, native_batch_index, validate_raw_evidence
 from annotation_summary import ANNOTATION_COLUMNS, MATRICES
 from validate_inputs import detect_metadata_key_column
+
+
+@contextmanager
+def source_rows(
+    path: Path, required: Iterable[str]
+) -> Iterator[tuple[list[str], Iterator[dict[str, str]]]]:
+    """Validate complete TSV rows while callers retain only required metadata.
+
+    Match the shared TSV reader's quoting, row-shape and large-field rules without
+    retaining unused evidence cells or changing normalizer code fingerprints.
+    """
+    previous_limit = csv.field_size_limit()
+    csv.field_size_limit(max(previous_limit, path.stat().st_size))
+    try:
+        with path.open(newline="") as handle:
+            reader = csv.DictReader(handle, delimiter="\t")
+            header = reader.fieldnames
+            if (
+                not header
+                or any(not name for name in header)
+                or len(header) != len(set(header))
+                or not set(required) <= set(header)
+            ):
+                raise AnnotationError(
+                    f"Invalid table header in {path}; required: {list(required)}"
+                )
+
+            def rows() -> Iterator[dict[str, str]]:
+                for line, row in enumerate(reader, 2):
+                    if None in row or None in row.values():
+                        raise AnnotationError(f"Malformed table row in {path}:{line}")
+                    yield row
+
+            yield header, rows()
+    finally:
+        csv.field_size_limit(previous_limit)
 
 
 def source_path(root: Path, name: str) -> Path:
@@ -133,27 +171,42 @@ def validate_source(root: Path) -> tuple[dict[str, Any], dict[str, NativeBatch]]
             or digest(path) != expected
         ):
             raise AnnotationError(f"Published annotation table changed: {name}")
-    masters = read_tsv(root / "tables/master_table.tsv", ["Gcode", *ANNOTATION_COLUMNS])
+    tool_statuses = [f"{tool}_status" for tool in TOOLS]
+    with source_rows(
+        root / "tables/master_table.tsv", ["Gcode", *ANNOTATION_COLUMNS]
+    ) as (header, rows):
+        master_key = detect_metadata_key_column(header)
+        masters = [
+            {key: row[key] for key in (master_key, "Gcode", *tool_statuses)}
+            for row in rows
+        ]
     if not masters:
         raise AnnotationError("Published master table has no genomes")
-    master_key = detect_metadata_key_column(list(masters[0]))
-    statuses = read_tsv(
+    with source_rows(
         root / "tables/sample_status.tsv",
-        ["accession", *[f"{tool}_status" for tool in TOOLS]],
-    )
+        ["accession", *tool_statuses],
+    ) as (_, rows):
+        statuses = [
+            {key: row[key] for key in ("accession", *tool_statuses)} for row in rows
+        ]
     if [row[master_key] for row in masters] != accessions or [
         row["accession"] for row in statuses
     ] != accessions:
         raise AnnotationError(
             "Published master/status accession order differs from manifest"
         )
-    annotation_status = read_tsv(
+    grid = {}
+    with source_rows(
         root / "tables/annotation_status.tsv", ["accession", "tool", "status"]
-    )
-    grid = {(row["accession"], row["tool"]): row for row in annotation_status}
-    if len(grid) != len(annotation_status) or set(grid) != {
-        (acc, tool) for acc in accessions for tool in TOOLS
-    }:
+    ) as (_, rows):
+        for row in rows:
+            key = row["accession"], row["tool"]
+            if key in grid:
+                raise AnnotationError(
+                    "Duplicate published annotation accession/tool status"
+                )
+            grid[key] = row["status"]
+    if set(grid) != {(acc, tool) for acc in accessions for tool in TOOLS}:
         raise AnnotationError(
             "Published annotation status does not contain the complete declared grid"
         )
@@ -163,7 +216,7 @@ def validate_source(root: Path) -> tuple[dict[str, Any], dict[str, NativeBatch]]
         accession = master[master_key]
         for tool in TOOLS:
             if (
-                grid[(accession, tool)]["status"] != status[f"{tool}_status"]
+                grid[(accession, tool)] != status[f"{tool}_status"]
                 or status[f"{tool}_status"] != master[f"{tool}_status"]
             ):
                 raise AnnotationError(
@@ -212,7 +265,7 @@ def validate_source(root: Path) -> tuple[dict[str, Any], dict[str, NativeBatch]]
                 != identity(
                     {key: value for key, value in record.items() if key != "result_id"}
                 )
-                or record.get("status") != grid[(accession, tool)]["status"]
+                or record.get("status") != grid[(accession, tool)]
             ):
                 raise AnnotationError("Published result identity or status changed")
             validate_raw_evidence(source_path(root, expected_path), record, batches)
@@ -233,7 +286,7 @@ def validate_source(root: Path) -> tuple[dict[str, Any], dict[str, NativeBatch]]
                     )
                 referenced_members[batch_id].add(accession)
         for tool in TOOLS:
-            if grid[(accession, tool)]["status"] == "success" and (
+            if grid[(accession, tool)] == "success" and (
                 bundle_record is None
                 or tool not in manifest.get("results", {}).get(accession, {})
             ):
