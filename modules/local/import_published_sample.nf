@@ -7,7 +7,7 @@ process IMPORT_PUBLISHED_SAMPLE {
         "${params.outdir}/samples",
         mode: 'copy',
         overwrite: true,
-        saveAs: { filename -> filename == 'sample' ? meta.accession : null },
+        saveAs: { filename -> filename.startsWith('sample/') ? "${meta.accession}/${filename.substring(7)}" : null },
     )
 
     input:
@@ -15,7 +15,9 @@ process IMPORT_PUBLISHED_SAMPLE {
     val busco_lineages
 
     output:
-    tuple val(meta), path('sample'), path('channels'), val(gcode), val(busco_lineages), emit: results
+    // Each retained upstream entry owns a separate publication destination;
+    // none can replace the parent of a rebuilt annotation bundle or result.
+    tuple val(meta), path('sample/*', arity: '1..*', hidden: true), path('channels'), val(gcode), val(busco_lineages), emit: results
     path 'versions.yml', emit: versions
 
     script:

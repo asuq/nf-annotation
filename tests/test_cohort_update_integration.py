@@ -426,16 +426,17 @@ class CohortUpdateIntegrationTestCase(unittest.TestCase):
         self.assertEqual(self.heavy_tasks(empty), [])
         same = self.run_pipeline("unchanged", ["LOW", "NOGCODE"], source=empty)
         self.assertEqual(self.heavy_tasks(same), [])
-        resumed = self.run_pipeline(
-            "unchanged", ["LOW", "NOGCODE"], source=empty, resume=True
-        )
-        self.assert_members(resumed, {"LOW", "NOGCODE"})
-        self.assertTrue(
-            any(
-                row["status"] == "CACHED"
-                for row in read_rows(resumed / "pipeline_info/trace.tsv")
+        for _ in range(3):
+            resumed = self.run_pipeline(
+                "unchanged", ["LOW", "NOGCODE"], source=empty, resume=True
             )
-        )
+            self.assert_members(resumed, {"LOW", "NOGCODE"})
+            self.assertTrue(
+                any(
+                    row["status"] == "CACHED"
+                    for row in read_rows(resumed / "pipeline_info/trace.tsv")
+                )
+            )
 
 
 if __name__ == "__main__":

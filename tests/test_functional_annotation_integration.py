@@ -274,14 +274,15 @@ workflow {
             read_tsv(run / "tables/functional_matrices/kofam_ko_counts.tsv"),
             [dict(accession="B", K00001="0"), dict(accession="A", K00001="1")],
         )
-        self.run_pipeline("initial", self.source, resume=True)
-        searches = [
-            row
-            for row in read_tsv(run / "pipeline_info/trace.tsv")
-            if ":ANNOTATION_SEARCH " in row["name"]
-        ]
-        self.assertEqual(len(searches), 2)
-        self.assertEqual({row["status"] for row in searches}, {"CACHED"})
+        for _ in range(3):
+            self.run_pipeline("initial", self.source, resume=True)
+            searches = [
+                row
+                for row in read_tsv(run / "pipeline_info/trace.tsv")
+                if ":ANNOTATION_SEARCH " in row["name"]
+            ]
+            self.assertEqual(len(searches), 2)
+            self.assertEqual({row["status"] for row in searches}, {"CACHED"})
         shutil.rmtree(self.root / "work-initial")
         reused = self.run_pipeline("reused", run)
         self.assertEqual(self.actions(reused), ["reuse", "reuse"])

@@ -48,7 +48,9 @@ workflow PUBLISHED_RESULTS_IMPORT {
             tuple(meta, sourceRoot.resolve("samples/${row.accession}"), row.source_gcode)
         }
     IMPORT_PUBLISHED_SAMPLE(reusedSamples, busco_lineages)
-    imported = IMPORT_PUBLISHED_SAMPLE.out.results
+    imported = IMPORT_PUBLISHED_SAMPLE.out.results.map { item ->
+        tuple(item[0], item[1].first().parent, item[2], item[3], item[4])
+    }
     annotated = imported.filter { item -> item[3] in ['4', '11'] }
     // Revalidate retained native inputs with the current bundle adapter. Search
     // reuse remains keyed to protein/coordinate identities, not producer code.

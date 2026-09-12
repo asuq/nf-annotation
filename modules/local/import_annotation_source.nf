@@ -6,7 +6,7 @@ process IMPORT_ANNOTATION_SOURCE {
     errorStrategy 'finish'
     maxRetries 0
     publishDir params.outdir, mode: 'copy', overwrite: true,
-        saveAs: { name -> name.startsWith('imported/inherited/') ? name.substring(19) : null }
+        saveAs: { name -> name.startsWith('imported/inherited/samples/') || name.startsWith('imported/inherited/tables/') ? name.substring(19) : null }
 
     input:
     path source_results, name: 'source_results'
@@ -16,8 +16,9 @@ process IMPORT_ANNOTATION_SOURCE {
     path 'imported/upstream_master.tsv', emit: master
     path 'imported/upstream_sample_status.tsv', emit: sample_status
     path 'imported/source_samples.tsv', emit: samples
-    path 'imported/inherited/samples', emit: sample_tree
-    path 'imported/inherited/tables', emit: inherited_tables
+    // Only publish files: copying a parent directory could replace concurrently
+    // published functional results or regenerated cohort tables on resume.
+    path 'imported/inherited/**', type: 'file', hidden: true, emit: published_files
 
     script:
     """
