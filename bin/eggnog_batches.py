@@ -337,8 +337,16 @@ def validate_batch(
         or record["fasta_bytes"] < 1
     ):
         raise AnnotationError("Malformed eggNOG batch receipt")
-    if record.get("packing_code") != packing_code_identity():
-        raise AnnotationError("Batch packing or validation code changed")
+    code = record.get("packing_code")
+    if (
+        not isinstance(code, dict)
+        or set(code) != {"eggnog_batches.py", "annotation_common.py"}
+        or any(
+            not isinstance(value, str) or not re.fullmatch(r"[a-f0-9]{64}", value)
+            for value in code.values()
+        )
+    ):
+        raise AnnotationError("Invalid recorded batch packing code identity")
     inputs = {
         key: value
         for key, value in record.items()

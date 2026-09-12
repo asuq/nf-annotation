@@ -185,7 +185,7 @@ class EggnogBatchTests(unittest.TestCase):
         ):
             self.batches(bundles=self.bundles[:2], target=self.size - 1)
 
-    def test_changed_mapping_linked_input_and_stale_code_fail(self):
+    def test_changed_mapping_and_linked_input_fail(self):
         batches = self.batches()
         path = batches[0][0]
         mapping = path / "mapping.tsv"
@@ -197,15 +197,35 @@ class EggnogBatchTests(unittest.TestCase):
         with self.assertRaisesRegex(AnnotationError, "mapping"):
             validate_batch(path)
         path = batches[1][0]
-        with (
-            patch("eggnog_batches.packing_code_identity", return_value={}),
-            self.assertRaisesRegex(AnnotationError, "code changed"),
-        ):
-            validate_batch(path)
         fasta = path / "input.faa"
         fasta.unlink()
         fasta.symlink_to(self.bundles[2] / "proteins.faa")
         with self.assertRaisesRegex(AnnotationError, "linked"):
+            validate_batch(path)
+
+    def test_archival_code_integrity_and_current_plan_invalidation(self):
+        path, original = self.batches()[0]
+        updated_code = {
+            "eggnog_batches.py": "8" * 64,
+            "annotation_common.py": "9" * 64,
+        }
+        with patch("eggnog_batches.packing_code_identity", return_value=updated_code):
+            archived, _ = validate_batch(path)
+            self.assertEqual(archived, original)
+            new_record = self.batches("new_code")[0][1]
+        self.assertNotEqual(original["input_id"], new_record["input_id"])
+        self.assertNotEqual(
+            original["search_fingerprint"], new_record["search_fingerprint"]
+        )
+        with self.assertRaisesRegex(AnnotationError, "planned fingerprint"):
+            validate_batch(
+                path, expected_search_fingerprint=new_record["search_fingerprint"]
+            )
+        self.reseal(
+            path,
+            lambda record: record["packing_code"].update({"eggnog_batches.py": "bad"}),
+        )
+        with self.assertRaisesRegex(AnnotationError, "packing code identity"):
             validate_batch(path)
 
     def test_malformed_member_boundaries_and_oversize_policy_fail(self):
