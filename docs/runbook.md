@@ -257,8 +257,10 @@ control reuse. An accession absent from the chosen source is analysed again,
 even if it appeared in some other, older results directory.
 
 For example, after a normal run containing A and B, give the update a sample
-CSV containing B and C. B's published QC and annotation are reused, C receives
-normal analysis, and ANI and cohort reports are rebuilt for B and C. A's files
+CSV containing B and C. B's published QC and gene predictions are reused, C receives
+normal analysis, and ANI and cohort reports are rebuilt for B and C. Functional
+results are reused when their input, method and resource identities still match;
+changed eggNOG batches require new searches for all their members. A's files
 remain in the previous output and are not copied into the new cohort.
 
 ```bash
@@ -274,8 +276,10 @@ nextflow run . -c annotation.config -profile local,docker \
   --outdir /path/to/results-v2
 ```
 
-Use the usual execution profile on HPC. Per-sample database paths and BUSCO
+Use the usual execution profile on HPC. Upstream QC database paths and BUSCO
 dataset preparation are needed only if the revised cohort contains additions.
+Enabled functional tools require their configured runtimes and prepared resources
+on every update.
 For a removal-only update:
 
 ```bash
@@ -777,7 +781,12 @@ nextflow run . -c annotation.config -profile oist \
 Enabled annotation tools run across the complete declared cohort.
 
 For large OIST cohorts where shared-storage pressure matters, add the tracked
-opt-in storage override:
+opt-in storage override.
+
+This override controls storage placement; it does not establish 10,000- or
+20,000-sample throughput. Measure representative native batches, output growth
+and ANI memory on the target system before a full campaign. The current evidence
+and remaining limits are in the [qualification record](development/v0.4_qualification.md).
 
 ```bash
 nextflow run . -c annotation.config -profile oist \
@@ -943,7 +952,7 @@ flag `--ani_allow_incomplete_16s` to also allow `16S = No` and
 
 ## Notes
 
-- All five functional tools contribute source-specific counts and status to the master table; native evidence remains under each sample annotation directory.
+- All five functional tools contribute source-specific counts and status to the master table. Native eggNOG evidence is shared under `annotation_batches/`; other callers retain native evidence under each sample annotation directory. Keep the complete published directory for portable reuse.
 - Original accessions remain the published sample-folder names. Internal sanitized IDs are execution-only.
 - The shared Python helper image now includes `numpy` and `scipy` so ANI clustering and representative selection reuse the same helper container as the other Python tasks.
 - Codetta provenance is split deliberately: `tool_and_db_versions.tsv` reports

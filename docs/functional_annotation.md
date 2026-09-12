@@ -14,6 +14,11 @@ The ultra-sensitive five-genome reference passes independent reconciliation.
 The changed setting and its reuse checks remain under qualification; see the
 [release specification](development/v0.4.md) for the open release gates.
 
+The scaling candidate groups eggNOG inputs into deterministic batches of whole
+proteomes. Its native pooling comparison and final portable workflow checks are
+still in progress. The checks below describe the implemented candidate contract;
+they do not establish performance at 10,000 samples.
+
 Bundle validation matches native contig DNA to the source using Prokka's
 native preprocessing: uppercase sequence and IUPAC ambiguity codes replaced
 with `N`. Gaps and pads are rejected because deleting them would shift source
@@ -129,6 +134,30 @@ do not establish a minimum memory requirement or a throughput guarantee.
 See the [qualification record](development/v0.4_qualification.md) for measured
 runtimes, resource identities and outstanding checks.
 
+EggNOG batches use accession-sorted next-fit packing with a 4 MiB FASTA target.
+Each proteome retains its exact canonical FASTA bytes, query IDs and sequence
+order; proteins are neither split nor deduplicated. A proteome larger than the
+target forms one explicitly recorded oversized batch. The target therefore
+bounds ordinary groups, rather than imposing a hard per-genome size limit.
+All native searches, including eggNOG batches and the four individual callers,
+share `annotation_max_forks`.
+
+The batch input receipt records membership, genetic codes, input checksums,
+byte offsets, packing policy and code, runtime, resource and command identities.
+Every member's search fingerprint includes its batch identity. Reordering
+metadata does not change packing. Adding or changing a proteome can change its
+batch and subsequent packing boundaries, requiring new searches for all members
+of the affected batches. Native annotation is performed for the pooled input;
+the retained native output is then validated once and projected by the unique
+canonical query IDs. Original protein names may repeat across samples.
+
+Planning and aggregation use JSON path-list files so their command arguments
+stay bounded with cohort size. Aggregation spools detailed rows, exact global
+gene-ID checks and sparse feature counts to a temporary SQLite database, retaining
+one sample's detailed evidence at a time. The ANI reader validates the native
+matrix in two streaming passes; ANI clustering still requires its dense matrix
+and retains quadratic memory and pairwise-work limits.
+
 ## Entrypoints and reuse
 
 Use the configuration with the normal input and upstream-resource parameters:
@@ -166,6 +195,12 @@ the same functional plan while analysing newly added genomes upstream.
 | Previously disabled tool is enabled | Analyse all available bundles, including retained genomes. |
 | Previous result failed | Run that tool again. |
 
+For eggNOG, the action applies to a complete batch. Every member must have a
+matching successful normalized result for reuse. A compatible successful native
+batch can be normalized again when member interpretation or normalized results
+change. A failed native batch requires another search. The other callers retain
+their individual sample actions.
+
 The complete accession/tool grid, actions and fingerprints are published in
 `pipeline_info/annotation_plan.tsv` and `annotation_plan.json`. A matrix cannot
 combine successful results from different method identities. Source tables,
@@ -174,10 +209,20 @@ their respective reuse. Linked work-directory artefacts are rejected.
 
 ## Evidence and counts
 
-Native files, version output, logs and exit codes are retained under
-`samples/<accession>/annotation/<tool>/raw/`. Normalized detailed tables and
-`result.json` accompany them. `annotation_results.json` records the portable
-source contract, table checksums, bundles and result identities.
+Native eggNOG files, version output, logs and exit codes are retained once under
+`annotation_batches/<batch_id>/raw/`, beside the exact batch inputs and an
+immutable `batch_result.json`. Each member's
+`samples/<accession>/annotation/eggnog/result.json` identifies that shared packet
+and accompanies its own normalized tables. Native files and completion footers
+are preserved without inventing per-sample native outputs. The other four tools
+retain their native evidence under `samples/<accession>/annotation/<tool>/raw/`.
+`annotation_results.json` records table checksums, bundles, results and shared
+batch references. Portable reuse requires the complete published directory,
+including `annotation_batches/`.
+
+Use a fresh output directory when a changed configuration or cohort alters
+existing batch IDs. Resuming into a directory containing incompatible batch
+archives fails before native execution, preserving the previous evidence.
 
 PADLOC receives the native FAA IDs and a task GFF whose `protein_id` attributes
 match those validated IDs. This resolves Prokka's prefixed GFF protein names

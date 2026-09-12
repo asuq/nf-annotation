@@ -125,9 +125,10 @@ main.nf
      -> SUMMARISE_CCFINDER
      -> PREPARE_ANNOTATION_BUNDLE
   -> FUNCTIONAL_ANNOTATION
-     -> PLAN_ANNOTATIONS
-     -> ANNOTATION_SEARCH (each enabled native image)
-     -> NORMALIZE_ANNOTATION / REUSE_ANNOTATION
+     -> PLAN_ANNOTATIONS (whole-proteome eggNOG batches; other tools per sample)
+     -> ANNOTATION_SEARCH (shared concurrency limit across all native images)
+     -> NORMALIZE_ANNOTATION / REUSE_ANNOTATION (individual tool results)
+     -> COMPLETE_EGGNOG_BATCH (one native archive; normalized member results)
   -> COHORT_ANI
      -> SUMMARISE_BUSCO
      -> CALCULATE_ASSEMBLY_STATS
@@ -152,6 +153,20 @@ reannotate.nf
 
 The orchestration layer stays in Nextflow. Parsing, summarisation, join logic,
 and final table assembly live in small CLIs under `bin/`.
+
+EggNOG inputs use deterministic accession-sorted packing with a 4 MiB FASTA
+target and retain whole proteomes, including explicitly oversized singletons.
+Batch membership is part of every member's search identity. The native packet
+is published once under `annotation_batches/`; aggregation receives its emitted
+path and the individual normalized result paths directly. Portable reannotation
+requires those shared packets as part of the published source.
+
+Planning and aggregation read JSON path lists rather than cohort-sized command
+arguments. Aggregation uses a temporary SQLite database to spool detailed rows
+and sparse counts while retaining one sample's evidence at a time. The ANI reader
+uses two streaming validation passes, but clustering still requires a dense
+matrix and quadratic pairwise work. Native pooling and larger-cohort performance
+remain under [qualification](development/v0.4_qualification.md).
 
 Importers publish to destinations separate from rebuilt annotation outputs.
 The main workflow publishes retained upstream entries individually, and the

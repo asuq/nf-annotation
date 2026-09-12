@@ -7,6 +7,15 @@
   The changed search identity invalidates earlier ultra-sensitive eggNOG
   results; the other four callers remain reusable. Native sensitivity and
   large-cohort performance comparisons are tracked in the qualification record.
+- Added deterministic whole-proteome eggNOG batching with a 4 MiB FASTA target,
+  one immutable native archive per batch and normalized per-sample projections.
+  Batch membership participates in search invalidation, and portable reuse
+  includes the shared `annotation_batches/` directory. Pooling is under native
+  qualification.
+- Bounded planning command arguments through JSON path lists and reduced
+  aggregation memory through SQLite spooling. Source-table validation projects
+  required fields while streaming; ANI matrix reading uses two passes while
+  retaining the dense clustering algorithm and its quadratic limits.
 - Added shared annotation planning and execution for eggNOG-mapper v3,
   COGclassifier, direct Pfam, KOfamScan and PADLOC, with separate pinned runtimes
   and prepared resource identities.

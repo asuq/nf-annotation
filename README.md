@@ -66,9 +66,11 @@ The main analysis workflow is designed around these steps:
   representatives
 - publish final cohort tables and a combined versions report
 
-Functional counts and status are merged into `master_table.tsv`, with native
-evidence retained per sample. Assembly statistics supply `GC_Content`; Codetta
-supplies `Codetta_Genetic_Code`,
+Functional counts and status are merged into `master_table.tsv`. Native eggNOG
+evidence is retained once per whole-proteome batch under `annotation_batches/`,
+with normalized evidence and shared-batch references retained per sample. The
+other four callers retain native evidence per sample. Assembly statistics supply
+`GC_Content`; Codetta supplies `Codetta_Genetic_Code`,
 `Codetta_NCBI_Table_Candidates`, and `codetta_status`. In
 `tool_and_db_versions.tsv`, Codetta is reported as
 compatible with `v2.0`, the default container image is
@@ -484,28 +486,34 @@ nextflow run . -c annotation.config -profile local,docker \
   --outdir /path/to/results-v2
 ```
 
-Samples present in the source manifest reuse their published QC and annotation
-results. Only accessions absent from that manifest receive new QC and
-annotation; the CSV's `is_new` column keeps its existing metadata meaning.
+Samples present in the source manifest reuse their published QC and native gene
+predictions. Only accessions absent from that manifest receive new upstream
+analysis; the CSV's `is_new` column keeps its existing metadata meaning.
+Functional annotation is planned across the revised cohort. Results are reused,
+renormalized or rerun according to their inputs, methods and resources. Changing
+eggNOG batch membership requires new searches for every affected member.
 Omitted samples are excluded from the revised cohort. ANI is recalculated
 all-vs-all for the eligible revised cohort, and the workflow rebuilds clusters,
 representatives, cohort 16S outputs, taxonomy and final reports.
 
 The original work directory and Nextflow cache are unnecessary. Retained sample
-files are copied into the new output, which can itself be used as the source
-of a later update. The source results remain unchanged. Allow storage for a
+files and compatible shared batch archives are copied into the new output,
+which can itself be used as the source of a later update. The source results
+remain unchanged. Allow storage for a
 complete copy of the retained sample artefacts.
 
-For removal-only updates, the per-sample database options can be omitted;
+For removal-only updates, upstream QC database options can be omitted;
 `--taxdump` is still required for refreshed taxonomy. Retained FASTAs must be
 available through the revised CSV and match the published staged genomes.
 Paths and FASTA wrapping may change, but sequence content, case, record IDs
 and record order must match. If original inputs are no longer available,
 the CSV may point to their published `samples/<accession>/staged/*.fasta` files.
 
-Retained analyses keep their original results and provenance; per-sample tool
-settings apply only to additions. ANI options apply to the entire revised
-cohort. Cluster IDs and representatives may change with cohort membership.
+Retained upstream analyses keep their original results and provenance; upstream
+tool settings apply only to additions. Enabled functional tools still require
+their configured runtimes and prepared resources. Functional and ANI options
+apply to the entire revised cohort. Cluster IDs and representatives may change
+with cohort membership.
 See [the update runbook](docs/runbook.md#updating-cohort-membership) for
 validation requirements, audit files and resume behaviour.
 
