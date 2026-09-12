@@ -21,6 +21,7 @@ from annotation_common import (
     write_json,
     write_tsv,
 )
+from annotation_result import inventory, validate_result
 from annotation_summary import (
     FIELDS,
     MATRICES,
@@ -31,11 +32,9 @@ from annotation_summary import (
 from annotation_tasks import (
     POLICY,
     code_identity,
-    inventory,
     plan_task,
     runtime_identity,
     task_identity,
-    validate_result,
 )
 
 

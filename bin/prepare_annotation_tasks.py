@@ -23,13 +23,13 @@ from annotation_common import (
     write_tsv,
 )
 from annotation_resources import AnnotationResourceError
+from annotation_result import validate_result
 from annotation_source import import_source, validate_source
 from annotation_tasks import (
     normalize_task,
     plan_task,
     preflight,
     validate_preflight,
-    validate_result,
 )
 
 PLAN_COLUMNS = (

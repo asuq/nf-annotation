@@ -20,6 +20,7 @@ from annotation_common import (
     write_json,
 )
 from annotation_resources import RESOURCE_FILE, validate_resource
+from annotation_result import inventory, native_exit_code, validate_result
 from prepare_padloc_input import prepare_gff
 
 PADLOC_RESOURCE = {
@@ -58,6 +59,7 @@ def code_identity(tool: str) -> dict[str, str]:
             "annotation_normalization.py",
             "annotation_common.py",
             "annotation_tasks.py",
+            "annotation_result.py",
         )
     }
 
@@ -91,6 +93,8 @@ def planning_code_identity() -> dict[str, str]:
             "annotation_source.py",
             "annotation_summary.py",
             "annotation_common.py",
+            "annotation_result.py",
+            "eggnog_batches.py",
             "validate_inputs.py",
         )
     }
@@ -177,35 +181,6 @@ def validate_preflight(record: dict[str, Any]) -> None:
             raise AnnotationError(f"Resource manifest changed after preflight: {tool}")
         if entry["interpretation"]["code"] != code_identity(tool):
             raise AnnotationError(f"Normalizer code changed after preflight: {tool}")
-
-
-def inventory(root: Path) -> dict[str, str]:
-    """Inventory ordinary evidence files; reject symlinks and empty inventories."""
-    files = {}
-    for path in sorted(root.rglob("*")):
-        if path.is_symlink():
-            raise AnnotationError(f"Linked evidence is unsupported: {path}")
-        if path.is_file():
-            files[path.relative_to(root).as_posix()] = digest(path)
-    if not files:
-        raise AnnotationError(f"Missing evidence files: {root}")
-    return files
-
-
-def validate_result(root: Path, *, normalized: bool = True) -> dict[str, Any]:
-    """Validate a self-contained published result before reusing its evidence."""
-    record = read_json(root / "result.json")
-    if record.get("schema_version") != SCHEMA_VERSION or record.get(
-        "result_id"
-    ) != identity({key: value for key, value in record.items() if key != "result_id"}):
-        raise AnnotationError(f"Invalid annotation result record: {root}")
-    if record["status"] != "success":
-        raise AnnotationError(f"Cannot reuse unsuccessful annotation result: {root}")
-    if inventory(root / "raw") != record["raw_files"]:
-        raise AnnotationError(f"Native annotation evidence changed: {root}")
-    if normalized and inventory(root / "normalized") != record["normalized_files"]:
-        raise AnnotationError(f"Normalized annotation evidence changed: {root}")
-    return record
 
 
 def task_identity(
@@ -328,10 +303,8 @@ def normalize_task(
         normalized_files={},
     )
     try:
-        exit_code = (raw / "exit_code.txt").read_text().strip()
-        if not re.fullmatch(r"[0-9]+", exit_code):
-            raise AnnotationError("Missing or invalid native exit code")
-        record["exit_code"] = int(exit_code)
+        exit_code = native_exit_code(raw)
+        record["exit_code"] = exit_code
         if record["exit_code"] != 0:
             raise AnnotationError(
                 f"Native {task['tool']} exited with status {exit_code}"

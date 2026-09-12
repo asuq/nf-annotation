@@ -27,6 +27,7 @@ from annotation_common import (
     write_tsv,
 )
 from annotation_normalization import json_cell
+from annotation_result import inventory
 from annotation_summary import (
     ANNOTATION_COLUMNS,
     FIELDS,
@@ -35,7 +36,6 @@ from annotation_summary import (
     feature_counts,
     genome_summary,
 )
-from annotation_tasks import inventory
 
 PROVENANCE_COLUMNS = (
     "accession",
