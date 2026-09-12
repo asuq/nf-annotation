@@ -7,7 +7,13 @@ import re
 import sqlite3
 from pathlib import Path
 
-from annotation_common import AnnotationError, integer, number, protein_lookup, query
+from annotation_common import (
+    AnnotationError,
+    integer,
+    number,
+    query,
+    validate_accession,
+)
 from annotation_normalization import (
     Normalized,
     json_cell,
@@ -131,8 +137,34 @@ SEED_NATIVE_COLUMNS = (
 )
 
 
+def query_lookup(proteins: list[dict[str, str]]) -> dict[str, dict[str, str]]:
+    """Index only canonical native tool IDs; original protein IDs are sample-local."""
+    if not proteins:
+        raise AnnotationError("eggNOG input contains no declared proteins")
+    lookup, genes = {}, set()
+    for protein in proteins:
+        identifier, gene = protein.get("tool_id"), protein.get("gene_id")
+        validate_accession(protein.get("accession"))
+        if (
+            not isinstance(identifier, str)
+            or not identifier
+            or any(char.isspace() for char in identifier)
+            or not isinstance(gene, str)
+            or not gene
+        ):
+            raise AnnotationError("Invalid canonical eggNOG query or gene ID")
+        if identifier in lookup or gene in genes:
+            raise AnnotationError("Duplicate canonical eggNOG query or gene ID")
+        lookup[identifier] = protein
+        genes.add(gene)
+    return lookup
+
+
 def seed_hits(
-    raw: Path, proteins: list[dict[str, str]], resource: Path, result: Normalized
+    raw: Path,
+    lookup: dict[str, dict[str, str]],
+    resource: Path,
+    result: Normalized,
 ) -> dict[str, dict[str, str]]:
     """Separate mapped seed hits from proteins receiving functional annotations."""
     columns = SEED_NATIVE_COLUMNS
@@ -151,7 +183,7 @@ def seed_hits(
         raise AnnotationError(
             "Missing or inconsistent native eggNOG seed completion count"
         )
-    lookup, seeds, evidence = protein_lookup(proteins), {}, []
+    seeds, evidence = {}, []
     with sqlite3.connect(
         f"file:{resource / 'eggnog.db'}?mode=ro", uri=True
     ) as database:
@@ -218,7 +250,8 @@ COLUMNS = (
 def normalize(raw: Path, proteins: list[dict[str, str]], resource: Path) -> Normalized:
     """Filter each native field independently; never infer GO namespace confidence."""
     result = Normalized()
-    seeds = seed_hits(raw, proteins, resource, result)
+    lookup = query_lookup(proteins)
+    seeds = seed_hits(raw, lookup, resource, result)
     ontology = ontology_terms(resource / "go-basic.obo")
     path = raw / "eggnog.emapper.annotations"
     comments, rows, header = [], [], None
@@ -264,7 +297,7 @@ def normalize(raw: Path, proteins: list[dict[str, str]], resource: Path) -> Norm
     go = {row["query"]: row for row in go_rows}
     if len(go) != len(go_rows):
         raise AnnotationError("Duplicate eggNOG GO sidecar query")
-    lookup, seen, evidence = protein_lookup(proteins), set(), []
+    seen, evidence = set(), []
     for row in rows:
         protein = query(lookup, row["query"])
         gene = protein["gene_id"]
@@ -382,6 +415,66 @@ def normalize(raw: Path, proteins: list[dict[str, str]], resource: Path) -> Norm
     columns = COLUMNS
     result.tables["eggnog_annotations.tsv"] = columns, evidence
     return result
+
+
+def normalize_batch(
+    raw: Path, proteins: list[dict[str, str]], resource: Path
+) -> dict[str, Normalized]:
+    """Parse one complete native batch once and project its evidence by accession.
+
+    Native files and their completion markers remain untouched. Each member
+    receives normalized tables in native row order, including header-only tables
+    for members without hits. Definitions accompany only terms used by a member.
+    """
+    complete = normalize(raw, proteins, resource)
+    accessions = {protein["gene_id"]: protein["accession"] for protein in proteins}
+    members = {
+        accession: Normalized() for accession in dict.fromkeys(accessions.values())
+    }
+
+    def member_for_gene(gene: str) -> Normalized:
+        if gene not in accessions:
+            raise AnnotationError("Normalized eggNOG evidence contains an unknown gene")
+        return members[accessions[gene]]
+
+    for name, (columns, rows) in complete.tables.items():
+        for member in members.values():
+            member.tables[name] = columns, []
+        for row in rows:
+            member = member_for_gene(row["gene_id"])
+            if row["accession"] != accessions[row["gene_id"]]:
+                raise AnnotationError(
+                    "Normalized eggNOG row has a mismatched accession"
+                )
+            member.tables[name][1].append(row)
+    for name, genes in complete.features.items():
+        for gene, values in genes.items():
+            member_for_gene(gene).features.setdefault(name, {})[gene] = set(values)
+    for gene in complete.mapped:
+        member_for_gene(gene).mapped.add(gene)
+    for gene in complete.accepted:
+        member_for_gene(gene).accepted.add(gene)
+    for error in complete.errors:
+        member_for_gene(error["gene_id"]).errors.append(dict(error))
+    for member in members.values():
+        member.reported_hits = len(member.tables["eggnog_seed_hits.tsv"][1])
+        for name, definitions in complete.definitions.items():
+            used = {
+                term
+                for terms in member.features.get(name, {}).values()
+                for term in terms
+            }
+            selected = {
+                term: definitions[term] for term in sorted(used) if term in definitions
+            }
+            if selected:
+                member.definitions[name] = selected
+    if (
+        sum(member.reported_hits for member in members.values())
+        != complete.reported_hits
+    ):
+        raise AnnotationError("Batch projection does not conserve reported seed hits")
+    return members
 
 
 TABLE_COLUMNS = {"eggnog_annotations.tsv": COLUMNS}
