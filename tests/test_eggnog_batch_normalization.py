@@ -146,6 +146,50 @@ class EggnogBatchNormalizationTests(unittest.TestCase):
             {path.name for path in output.iterdir()}, set(egg.TABLE_COLUMNS)
         )
 
+    def test_empty_valid_go_invalid_go_and_no_hits_preserve_distinct_summaries(self):
+        rows = [
+            self.annotation("pA1", KEGG_ko="K00001"),
+            self.annotation("pB1", GOs="GO:0000003", KEGG_ko="K00003"),
+        ]
+        go_rows = [
+            self.namespaces("pA1"),
+            self.namespaces("pB1", gos_mf="GO:0000003"),
+        ]
+        self.fixture.write_eggnog(rows, go_rows)
+        members = egg.normalize_batch(self.raw, self.proteins, self.resource)
+        self.assertEqual(members["A"].definitions, {"go": {}})
+        self.assertEqual(members["B"].definitions, {})
+        self.assertEqual(members["C"].definitions, {})
+        for accession, member in members.items():
+            selected = {
+                protein["tool_id"]
+                for protein in self.proteins
+                if protein["accession"] == accession
+            }
+            self.fixture.write_eggnog(
+                [row for row in rows if row["query"] in selected],
+                [row for row in go_rows if row["query"] in selected],
+            )
+            standalone = egg.normalize(
+                self.raw,
+                [
+                    protein
+                    for protein in self.proteins
+                    if protein["accession"] == accession
+                ],
+                self.resource,
+            )
+            expected = standalone.publish(self.fixture.root / (accession + "_single"))
+            actual = member.publish(self.fixture.root / (accession + "_projected"))
+            self.assertEqual(actual, expected)
+            for name in egg.TABLE_COLUMNS:
+                self.assertEqual(
+                    (self.fixture.root / (accession + "_single") / name).read_bytes(),
+                    (
+                        self.fixture.root / (accession + "_projected") / name
+                    ).read_bytes(),
+                )
+
     def test_original_protein_ids_never_shadow_another_canonical_query(self):
         proteins = copy.deepcopy(self.proteins)
         proteins[0]["protein_id"] = "pB1"

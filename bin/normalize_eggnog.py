@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import re
 import sqlite3
 from pathlib import Path
@@ -424,7 +425,8 @@ def normalize_batch(
 
     Native files and their completion markers remain untouched. Each member
     receives normalized tables in native row order, including header-only tables
-    for members without hits. Definitions accompany only terms used by a member.
+    for members without hits. Used definitions and validated empty GO evidence
+    remain specific to each member.
     """
     complete = normalize(raw, proteins, resource)
     accessions = {protein["gene_id"]: protein["accession"] for protein in proteins}
@@ -447,6 +449,12 @@ def normalize_batch(
                     "Normalized eggNOG row has a mismatched accession"
                 )
             member.tables[name][1].append(row)
+            if name == "eggnog_annotations.tsv" and "GOs" in json.loads(
+                row["accepted_fields"]
+            ):
+                # The single-proteome parser records valid empty GO evidence as
+                # an empty definition dictionary; absent/invalid GO has no key.
+                member.definitions.setdefault("go", {})
     for name, genes in complete.features.items():
         for gene, values in genes.items():
             member_for_gene(gene).features.setdefault(name, {})[gene] = set(values)
