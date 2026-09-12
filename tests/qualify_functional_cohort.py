@@ -137,7 +137,7 @@ def category_counts(proteins: list[dict[str, str]]) -> tuple[Counter, dict, bool
 
 
 def qualify(results: Path, controls: list[dict[str, str]]) -> dict:
-    manifest = validate_source(results)
+    manifest, _ = validate_source(results)
     accessions = [row["accession"] for row in controls]
     require(manifest["complete"] is True, "Annotation acceptance is incomplete")
     require(

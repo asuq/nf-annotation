@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,7 @@ from annotation_common import (
     read_tsv,
     validate_accession,
 )
+from annotation_result import NativeBatch, native_batch_index, validate_raw_evidence
 from annotation_summary import ANNOTATION_COLUMNS, MATRICES
 from validate_inputs import detect_metadata_key_column
 
@@ -40,8 +42,54 @@ def source_path(root: Path, name: str) -> Path:
     return current
 
 
-def validate_source(root: Path) -> dict[str, Any]:
-    """Verify the source manifest, required cohort tables and portable bundle IDs."""
+def source_batches(
+    root: Path, manifest: dict[str, Any], accessions: list[str]
+) -> dict[str, NativeBatch]:
+    """Validate each declared portable shared archive once and match packet IDs."""
+    entries = manifest.get("native_batches", {})
+    if not isinstance(entries, dict):
+        raise AnnotationError("Invalid published native batch mapping")
+    directory = source_path(root, "annotation_batches")
+    if directory.exists() and (
+        not directory.is_dir()
+        or {path.name for path in directory.iterdir()} != set(entries)
+    ):
+        raise AnnotationError(
+            "Published native batch archives differ from the manifest"
+        )
+    paths = []
+    for batch_id, entry in entries.items():
+        if (
+            not isinstance(batch_id, str)
+            or not re.fullmatch(r"[a-f0-9]{64}", batch_id)
+            or not isinstance(entry, dict)
+            or set(entry) != {"path", "batch_result_id"}
+            or entry["path"] != f"annotation_batches/{batch_id}"
+            or not isinstance(entry["batch_result_id"], str)
+            or not re.fullmatch(r"[a-f0-9]{64}", entry["batch_result_id"])
+        ):
+            raise AnnotationError("Invalid published native batch reference or path")
+        path = source_path(root, entry["path"])
+        if not path.is_dir():
+            raise AnnotationError("Missing published native batch archive")
+        source_path(root, entry["path"] + "/batch_result.json")
+        paths.append(path)
+    batches = native_batch_index(paths)
+    if set(batches) != set(entries):
+        raise AnnotationError(
+            "Published native batch packet IDs differ from the manifest"
+        )
+    declared_accessions = set(accessions)
+    for batch_id, native in batches.items():
+        if native.record["batch_result_id"] != entries[batch_id]["batch_result_id"]:
+            raise AnnotationError("Published native batch result identity changed")
+        if set(native.members) - declared_accessions:
+            raise AnnotationError("Published native batch contains a foreign accession")
+    return batches
+
+
+def validate_source(root: Path) -> tuple[dict[str, Any], dict[str, NativeBatch]]:
+    """Verify source artefacts and return its once-validated native batch index."""
     manifest = read_json(root / "annotation_results.json")
     if (
         manifest.get("schema_version") != SCHEMA_VERSION
@@ -109,6 +157,8 @@ def validate_source(root: Path) -> dict[str, Any]:
         raise AnnotationError(
             "Published annotation status does not contain the complete declared grid"
         )
+    batches = source_batches(root, manifest, accessions)
+    referenced_members = {batch_id: set() for batch_id in batches}
     for master, status in zip(masters, statuses, strict=True):
         accession = master[master_key]
         for tool in TOOLS:
@@ -120,6 +170,7 @@ def validate_source(root: Path) -> dict[str, Any]:
                     "Published annotation status contradicts a genome summary"
                 )
         bundle_record = manifest.get("bundles", {}).get(accession)
+        metadata = None
         if bundle_record is not None:
             expected_path = f"samples/{accession}/annotation/bundle"
             if bundle_record.get("path") != expected_path:
@@ -164,6 +215,23 @@ def validate_source(root: Path) -> dict[str, Any]:
                 or record.get("status") != grid[(accession, tool)]["status"]
             ):
                 raise AnnotationError("Published result identity or status changed")
+            validate_raw_evidence(source_path(root, expected_path), record, batches)
+            if "native_batch" in record:
+                batch_id = record["native_batch"]["batch_id"]
+                member = batches[batch_id].members[accession]
+                if metadata is None or any(
+                    metadata[key] != member[key]
+                    for key in (
+                        "input_id",
+                        "genetic_code",
+                        "source_genome_sha256",
+                        "protein_count",
+                    )
+                ):
+                    raise AnnotationError(
+                        "Published bundle differs from its native batch member"
+                    )
+                referenced_members[batch_id].add(accession)
         for tool in TOOLS:
             if grid[(accession, tool)]["status"] == "success" and (
                 bundle_record is None
@@ -172,12 +240,19 @@ def validate_source(root: Path) -> dict[str, Any]:
                 raise AnnotationError(
                     "Successful annotation lacks a published bundle or result"
                 )
-    return manifest
+    for batch_id, native in batches.items():
+        if not referenced_members[batch_id]:
+            raise AnnotationError("Published native batch is unused")
+        if referenced_members[batch_id] != set(native.members):
+            raise AnnotationError(
+                "Published native batch omits a member result reference"
+            )
+    return manifest, batches
 
 
 def import_source(root: Path, output: Path) -> None:
     """Retain published upstream evidence while new functional results are built."""
-    manifest = validate_source(root)
+    manifest, _ = validate_source(root)
     # Imported upstream evidence must remain usable after the old work tree is
     # removed. Inspect every copied entry before creating any new outputs.
     for accession in manifest["accessions"]:

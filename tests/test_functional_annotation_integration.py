@@ -190,7 +190,7 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
         self.assertEqual(
             result.returncode == 0, succeeds, result.stdout + result.stderr
         )
-        manifest = validate_source(output)
+        manifest, _ = validate_source(output)
         self.assertEqual(manifest["complete"], succeeds)
         return output
 

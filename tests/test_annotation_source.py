@@ -46,7 +46,9 @@ class AnnotationSourceTests(unittest.TestCase):
         publish_disabled(self.source, ["A"], [self.bundle])
 
     def test_native_source_import_preserves_bundle_and_rejects_changed_tables(self):
-        self.assertTrue(validate_source(self.source)["complete"])
+        manifest, batches = validate_source(self.source)
+        self.assertTrue(manifest["complete"])
+        self.assertEqual(batches, {})
         output = self.root / "imported"
         import_source(self.source, output)
         self.assertEqual(
@@ -96,7 +98,7 @@ class AnnotationSourceTests(unittest.TestCase):
         self.assertGreater(len(rows[0]["analysis_note"]), csv.field_size_limit())
         write_tsv(path, rows[0], rows)
         refresh_tables(self.source)
-        self.assertTrue(validate_source(self.source)["complete"])
+        self.assertTrue(validate_source(self.source)[0]["complete"])
         output = self.root / "large_import"
         import_source(self.source, output)
         self.assertEqual(
