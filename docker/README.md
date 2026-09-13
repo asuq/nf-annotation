@@ -54,6 +54,21 @@ the unmodified upstream program and cover repeated domains, nested domains,
 overlapping alternatives and zero hits. Original adapted source files and
 checksums remain in `/opt/nf-annotation/provenance`.
 
-Runtime builds and these controls pass locally. Compatible full database
-preparation, workflow wiring and the five-genome HPC qualification remain
-v0.4 release gates; the development tags above are not published releases.
+Runtime builds, native controls and the five-genome HPC qualification pass.
+The development tags above are local build names. The v0.4.0 release publishes
+the same qualified image payloads under `quay.io/asuq1617/nf-annotation-<tool>:0.4.0`;
+execution uses immutable Linux amd64 manifest digests below, not those tags.
+The helper digest matches the OCI manifest used for HPC qualification.
+
+| Runtime | Immutable reference |
+| --- | --- |
+| python | `quay.io/asuq1617/python-scipy@sha256:30051a8fbc1fddbd6c5e1c10760699f40d2f5711e6640c36d4747a1882ef05c2` |
+| eggnog | `quay.io/asuq1617/nf-annotation-eggnog@sha256:4eb430644be8a94e4e752874dc8d646cdc9acb9ddf28c5b2d1bb283987a1027d` |
+| cogclassifier | `quay.io/asuq1617/nf-annotation-cogclassifier@sha256:d3900ea264815e527dac4a1c2737a270258bcf6e813cc606d348f7ef674ae10c` |
+| pfam | `quay.io/asuq1617/nf-annotation-pfam@sha256:c6ef9dcabe7c494e853a8f3eef3a6ecd987b2a5abafe07ad13df8b406834f2f6` |
+| kofam | `quay.io/asuq1617/nf-annotation-kofam@sha256:bfe33293b9d32c6671c20672472d669428458527bd38de958eae2fcb6ed4fcb0` |
+| padloc | `quay.io/asuq1617/nf-annotation-padloc@sha256:557718303da941c8f6ac6c55bdb659f0e4c37963657a7da4d4a33e47ae3ccbd8` |
+
+These defaults can be overridden with checksum-verified local SIF paths for
+offline HPC use. OCI digests and SIF file checksums are different identities;
+retain conversion provenance when preparing SIF files.

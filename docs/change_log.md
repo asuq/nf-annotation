@@ -1,7 +1,9 @@
 # Change Log
 
-## v0.4.0 - unreleased
+## v0.4.0 - 2026-09-13
 
+- Published the qualified Linux amd64 annotation images and pinned their OCI
+  digests, including the shared Python helper, in the default configuration.
 - Replaced `--ani_allow_incomplete_16s` with `--ani_16s_policy`: `complete`
   (default) requires `Yes`, `allow_incomplete` accepts `Yes` and `partial`,
   and `ignore` also admits `No` and `NA`. Other ANI quality filters still apply.
@@ -17,8 +19,9 @@
 - Set eggNOG's DIAMOND ceiling to `sensitive` with iteration enabled, matching
   the pinned mapper's default and reducing search cost for large-cohort work.
   The changed search identity invalidates earlier ultra-sensitive eggNOG
-  results; the other four callers remain reusable. Native sensitivity and
-  large-cohort performance comparisons are tracked in the qualification record.
+  results. The later execution-wrapper identity change also invalidates
+  earlier unverified searches for all five callers. Five-genome native
+  equivalence passes; 10,000-sample performance remains unqualified.
 - Added deterministic whole-proteome eggNOG batching with a 4 MiB FASTA target,
   one shared DIAMOND search, separate native annotation per proteome and one
   immutable archive per batch. Seed partitions retain the original native fields
@@ -47,7 +50,7 @@
   completeness-difference rules.
 - Removed v0.3 result import assumptions, the historical ANI rescue CLI,
   eggNOG-only accession selection and free-form eggNOG/PADLOC arguments.
-  The configurable incomplete-16S ANI gate remains independent of annotation.
+  The three-policy 16S ANI gate remains independent of annotation.
 - Hardened native container mounts, runtime overrides, task temporary storage,
   PADLOC protein joins and offline BUSCO preparation. Full biological
   qualification remains tracked in the [release specification](development/v0.4.md).

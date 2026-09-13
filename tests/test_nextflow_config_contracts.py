@@ -192,7 +192,10 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
         """Use one shared helper image that carries the ANI scientific stack."""
         config_text = NEXTFLOW_CONFIG.read_text(encoding="utf-8")
 
-        self.assertIn("python_container = 'quay.io/asuq1617/python-scipy:3.12'", config_text)
+        self.assertRegex(
+            config_text,
+            r"python_container = 'quay\.io/asuq1617/python-scipy@sha256:[a-f0-9]{64}'",
+        )
         self.assertNotIn("python_container = 'python:3.12'", config_text)
 
     def test_ccfinder_container_points_at_the_clean_runtime_tag(self) -> None:
@@ -202,10 +205,13 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
         self.assertIn("ccfinder_container = 'quay.io/asuq1617/ccfinder:4.2.30'", config_text)
         self.assertNotIn("ccfinder_container = 'quay.io/asuq1617/ccfinder:4.3.2'", config_text)
 
-    def test_native_annotation_containers_require_immutable_explicit_references(self) -> None:
+    def test_native_annotation_containers_use_published_immutable_references(self) -> None:
         text = NEXTFLOW_CONFIG.read_text()
         for tool in ("eggnog", "cogclassifier", "pfam", "kofam", "padloc"):
-            self.assertIn(f"{tool}_container = null", text)
+            self.assertRegex(
+                text,
+                rf"{tool}_container = 'quay\.io/asuq1617/nf-annotation-{tool}@sha256:[a-f0-9]{{64}}'",
+            )
 
     def test_prokka_container_points_at_the_fixed_runtime_tag(self) -> None:
         """Use the fixed Prokka image tag by default."""
@@ -221,7 +227,10 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
         """Reject the previous mapper-v2 default."""
         config_text = NEXTFLOW_CONFIG.read_text(encoding="utf-8")
 
-        self.assertIn("eggnog_container = null", config_text)
+        self.assertIn(
+            "eggnog_container = 'quay.io/asuq1617/nf-annotation-eggnog@sha256:",
+            config_text,
+        )
         self.assertNotIn(
             "eggnog_container = 'quay.io/biocontainers/eggnog-mapper:2.1.13--pyhdfd78af_2'",
             config_text,

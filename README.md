@@ -27,10 +27,13 @@ recommended first real server validation path, see
 
 The v0.4 functional workflow also publishes protein-level evidence and six
 source-specific count matrices. All enabled tools analyse the declared cohort.
-Provide the immutable runtimes and prepared resources in
+The release pins published Linux amd64 runtimes by digest. Configure the prepared
+resources described in
 [`docs/functional_annotation.md`](docs/functional_annotation.md); that page also
-covers annotation-only reuse through `reannotate.nf`. Full biological release
-qualification is still in progress.
+covers annotation-only reuse through `reannotate.nf`. The
+[five-genome qualification](docs/development/v0.4_qualification.md) is complete;
+10,000-sample performance and the four-CPU/32-GB defaults remain unqualified.
+The native qualification used 16 CPUs and 64 GiB per search.
 
 ## Table of contents
 

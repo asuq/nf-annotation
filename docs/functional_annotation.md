@@ -42,7 +42,10 @@ including retained genomes during a cohort update. Low-quality genomes can be
 annotated when genetic-code selection and the protein bundle are valid. ANI
 eligibility is independent of functional annotation.
 
-Provide a configuration file with immutable runtimes and prepared databases:
+The release defaults pin the published Linux amd64 runtimes listed in
+[the image reference table](../docker/README.md#v04-annotation-runtimes).
+Provide prepared databases and the resource allocation for your cohort.
+For offline HPC execution, override the defaults with local SIF files as below:
 
 ```groovy
 params {
