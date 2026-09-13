@@ -9,6 +9,7 @@ import math
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 SCHEMA_VERSION = 1
 TOOLS = ("eggnog", "cogclassifier", "pfam", "kofam", "padloc")
@@ -72,6 +73,11 @@ COORDINATE_COLUMNS = (
 
 class AnnotationError(ValueError):
     """An input, resource or tool output violates an annotation invariant."""
+
+
+def canonical_gene_id(accession: str, protein_id: str) -> str:
+    """Encode both original identifiers before joining the canonical gene key."""
+    return f"{quote(accession, safe='')}::{quote(protein_id, safe='')}"
 
 
 def validate_accession(value: Any) -> None:

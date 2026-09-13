@@ -2,6 +2,18 @@
 
 ## v0.4.0 - unreleased
 
+- Replaced `--ani_allow_incomplete_16s` with `--ani_16s_policy`: `complete`
+  (default) requires `Yes`, `allow_incomplete` accepts `Yes` and `partial`,
+  and `ignore` also admits `No` and `NA`. Other ANI quality filters still apply.
+- Required an active container engine and matching effective process runtimes
+  for functional annotation. Native wrapper identities invalidate earlier
+  searches that did not enforce this execution contract.
+- Preserved failed native tasks as failures in the Nextflow cache while retaining
+  their diagnostics for reporting. Explicit resume reruns failed searches and
+  retains successful cached searches.
+- Unified canonical gene-ID encoding between protein bundles and eggNOG batches,
+  allowing encoded original accession and protein identifiers to survive batching.
+
 - Set eggNOG's DIAMOND ceiling to `sensitive` with iteration enabled, matching
   the pinned mapper's default and reducing search cost for large-cohort work.
   The changed search identity invalidates earlier ultra-sensitive eggNOG

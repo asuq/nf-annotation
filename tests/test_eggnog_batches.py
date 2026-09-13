@@ -8,6 +8,9 @@ import sys
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from urllib.parse import quote
+
+from Bio import SeqIO
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
 import test_annotation_bundle as bundle_fixture
@@ -112,6 +115,29 @@ class EggnogBatchTests(unittest.TestCase):
             self.assertEqual(
                 (path / "input.faa").read_bytes(),
                 (bundle / "proteins.faa").read_bytes(),
+            )
+
+    def test_encoded_accessions_and_protein_ids_survive_batch_validation(self):
+        protein_id = "gene:+%1"
+        self.fixture.faa.write_text(f">{protein_id}\nMWA\n")
+        self.fixture.gff.write_text(
+            self.fixture.gff.read_text().replace("gene_1", quote(protein_id, safe=""))
+        )
+        record = SeqIO.read(self.fixture.gbk, "genbank")
+        record.features[0].qualifiers["locus_tag"] = [protein_id]
+        SeqIO.write(record, self.fixture.gbk, "genbank")
+        accessions = ("Sample A", "sample:1", "sample+1", "sample%1")
+        bundles = [
+            self.fixture.build(acc, f"encoded-{i}") for i, acc in enumerate(accessions)
+        ]
+        batches = self.batches("encoded", bundles, target=4096)
+        self.assertEqual(len(batches), 1)
+        _, proteins = validate_batch(batches[0][0])
+        self.assertEqual({row["accession"] for row in proteins}, set(accessions))
+        for row in proteins:
+            self.assertEqual(row["protein_id"], protein_id)
+            self.assertEqual(
+                row["gene_id"], quote(row["accession"], safe="") + "::gene%3A%2B%251"
             )
 
     def test_membership_packing_policy_and_method_invalidate_search(self):

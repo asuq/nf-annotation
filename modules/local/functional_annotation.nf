@@ -16,6 +16,9 @@ process ANNOTATION_PREFLIGHT {
     path 'annotation_preflight.json', emit: receipt
 
     script:
+    if (params.annotation_tools) {
+        AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
+    }
     def encoded = groovy.json.JsonOutput.toJson(configuration).bytes.encodeBase64().toString()
     """
     python3 -c 'import base64; from pathlib import Path; Path("configuration.json").write_bytes(base64.b64decode("${encoded}"))'
@@ -48,6 +51,9 @@ process PLAN_ANNOTATIONS {
     path 'annotation_plan.tsv', emit: table
 
     script:
+    if (params.annotation_tools) {
+        AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
+    }
     def bundleList = groovy.json.JsonOutput.toJson((bundles instanceof Collection ? bundles : [bundles]).collect { it.toString() })
     def sourceArgs = source_results ? "--source '${source_results}'" : ''
     """
@@ -72,7 +78,10 @@ process ANNOTATION_SEARCH {
     // An abruptly terminated task may not emit raw files. The complete plan lets
     // aggregation record that missing result as failed and reject the final gate
     // after independent samples finish. Nextflow retains the task error/trace.
-    errorStrategy 'ignore'
+    errorStrategy {
+        AnnotationExecution.preserveFailure(task, meta, params.outdir, workflow.start)
+        'ignore'
+    }
     maxRetries 0
 
     input:
@@ -82,6 +91,7 @@ process ANNOTATION_SEARCH {
     tuple val(meta), path(task_directory), path(bundle), path(resource), path('raw'), emit: raw_results
 
     script:
+    AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, meta.container)
     """
     test '${task.cpus}' -eq '${meta.cpus}'
     test '${task.memory.toBytes()}' -eq '${Math.round((meta.memory_gib as double) * 1024 * 1024 * 1024)}'
@@ -105,6 +115,9 @@ process NORMALIZE_ANNOTATION {
     tuple val(meta), path('result'), emit: result
 
     script:
+    if (params.annotation_tools) {
+        AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
+    }
     def resourceArg = resource ? "--resource '${resource}'" : ''
     """
     python3 "\$(command -v prepare_annotation_tasks.py)" normalize \
@@ -128,6 +141,9 @@ process REUSE_ANNOTATION {
     tuple val(meta), path('result'), emit: result
 
     script:
+    if (params.annotation_tools) {
+        AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
+    }
     """
     python3 "\$(command -v prepare_annotation_tasks.py)" reuse --task task --output result
     """
@@ -150,6 +166,9 @@ process COMPLETE_EGGNOG_BATCH {
     path 'published/samples/*/annotation/eggnog', emit: members
 
     script:
+    if (params.annotation_tools) {
+        AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
+    }
     """
     python3 "\$(command -v prepare_annotation_tasks.py)" complete-batch \
         --task task --raw raw --batch batch --resource resource --output published
@@ -179,6 +198,9 @@ process AGGREGATE_ANNOTATIONS {
     path 'report/annotation_acceptance.json', emit: acceptance
 
     script:
+    if (params.annotation_tools) {
+        AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
+    }
     def bundleList = groovy.json.JsonOutput.toJson((bundles instanceof Collection ? bundles : [bundles]).collect { it.toString() })
     def resultList = groovy.json.JsonOutput.toJson((results instanceof Collection ? results : [results]).collect { it.toString() })
     def batchList = groovy.json.JsonOutput.toJson((batches instanceof Collection ? batches : [batches]).collect { it.toString() })
@@ -213,6 +235,9 @@ process ANNOTATION_ACCEPTANCE {
     path 'annotation_complete.txt', emit: complete
 
     script:
+    if (params.annotation_tools) {
+        AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
+    }
     """
     python3 - '${acceptance}' <<'PY'
     import json

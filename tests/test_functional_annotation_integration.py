@@ -29,7 +29,10 @@ from annotation_common import (
 from annotation_resources import file_records
 from annotation_source import validate_source
 from annotation_tasks import PADLOC_RESOURCE, plan_task, preflight
-from annotation_workflow_fixture import publish_disabled
+from annotation_workflow_fixture import (
+    install_synthetic_container_engine,
+    publish_disabled,
+)
 
 NEXTFLOW = shutil.which("nextflow")
 
@@ -44,12 +47,19 @@ class FunctionalAnnotationIntegrationTests(unittest.TestCase):
         self.root = Path(temporary.name)
         self.project = self.root / "pipeline"
         self.project.mkdir()
-        for name in ("bin", "modules", "subworkflows", "conf", "assets"):
+        for name in ("bin", "lib", "modules", "subworkflows", "conf", "assets"):
             shutil.copytree(ROOT / name, self.project / name)
         for name in ("reannotate.nf", "nextflow.config"):
             shutil.copyfile(ROOT / name, self.project / name)
         shutil.copytree(
             ROOT / "external/nf-helper/conf", self.project / "external/nf-helper/conf"
+        )
+        install_synthetic_container_engine(self.project)
+        self.environment = dict(
+            os.environ,
+            NXF_ANSI_LOG="false",
+            NXF_DISABLE_CHECK_LATEST="true",
+            PATH=str(self.project / "bin") + os.pathsep + os.environ["PATH"],
         )
         self.source = self.root / "source"
         (self.source / "tables").mkdir(parents=True)
@@ -117,6 +127,7 @@ if sys.argv[1:] == ['--version']:
     sys.exit(0)
 task = json.loads(Path('task/task.json').read_text())
 if Path(__file__).with_name('fail_b').exists() and task['accession'] == 'B':
+    Path('raw/failure_only.txt').write_text('Retained failed-attempt diagnostic')
     sys.exit(4)
 query = Path(sys.argv[-1]).read_text().splitlines()[0][1:].split()[0]
 text = '#\\tgene name\\tKO\\tthrshld\\tscore\\tE-value\\tKO definition\\n'
@@ -148,7 +159,18 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
             ),
         )
 
-    def run_pipeline(self, name, source, *, enabled=True, succeeds=True, resume=False):
+    def run_pipeline(
+        self,
+        name,
+        source,
+        *,
+        enabled=True,
+        succeeds=True,
+        resume=False,
+        profile="test,docker",
+        extra_config="",
+        rejection=None,
+    ):
         output = self.root / name
         configuration = self.root / f"{name}.config"
         configuration.write_text(
@@ -162,6 +184,7 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
             + "2" * 64
             + "'\n"
             + " annotation_cpus = 1\n annotation_memory = '1 GB'\n}\n"
+            + extra_config
         )
         result = subprocess.run(
             [
@@ -169,7 +192,7 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
                 "run",
                 str(self.project / "reannotate.nf"),
                 "-profile",
-                "test",
+                profile,
                 "-c",
                 str(configuration),
                 "--annotation_from",
@@ -184,12 +207,16 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
             text=True,
             capture_output=True,
             timeout=120,
-            env=dict(os.environ, NXF_ANSI_LOG="false", NXF_DISABLE_CHECK_LATEST="true"),
+            env=self.environment,
         )
         (self.root / f"{name}.log").write_text(result.stdout + result.stderr)
         self.assertEqual(
             result.returncode == 0, succeeds, result.stdout + result.stderr
         )
+        if rejection:
+            self.assertIn(rejection, result.stdout + result.stderr)
+            self.assertFalse((output / "annotation_results.json").exists())
+            return output
         manifest, _ = validate_source(output)
         self.assertEqual(manifest["complete"], succeeds)
         return output
@@ -200,6 +227,80 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
             for row in read_tsv(source / "pipeline_info/annotation_plan.tsv")
             if row["tool"] == "kofam"
         ]
+
+    def test_ordinary_host_execution_is_rejected_before_annotation(self):
+        self.run_pipeline(
+            "host-rejected",
+            self.source,
+            succeeds=False,
+            profile="local",
+            extra_config="docker.enabled = false\nsingularity.enabled = false\napptainer.enabled = false\n",
+            rejection="requires an active Docker",
+        )
+        self.assertFalse(
+            (self.project / "bin/synthetic-container-calls.jsonl").exists()
+        )
+
+    def test_effective_helper_container_override_is_rejected(self):
+        self.run_pipeline(
+            "wrong-helper",
+            self.source,
+            succeeds=False,
+            extra_config="process { withName: ANNOTATION_PREFLIGHT { container = 'sha256:"
+            + "3" * 64
+            + "' } }\n",
+            rejection="does not match the planned runtime",
+        )
+
+    def test_effective_native_container_override_is_rejected(self):
+        self.run_pipeline(
+            "wrong-native",
+            self.source,
+            succeeds=False,
+            extra_config="process { withName: ANNOTATION_SEARCH { container = 'sha256:"
+            + "3" * 64
+            + "' } }\n",
+            rejection="does not match the planned runtime",
+        )
+        self.assertNotIn(
+            "sha256:" + "3" * 64,
+            (self.project / "bin/synthetic-container-calls.jsonl").read_text(),
+        )
+
+    def test_failed_native_search_reruns_on_resume_and_keeps_prior_diagnostics(self):
+        marker = self.project / "bin/fail_b"
+        marker.touch()
+        output = self.run_pipeline("recovery", self.source, succeeds=False)
+        failed_raw = list(
+            (output / "pipeline_info/annotation_failures").rglob("raw/exit_code.txt")
+        )
+        self.assertEqual([path.read_text() for path in failed_raw], ["4\n"])
+        marker.unlink()
+        self.run_pipeline("recovery", self.source, resume=True)
+        rows = [
+            row
+            for row in read_tsv(output / "pipeline_info/trace.tsv")
+            if ":ANNOTATION_SEARCH " in row["name"]
+        ]
+        self.assertEqual(
+            {row["name"].split("(")[1]: row["status"] for row in rows},
+            {"A:kofam)": "CACHED", "B:kofam)": "COMPLETED"},
+        )
+        self.assertEqual(
+            read_json(output / "samples/B/annotation/kofam/result.json")["exit_code"], 0
+        )
+        self.assertFalse(
+            (output / "samples/B/annotation/kofam/raw/failure_only.txt").exists()
+        )
+        self.assertEqual(failed_raw[0].read_text(), "4\n")
+        self.assertTrue(failed_raw[0].with_name("failure_only.txt").exists())
+        self.run_pipeline("recovery", self.source, resume=True)
+        rows = [
+            row
+            for row in read_tsv(output / "pipeline_info/trace.tsv")
+            if ":ANNOTATION_SEARCH " in row["name"]
+        ]
+        self.assertEqual([row["status"] for row in rows], ["CACHED", "CACHED"])
 
     def test_empty_path_lists_preserve_portable_source_order(self):
         for accession in ("B", "A"):
@@ -270,7 +371,7 @@ workflow {
                 "run",
                 str(script),
                 "-profile",
-                "test",
+                "test,docker",
                 "--fixture_task",
                 str(directory),
                 "--fixture_bundle",
@@ -284,7 +385,7 @@ workflow {
             text=True,
             capture_output=True,
             timeout=120,
-            env=dict(os.environ, NXF_ANSI_LOG="false", NXF_DISABLE_CHECK_LATEST="true"),
+            env=self.environment,
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         record = read_json(output / "samples/A/annotation/padloc/result.json")
@@ -397,7 +498,7 @@ workflow { VALIDATE_INPUTS() }
                 "run",
                 str(script),
                 "-profile",
-                "test",
+                "test,docker",
                 "-c",
                 str(configuration),
                 "--outdir",
@@ -409,7 +510,7 @@ workflow { VALIDATE_INPUTS() }
             capture_output=True,
             text=True,
             timeout=120,
-            env=dict(os.environ, NXF_ANSI_LOG="false", NXF_DISABLE_CHECK_LATEST="true"),
+            env=self.environment,
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual((output / "runtime.txt").read_text().strip(), runtime)
@@ -453,7 +554,7 @@ workflow {
                 "run",
                 str(script),
                 "-profile",
-                "test",
+                "test,docker",
                 "-c",
                 str(configuration),
                 "--genome",
@@ -467,7 +568,7 @@ workflow {
             capture_output=True,
             text=True,
             timeout=120,
-            env=dict(os.environ, NXF_ANSI_LOG="false", NXF_DISABLE_CHECK_LATEST="true"),
+            env=self.environment,
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         published = output / "samples/A/prokka"

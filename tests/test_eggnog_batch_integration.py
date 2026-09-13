@@ -7,7 +7,6 @@ source validation. They do not qualify biological search sensitivity.
 from __future__ import annotations
 
 import json
-import os
 import shutil
 import subprocess
 import sys
@@ -236,7 +235,7 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
             "run",
             str(self.project / entrypoint),
             "-profile",
-            "test",
+            "test,docker",
             "-c",
             str(configuration),
             "--annotation_from",
@@ -256,7 +255,7 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
             text=True,
             capture_output=True,
             timeout=120,
-            env=dict(os.environ, NXF_ANSI_LOG="false", NXF_DISABLE_CHECK_LATEST="true"),
+            env=self.fixture.environment,
         )
         (self.root / f"{name}.log").write_text(result.stdout + result.stderr)
         self.assertEqual(
@@ -287,7 +286,10 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
         native = next(iter(batches.values()))
         self.assertEqual(set(native.members), set(accessions))
         self.assertEqual(list((output / "annotation_batches").iterdir()), [native.root])
-        self.assertEqual(list(output.rglob("raw")), [native.root / "raw"])
+        self.assertEqual(
+            list((output / "annotation_batches").rglob("raw")), [native.root / "raw"]
+        )
+        self.assertEqual(list((output / "samples").rglob("raw")), [])
         plan = [
             row
             for row in read_tsv(output / "pipeline_info/annotation_plan.tsv")
@@ -533,6 +535,50 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
             "Intentional synthetic whole-batch native failure",
             (native.root / "raw/search/tool.log").read_text(),
         )
+        retained = list(
+            (failed / "pipeline_info/annotation_failures").rglob("raw/exit_code.txt")
+        )
+        self.assertEqual([path.read_text() for path in retained], ["9\n"])
+        self.fail_native.unlink()
+        recovered = self.run_pipeline("failed", self.source, resume=True)
+        self.assert_publication(recovered, ["B", "A"], "run")
+        self.assertEqual(len(self.calls()), 2)
+        self.assertEqual(retained[0].read_text(), "9\n")
+
+    def test_encoded_accessions_survive_published_source_reuse(self):
+        fixture = bundle_fixture.AnnotationBundleTests()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        source = self.root / "encoded-source"
+        (source / "tables").mkdir(parents=True)
+        accessions = ["Sample A", "sample:1", "sample+1", "sample%1"]
+        bundles = []
+        for index, accession in enumerate(accessions):
+            target = source / "samples" / accession / "annotation/bundle"
+            shutil.copytree(fixture.build(accession, f"encoded-{index}"), target)
+            bundles.append(target)
+        write_tsv(
+            source / "tables/master_table.tsv",
+            ("Accession", "Gcode"),
+            [dict(Accession=acc, Gcode=4) for acc in accessions],
+        )
+        write_tsv(
+            source / "tables/sample_status.tsv",
+            ("accession", "gcode_status"),
+            [dict(accession=acc, gcode_status="done") for acc in accessions],
+        )
+        write_tsv(
+            source / "tables/validated_samples.tsv",
+            ("accession",),
+            [dict(accession=acc) for acc in accessions],
+        )
+        publish_disabled(source, accessions, bundles)
+        first = self.run_pipeline("encoded-first", source)
+        self.assert_publication(first, accessions, "run")
+        shutil.rmtree(self.root / "work-encoded-first")
+        reused = self.run_pipeline("encoded-reused", first)
+        self.assert_publication(reused, accessions, "reuse", searches=0)
+        self.assertEqual(len(self.calls()), 1)
 
 
 if __name__ == "__main__":

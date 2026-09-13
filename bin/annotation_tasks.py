@@ -131,12 +131,20 @@ def preflight(config: dict[str, Any]) -> dict[str, Any]:
             resource = validate_resource(Path(resource_path), tool)
             resource_id = resource["resource_id"]
             manifest_sha = digest(Path(resource_path) / RESOURCE_FILE)
-        native_code = {}
+        # The execution wrapper is part of every native method. Earlier records
+        # without its identity cannot satisfy the enforced runtime/resume contract.
+        native_code = {
+            "annotation_commands.py": digest(
+                Path(__file__).with_name("annotation_commands.py")
+            )
+        }
         if tool == "eggnog":
-            native_code = {
-                name: digest(Path(__file__).with_name(name))
-                for name in NATIVE_CODE_FILES
-            }
+            native_code.update(
+                {
+                    name: digest(Path(__file__).with_name(name))
+                    for name in NATIVE_CODE_FILES
+                }
+            )
         elif tool == "cogclassifier":
             native_code["classify_cog_hits.py"] = digest(
                 Path(__file__).with_name("classify_cog_hits.py")

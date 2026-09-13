@@ -17,6 +17,7 @@ from annotation_common import (
     TOOLS,
     AnnotationError,
     bundle_proteins,
+    digest,
     identity,
     read_tsv,
     write_json,
@@ -226,6 +227,28 @@ with tempfile.NamedTemporaryFile() as temporary:
         (old / "raw" / "native.txt").write_text("changed native evidence\n")
         with self.assertRaisesRegex(AnnotationError, "changed"):
             validate_result(old)
+
+    def test_unverified_execution_wrapper_identity_requires_a_new_search(self):
+        previous = self.write_result(self.result(), "unverified-wrapper")
+        current = self.entry()
+        current["search_method"]["native_code"]["annotation_commands.py"] = digest(
+            Path(__file__).resolve().parents[1] / "bin/annotation_commands.py"
+        )
+        current["method_id"] = identity(
+            dict(
+                search=current["search_method"],
+                interpretation=current["interpretation"],
+            )
+        )
+        planned = plan_task(
+            self.bundle,
+            "kofam",
+            current,
+            self.root / "verified-wrapper",
+            previous,
+            bundle_data=(self.metadata, self.proteins),
+        )
+        self.assertEqual(planned["action"], "run")
 
     def test_planner_validates_each_bundle_once_across_enabled_tools(self):
         samples = self.root / "samples.tsv"

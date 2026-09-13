@@ -60,7 +60,7 @@ class EggnogNativeExecutionTests(unittest.TestCase):
         )
         self.batch, self.proteins = validate_batch(self.fixture.batchdir)
 
-    def run_native(self):
+    def run_native(self, expected_exit=0):
         result = subprocess.run(
             ["bash", "task/run.sh"],
             cwd=self.work,
@@ -70,7 +70,9 @@ class EggnogNativeExecutionTests(unittest.TestCase):
             check=False,
             timeout=30,
         )
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(
+            result.returncode, expected_exit, result.stdout + result.stderr
+        )
         return self.work / "raw"
 
     def calls(self):
@@ -117,7 +119,7 @@ class EggnogNativeExecutionTests(unittest.TestCase):
 
     def test_annotation_failure_stops_later_phases_and_fails_the_whole_batch(self):
         self.failure.write_text("no_search\n")
-        raw = self.run_native()
+        raw = self.run_native(expected_exit=9)
         self.assertEqual((raw / "exit_code.txt").read_text(), "9\n")
         stages = read_json(raw / "execution.json")["stages"]
         self.assertEqual([stage["exit_code"] for stage in stages], [0, 9])
@@ -131,7 +133,7 @@ class EggnogNativeExecutionTests(unittest.TestCase):
     def test_changed_input_fails_before_search_or_annotation(self):
         path = self.task / "input.faa"
         path.write_bytes(path.read_bytes().replace(b"MWA", b"MWF"))
-        raw = self.run_native()
+        raw = self.run_native(expected_exit=1)
         self.assertEqual((raw / "exit_code.txt").read_text(), "1\n")
         self.assertFalse(self.ledger.exists())
         self.assertIn("input differs", (raw / "tool.log").read_text())

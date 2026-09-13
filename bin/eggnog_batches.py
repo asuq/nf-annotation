@@ -17,6 +17,7 @@ from annotation_common import (
     PROTEIN_COLUMNS,
     AnnotationError,
     bundle_proteins,
+    canonical_gene_id,
     digest,
     identity,
     read_json,
@@ -83,7 +84,7 @@ def validate_proteins(path: Path, proteins: list[dict[str, str]]) -> None:
                 "Batch FASTA contains fewer proteins than its mapping"
             )
         identifier, sequence = record
-        gene = f"{protein['accession']}::{protein['protein_id']}"
+        gene = canonical_gene_id(protein["accession"], protein["protein_id"])
         if (
             protein["gene_id"] != gene
             or protein["tool_id"]

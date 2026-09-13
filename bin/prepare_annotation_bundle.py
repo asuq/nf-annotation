@@ -12,13 +12,14 @@ import sys
 from collections import defaultdict
 from io import StringIO
 from pathlib import Path
-from urllib.parse import quote, unquote
+from urllib.parse import unquote
 
 from annotation_common import (
     COORDINATE_COLUMNS,
     PROTEIN_COLUMNS,
     SCHEMA_VERSION,
     AnnotationError,
+    canonical_gene_id,
     digest,
     identity,
     integer,
@@ -344,7 +345,7 @@ def build_bundle(
     rows, coordinate_rows, tool_ids = [], [], set()
     with (output / "proteins.faa").open("w") as handle:
         for protein in proteins:
-            gene_id = f"{quote(accession, safe='')}::{quote(protein.id, safe='')}"
+            gene_id = canonical_gene_id(accession, protein.id)
             tool_id = "p" + hashlib.sha256(gene_id.encode()).hexdigest()[:24]
             if tool_id in tool_ids:
                 raise AnnotationError("Canonical tool-ID collision")

@@ -18,6 +18,9 @@ workflow ANNOTATION_RESOURCES {
     if (selected.unique(false).size() != selected.size() || selected.any { !(it in supported) }) {
         error "--annotation_tools must be a unique comma-separated subset of ${supported.join(',')}"
     }
+    if (selected) {
+        AnnotationExecution.requireEngine(workflow.containerEngine)
+    }
     def cpus = Math.min(params.annotation_cpus as int, params.max_cpus as int)
     def memory = Math.min((params.annotation_memory as nextflow.util.MemoryUnit).toBytes(), (params.max_memory as nextflow.util.MemoryUnit).toBytes()) / (1024.0 * 1024 * 1024)
     def config = [annotation_tools: selected.join(','), helper_container: params.python_container, tools: [:]]
@@ -92,15 +95,24 @@ workflow FUNCTIONAL_ANNOTATION {
             tuple(row, taskDir, file(row.bundle, checkIfExists: true), resource)
         }
     ANNOTATION_SEARCH(plannedTasks.filter { item -> item[0].action == 'run' })
+    // Failed native tasks retain a real nonzero Nextflow exit and are therefore
+    // rerun on resume. Collect their saved diagnostics after all searches finish.
+    failedRawResults = plannedTasks.filter { item -> item[0].action == 'run' }
+        .combine(ANNOTATION_SEARCH.out.raw_results.count())
+        .map { item ->
+            def raw = AnnotationExecution.failedNativeRaw(params.outdir, workflow.start, item[0])
+            raw ? tuple(item[0], item[1], item[2], item[3], raw) : null
+        }
+    nativeResults = ANNOTATION_SEARCH.out.raw_results.mix(failedRawResults)
     individualTasks = plannedTasks.filter { item -> item[0].batch_id == 'NA' }
-    normalizationInputs = ANNOTATION_SEARCH.out.raw_results
+    normalizationInputs = nativeResults
         .filter { item -> item[0].batch_id == 'NA' }.mix(
         individualTasks.filter { item -> item[0].action == 'renormalize' }
             .map { item -> tuple(item[0], item[1], item[2], item[3], item[1].resolve('previous/raw')) }
     )
     NORMALIZE_ANNOTATION(normalizationInputs)
     REUSE_ANNOTATION(individualTasks.filter { item -> item[0].action == 'reuse' }.map { item -> tuple(item[0], item[1]) })
-    batchInputs = ANNOTATION_SEARCH.out.raw_results
+    batchInputs = nativeResults
         .filter { item -> item[0].batch_id != 'NA' }.mix(
         plannedTasks.filter { item -> item[0].batch_id != 'NA' && item[0].action in ['reuse', 'renormalize'] }
             .map { item -> tuple(item[0], item[1], item[2], item[3], item[1].resolve('previous_batch/raw')) }

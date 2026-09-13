@@ -52,7 +52,7 @@ class CohortUpdateIntegrationTestCase(unittest.TestCase):
         )
         cls.project = cls.root / "pipeline"
         cls.project.mkdir()
-        for directory in ("bin", "modules", "subworkflows", "conf", "assets"):
+        for directory in ("bin", "lib", "modules", "subworkflows", "conf", "assets"):
             shutil.copytree(ROOT / directory, cls.project / directory)
         for name in ("main.nf", "nextflow.config"):
             shutil.copy2(ROOT / name, cls.project / name)

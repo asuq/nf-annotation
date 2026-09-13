@@ -72,6 +72,22 @@ The shared Python helper runtime is part of the interpretation identity and
 must also be immutable when annotation is enabled. Each tool has its own image.
 PADLOC's database is pinned inside its image and checked from native provenance.
 
+Real annotation requires an active Docker, Singularity or Apptainer engine.
+For local Docker execution, select `-profile local,docker`; `-profile local`
+alone is rejected. Each native and interpretation process checks its effective
+container against the configured runtime. The native wrapper is fingerprinted
+for every caller, so results predating these execution checks require new
+searches. Synthetic host callers are confined to the integration-test harness.
+
+Native failures retain their nonzero Nextflow exit status. Before the task is
+ignored so independent samples can finish, its raw files and task diagnostics
+are copied under `pipeline_info/annotation_failures/<invocation>/<task>/`.
+Available native failure records still feed normalization and the final failed
+status report. An explicit `-resume` reruns failed searches and keeps successful
+searches cached; prior failure diagnostics remain available after recovery.
+An abrupt task failure without a native exit record remains a missing planned
+outcome and fails acceptance.
+
 Prepare the other four databases with the
 [resource preparation workflow](development/annotation_resources.md).
 Preflight checks all requested resources before starting expensive sample work.

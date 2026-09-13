@@ -260,7 +260,7 @@ def commands(tool: str, cpus: int, memory_gib: float) -> dict[str, Any]:
 
 
 def shell_script(command: dict[str, Any]) -> str:
-    """Record native failure without preventing independent samples from finishing."""
+    """Preserve native diagnostics and expose failure to Nextflow's resume cache."""
     exports = [
         f"export {key}={shlex.quote(value)}"
         for key, value in command["environment"].items()
@@ -285,7 +285,7 @@ def shell_script(command: dict[str, Any]) -> str:
             ") > raw/tool.log 2>&1",
             "annotation_exit=$?",
             "printf '%s\\n' \"$annotation_exit\" > raw/exit_code.txt",
-            "exit 0",
+            'exit "$annotation_exit"',
             "",
         ]
     )
