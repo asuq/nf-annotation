@@ -399,58 +399,68 @@ class BuildFastAniInputsTestCase(unittest.TestCase):
                 "partial_16s",
             )
 
-    def test_flag_allows_no_and_partial_but_not_na_16s_samples(self) -> None:
-        """Allow incomplete 16S samples while keeping missing 16S status excluded."""
-        with tempfile.TemporaryDirectory() as tmpdir_name:
-            tmpdir = Path(tmpdir_name)
-            files, staged_paths = self.write_fastani_fixture(
-                tmpdir,
-                {
-                    "ACC_NO": "No",
-                    "ACC_PARTIAL": "partial",
-                    "ACC_NA": "NA",
-                },
-            )
-            outdir = tmpdir / "out"
-
-            exit_code = build_fastani_inputs.main(
-                [
-                    "--validated-samples",
-                    str(files["validated_samples"]),
-                    "--metadata",
-                    str(files["metadata"]),
-                    "--staged-manifest",
-                    str(files["staged_manifest"]),
-                    "--checkm2",
-                    str(files["checkm2"]),
-                    "--16s-status",
-                    str(files["sixteen_s"]),
-                    "--busco",
-                    str(files["busco"]),
-                    "--primary-busco-column",
-                    "BUSCO_bacillota_odb12",
-                    "--ani-allow-incomplete-16s",
-                    "--outdir",
-                    str(outdir),
-                ]
-            )
-
-            self.assertEqual(exit_code, 0)
-            metadata_rows = read_tsv(outdir / "ani_metadata.tsv")
-            self.assertEqual([row["accession"] for row in metadata_rows], ["ACC_NO", "ACC_PARTIAL"])
-            self.assertTrue((outdir / "fastani_inputs" / "ACC_NO.fasta").samefile(staged_paths["ACC_NO"]))
-            self.assertTrue(
-                (outdir / "fastani_inputs" / "ACC_PARTIAL.fasta").samefile(
-                    staged_paths["ACC_PARTIAL"]
+    def test_three_16s_policies_select_exact_input_populations(self) -> None:
+        """Keep partial detection distinct from absent or unavailable 16S."""
+        statuses = {
+            "ACC_YES": "Yes",
+            "ACC_PARTIAL": "partial",
+            "ACC_NO": "No",
+            "ACC_NA": "NA",
+        }
+        for policy, allowed in (
+            ("complete", {"Yes"}),
+            ("allow_incomplete", {"Yes", "partial"}),
+            ("ignore", set(statuses.values())),
+        ):
+            with self.subTest(policy=policy), tempfile.TemporaryDirectory() as name:
+                root = Path(name)
+                files, staged = self.write_fastani_fixture(root, statuses)
+                original_status = files["sixteen_s"].read_bytes()
+                output = root / "out"
+                arguments = []
+                for flag, key in (
+                    ("validated-samples", "validated_samples"),
+                    ("metadata", "metadata"),
+                    ("staged-manifest", "staged_manifest"),
+                    ("checkm2", "checkm2"),
+                    ("16s-status", "sixteen_s"),
+                    ("busco", "busco"),
+                ):
+                    arguments.extend(("--" + flag, str(files[key])))
+                arguments.extend(
+                    (
+                        "--primary-busco-column",
+                        "BUSCO_bacillota_odb12",
+                        "--ani-16s-policy",
+                        policy,
+                        "--outdir",
+                        str(output),
+                    )
                 )
-            )
-            exclusions = {row["accession"]: row for row in read_tsv(outdir / "ani_exclusions.tsv")}
-            self.assertEqual(exclusions["ACC_NO"]["ani_included"], "true")
-            self.assertEqual(exclusions["ACC_NO"]["ani_exclusion_reason"], "")
-            self.assertEqual(exclusions["ACC_PARTIAL"]["ani_included"], "true")
-            self.assertEqual(exclusions["ACC_PARTIAL"]["ani_exclusion_reason"], "")
-            self.assertEqual(exclusions["ACC_NA"]["ani_included"], "false")
-            self.assertEqual(exclusions["ACC_NA"]["ani_exclusion_reason"], "16s_na")
+                self.assertEqual(build_fastani_inputs.main(arguments), 0)
+                expected = {
+                    acc for acc, status in statuses.items() if status in allowed
+                }
+                self.assertEqual(
+                    {row["accession"] for row in read_tsv(output / "ani_metadata.tsv")},
+                    expected,
+                )
+                for accession in expected:
+                    self.assertTrue(
+                        (output / "fastani_inputs" / f"{accession}.fasta").samefile(
+                            staged[accession]
+                        )
+                    )
+                decisions = {
+                    row["accession"]: row
+                    for row in read_tsv(output / "ani_exclusions.tsv")
+                }
+                for accession in statuses:
+                    self.assertEqual(
+                        decisions[accession]["ani_included"],
+                        str(accession in expected).lower(),
+                    )
+                self.assertEqual(files["sixteen_s"].read_bytes(), original_status)
 
     def test_uses_in_house_assembly_stats_when_metadata_metrics_are_missing(self) -> None:
         """Use computed stats for ANI eligibility and ANI metadata output."""

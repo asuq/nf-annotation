@@ -33,21 +33,11 @@ workflow {
         }
         return lineages
     }
-    def normaliseBooleanParam = { rawValue, paramName ->
-        if (rawValue instanceof Boolean) {
-            return rawValue
-        }
-        if (rawValue == null) {
-            return false
-        }
-        def token = rawValue.toString().trim().toLowerCase()
-        if (token in ['true', 't', 'yes', 'y', '1']) {
-            return true
-        }
-        if (token in ['false', 'f', 'no', 'n', '0']) {
-            return false
-        }
-        error "params.${paramName} must be boolean-like: true/false, yes/no, or 1/0."
+    if (params.containsKey('ani_allow_incomplete_16s')) {
+        error "--ani_allow_incomplete_16s has been removed; use --ani_16s_policy complete, allow_incomplete, or ignore"
+    }
+    if (!(params.ani_16s_policy in ['complete', 'allow_incomplete', 'ignore'])) {
+        error "--ani_16s_policy must be complete, allow_incomplete, or ignore"
     }
 
     if (!params.sample_csv) {
@@ -81,10 +71,6 @@ workflow {
     }
     buscoLineagesList = normaliseBuscoLineages.call(params.busco_lineages)
     primaryBuscoColumn = (params.busco_primary_column ?: "BUSCO_${buscoLineagesList[0]}").toString()
-    aniAllowIncomplete16s = normaliseBooleanParam.call(
-        params.ani_allow_incomplete_16s,
-        'ani_allow_incomplete_16s',
-    )
     def aniThresholdValue = null
     try {
         aniThresholdValue = params.ani_threshold.toString().toDouble()
@@ -159,7 +145,7 @@ workflow {
         allSixteenS,
         allBusco,
         Channel.value(primaryBuscoColumn),
-        Channel.value(aniAllowIncomplete16s),
+        Channel.value(params.ani_16s_policy),
     )
     FINAL_OUTPUTS(
         INPUT_VALIDATION_AND_STAGING.out.validated_samples,
@@ -182,7 +168,7 @@ workflow {
         COHORT_ANI.out.fastani_matrix,
         Channel.value(buscoLineagesList),
         Channel.value(primaryBuscoColumn),
-        Channel.value(aniAllowIncomplete16s),
+        Channel.value(params.ani_16s_policy),
         INPUT_VALIDATION_AND_STAGING.out.versions
             .mix(BUSCO_DATASET_PREP.out.versions)
             .mix(COHORT_TAXONOMY.out.versions)

@@ -85,9 +85,17 @@ the cohort-level eligibility gates. A sample is eligible only when it is not
 low quality, has an assigned gcode of `4` or `11`, has `16S = Yes` by default,
 has the primary BUSCO result needed for scoring, and is not atypical. The one
 atypical exception is `unverified source organism`, which is still allowed into
-ANI clustering. Supplying `--ani_allow_incomplete_16s` relaxes only the 16S
-gate so `16S = No` and `16S = partial` may enter ANI; `16S = NA` remains
-excluded.
+ANI clustering. Choose `--ani_16s_policy` explicitly when changing the 16S gate:
+
+| Policy | Eligible 16S statuses |
+| --- | --- |
+| `complete` (default) | `Yes` |
+| `allow_incomplete` | `Yes`, `partial` |
+| `ignore` | `Yes`, `partial`, `No`, `NA` |
+
+`ignore` permits otherwise eligible MAGs without usable 16S evidence. Original
+16S status and QC warnings remain reported; other ANI gates still apply.
+The retired `--ani_allow_incomplete_16s` flag is rejected with a migration message.
 
 FastANI then runs all-vs-all on the eligible genomes. The matrix is clustered
 with complete linkage at `--ani_threshold`, which defaults to `0.95`. Complete
@@ -199,8 +207,7 @@ Useful defaults from the implementation:
 - `--busco_lineages` defaults to `bacillota_odb12,mycoplasmatota_odb12`
 - `--gcode_rule mean_gene_length_ratio` is the default: the paired CheckM2 mean-gene-length ratio `> 1.5` selects code 4; a valid ratio `<= 1.5` selects code 11. The completeness-based `strict_delta` and `delta_then_11` rules remain selectable.
 - `--ani_threshold` defaults to `0.95`
-- `--ani_allow_incomplete_16s` defaults to off; when supplied, `16S = No`
-  and `16S = partial` samples may enter ANI if all other ANI gates pass
+- `--ani_16s_policy` defaults to `complete`; choose `allow_incomplete` for complete or partial 16S, or `ignore` to bypass 16S eligibility entirely
 - `--outdir` defaults to `results`
 
 ## Preparing sample_csv

@@ -24,7 +24,9 @@ REQUIRED_SCORING_METADATA_COLS: set[str] = {
     "scaffolds",
     "genome_size",
 }
-BUSCO_RE = re.compile(r"C:(?P<C>\d+(?:\.\d+)?)%.*?M:(?P<M>\d+(?:\.\d+)?)%", re.IGNORECASE)
+BUSCO_RE = re.compile(
+    r"C:(?P<C>\d+(?:\.\d+)?)%.*?M:(?P<M>\d+(?:\.\d+)?)%", re.IGNORECASE
+)
 ASSEMBLY_LEVEL_MAP: dict[str, str] = {
     "complete genome": "Complete Genome",
     "complete genomes": "Complete Genome",
@@ -133,19 +135,28 @@ def normalise_sixteen_s_status(value: Any) -> str:
     return SIXTEEN_S_STATUS_MAP.get(text.casefold(), text)
 
 
+ANI_16S_POLICIES = ("complete", "allow_incomplete", "ignore")
+
+
 def derive_sixteen_s_ani_exclusion_reason(
     value: Any,
     *,
-    allow_incomplete: bool = False,
+    policy: str = "complete",
 ) -> str | None:
     """Return the ANI exclusion reason for one 16S status, if any."""
+    if policy not in ANI_16S_POLICIES:
+        raise ValueError(f"Invalid ANI 16S policy: {policy!r}")
     status = normalise_sixteen_s_status(value)
+    if status not in {"Yes", "partial", "No", "NA"}:
+        raise ValueError(f"Invalid 16S status: {value!r}")
+    if policy == "ignore":
+        return None
     if status == "Yes":
         return None
     if status == "partial":
-        return None if allow_incomplete else "partial_16s"
+        return None if policy == "allow_incomplete" else "partial_16s"
     if status == "No":
-        return None if allow_incomplete else "no_16s"
+        return "no_16s"
     return "16s_na"
 
 

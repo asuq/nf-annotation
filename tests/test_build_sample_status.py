@@ -119,43 +119,54 @@ class BuildSampleStatusTestCase(unittest.TestCase):
                 self.assertEqual(included, "false")
                 self.assertEqual(reason, expected_reason)
 
-    def test_ani_decision_flag_allows_incomplete_but_not_na_16s(self) -> None:
-        """Allow No and partial 16S values while keeping NA excluded."""
-        for sixteen_s_value in ("No", "partial"):
-            with self.subTest(sixteen_s_value=sixteen_s_value):
-                included, reason = build_sample_status.derive_ani_decision(
-                    "ACC1",
-                    gcode_value="11",
-                    low_quality_value="false",
-                    sixteen_s_value=sixteen_s_value,
-                    assembly_level_value="Scaffold",
-                    metadata_row={"Atypical_Warnings": "NA"},
-                    assembly_metrics=self.make_ani_metrics(),
-                    ani_index={"ACC1": {}},
-                    ani_requested=True,
-                    primary_busco_value="C:98.0%[S:98.0%,D:0.0%],F:1.0%,M:1.0%,n:200",
-                    ani_allow_incomplete_16s=True,
-                )
-
-                self.assertEqual(included, "true")
-                self.assertEqual(reason, "")
-
-        included, reason = build_sample_status.derive_ani_decision(
-            "ACC1",
-            gcode_value="11",
-            low_quality_value="false",
-            sixteen_s_value="NA",
-            assembly_level_value="Scaffold",
-            metadata_row={"Atypical_Warnings": "NA"},
-            assembly_metrics=self.make_ani_metrics(),
-            ani_index={},
-            ani_requested=True,
-            primary_busco_value="C:98.0%[S:98.0%,D:0.0%],F:1.0%,M:1.0%,n:200",
-            ani_allow_incomplete_16s=True,
-        )
-
-        self.assertEqual(included, "false")
-        self.assertEqual(reason, "16s_na")
+    def test_ani_decision_three_16s_policies_and_independent_quality_gates(
+        self,
+    ) -> None:
+        """Report the same inclusion policy as FastANI input selection."""
+        for policy, allowed in (
+            ("complete", {"Yes"}),
+            ("allow_incomplete", {"Yes", "partial"}),
+            ("ignore", {"Yes", "partial", "No", "NA"}),
+        ):
+            for status in ("Yes", "partial", "No", "NA"):
+                for low_quality, atypical in (
+                    (False, False),
+                    (True, False),
+                    (False, True),
+                ):
+                    with self.subTest(
+                        policy=policy,
+                        status=status,
+                        low_quality=low_quality,
+                        atypical=atypical,
+                    ):
+                        eligible = (
+                            status in allowed and not low_quality and not atypical
+                        )
+                        included, reason = build_sample_status.derive_ani_decision(
+                            "ACC1",
+                            gcode_value="11",
+                            low_quality_value=str(low_quality).lower(),
+                            sixteen_s_value=status,
+                            assembly_level_value="Scaffold",
+                            metadata_row={
+                                "Atypical_Warnings": "contaminated"
+                                if atypical
+                                else "NA"
+                            },
+                            assembly_metrics=self.make_ani_metrics(),
+                            ani_index={"ACC1": {}} if eligible else {},
+                            ani_requested=True,
+                            primary_busco_value="C:98.0%[S:98.0%,D:0.0%],F:1.0%,M:1.0%,n:200",
+                            ani_16s_policy=policy,
+                        )
+                        self.assertEqual(included, str(eligible).lower())
+                        if low_quality:
+                            self.assertIn("low_quality", reason)
+                        if atypical:
+                            self.assertIn("atypical", reason)
+                        if policy == "ignore":
+                            self.assertNotIn("16s", reason)
 
     def test_main_builds_authoritative_status_with_stable_order(self) -> None:
         """Preserve seed warnings while overlaying downstream status columns."""

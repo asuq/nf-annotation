@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from ani_common import derive_sixteen_s_ani_exclusion_reason
+from ani_common import ANI_16S_POLICIES, derive_sixteen_s_ani_exclusion_reason
 from atypical_warnings import classify_atypical_warnings
 from build_master_table import (
     choose_assembly_level,
@@ -105,9 +105,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Optional in-house assembly stats TSV keyed by accession.",
     )
     parser.add_argument(
-        "--ani-allow-incomplete-16s",
-        action="store_true",
-        help="Allow 16S=No and 16S=partial samples to pass the ANI 16S gate.",
+        "--ani-16s-policy",
+        choices=ANI_16S_POLICIES,
+        default="complete",
+        help="Require complete 16S, allow partial 16S, or ignore the 16S eligibility gate.",
     )
     parser.add_argument(
         "--outdir",
@@ -298,12 +299,14 @@ def run_build_fastani_inputs(
     primary_busco_column: str,
     assembly_stats: Path | None,
     outdir: Path,
-    ani_allow_incomplete_16s: bool = False,
+    ani_16s_policy: str = "complete",
 ) -> None:
     """Build FastANI path lists, ANI metadata, and ANI exclusion rows."""
     validated_header, validated_rows = read_table(validated_samples, delimiter="\t")
     if "accession" not in validated_header or "internal_id" not in validated_header:
-        raise FastAniInputError("validated_samples.tsv is missing accession/internal_id columns.")
+        raise FastAniInputError(
+            "validated_samples.tsv is missing accession/internal_id columns."
+        )
 
     metadata_header, metadata_index = load_metadata_index(metadata)
     checkm2_index = load_index(checkm2, ("accession",))
@@ -316,9 +319,7 @@ def run_build_fastani_inputs(
     )
 
     if primary_busco_column not in {
-        column
-        for busco_row in busco_index.values()
-        for column in busco_row
+        column for busco_row in busco_index.values() for column in busco_row
     }:
         raise FastAniInputError(
             f"Primary BUSCO column {primary_busco_column!r} is not present in BUSCO summaries."
@@ -341,7 +342,9 @@ def run_build_fastani_inputs(
         assembly_stats_row = assembly_stats_index.get(accession)
 
         reasons: list[str] = []
-        gcode, checkm2_completeness, checkm2_contamination = choose_checkm2_fields(checkm2_row)
+        gcode, checkm2_completeness, checkm2_contamination = choose_checkm2_fields(
+            checkm2_row
+        )
         if gcode not in {"4", "11"}:
             reasons.append("gcode_na")
 
@@ -353,7 +356,7 @@ def run_build_fastani_inputs(
 
         sixteen_s_reason = derive_sixteen_s_ani_exclusion_reason(
             sixteen_s_row.get("16S", MISSING_VALUE) or MISSING_VALUE,
-            allow_incomplete=ani_allow_incomplete_16s,
+            policy=ani_16s_policy,
         )
         if sixteen_s_reason is not None:
             reasons.append(sixteen_s_reason)
@@ -392,7 +395,9 @@ def run_build_fastani_inputs(
             reasons.append("missing_scaffolds")
 
         genome_size = (
-            resolve_assembly_metric_value(metadata_row, assembly_stats_row, "Genome_Size")
+            resolve_assembly_metric_value(
+                metadata_row, assembly_stats_row, "Genome_Size"
+            )
             if metadata_row or assembly_stats_row
             else MISSING_VALUE
         )
@@ -469,7 +474,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             primary_busco_column=args.primary_busco_column,
             assembly_stats=args.assembly_stats,
             outdir=args.outdir,
-            ani_allow_incomplete_16s=args.ani_allow_incomplete_16s,
+            ani_16s_policy=args.ani_16s_policy,
         )
     except (FastAniInputError, FileNotFoundError, OSError) as error:
         LOGGER.error(str(error))

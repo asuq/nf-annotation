@@ -463,8 +463,8 @@ or labels, pipeline metadata, and the active container engine in one final TSV.
 - ANI clustering is driven by `BUILD_FASTANI_INPUTS`, which writes both the
   FastANI path list and the accession-keyed eligibility report
   `ani_exclusions.tsv`. By default only `16S = Yes` samples pass the 16S ANI
-  gate; the naked flag `--ani_allow_incomplete_16s` also allows `16S = No`
-  and `16S = partial`, while `16S = NA` remains excluded.
+  gate. `--ani_16s_policy allow_incomplete` also admits `partial`;
+  `--ani_16s_policy ignore` bypasses 16S eligibility, including `No` and `NA`.
 - The main workflow does not prepare taxdump, CheckM2, or eggNOG at runtime.
   Those resources must already exist or be prepared ahead of time with
   `prepare_databases.nf`.

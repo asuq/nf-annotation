@@ -23,7 +23,7 @@ workflow PUBLISHED_RESULTS_IMPORT {
     settingsNames = [
         'barrnap_kingdom', 'busco_lineages', 'busco_primary_column', 'gcode_rule',
         'codetta_extra_args', 'ccfinder_extra_args',
-        'ani_allow_incomplete_16s', 'ani_threshold', 'ani_score_profile',
+        'ani_16s_policy', 'ani_threshold', 'ani_score_profile',
         'taxdump', 'taxdump_label', 'checkm2_db', 'checkm2_db_label', 'codetta_db', 'codetta_db_label',
         'busco_db', 'prepare_busco_datasets',
         'python_container', 'seqtk_container', 'barrnap_container', 'checkm2_container', 'busco_container',

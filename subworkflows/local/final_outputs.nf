@@ -30,7 +30,7 @@ workflow FINAL_OUTPUTS {
     ani_matrix
     busco_lineages
     primary_busco_column
-    ani_allow_incomplete_16s
+    ani_16s_policy
     version_files
     inherited_versions
     nextflow_version
@@ -175,7 +175,7 @@ workflow FINAL_OUTPUTS {
         SELECT_ANI_REPRESENTATIVES.out.ani_summary,
         assembly_stats,
         primary_busco_column,
-        ani_allow_incomplete_16s,
+        ani_16s_policy,
     )
 
     AGGREGATE_ANNOTATIONS(

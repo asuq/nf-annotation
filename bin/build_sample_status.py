@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
-from ani_common import derive_sixteen_s_ani_exclusion_reason
+from ani_common import ANI_16S_POLICIES, derive_sixteen_s_ani_exclusion_reason
 from atypical_warnings import classify_atypical_warnings
 import build_master_table as table_helpers
 import master_table_contract
@@ -120,9 +120,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="BUSCO_<lineage> column used for ANI eligibility decisions.",
     )
     parser.add_argument(
-        "--ani-allow-incomplete-16s",
-        action="store_true",
-        help="Allow 16S=No and 16S=partial samples to pass the ANI 16S gate.",
+        "--ani-16s-policy",
+        choices=ANI_16S_POLICIES,
+        default="complete",
+        help="Require complete 16S, allow partial 16S, or ignore the 16S eligibility gate.",
     )
     parser.add_argument(
         "--busco-lineage",
@@ -445,14 +446,16 @@ def derive_ani_decision(
     ani_index: dict[str, dict[str, str]],
     ani_requested: bool,
     primary_busco_value: str,
-    ani_allow_incomplete_16s: bool = False,
+    ani_16s_policy: str = "complete",
 ) -> tuple[str, str]:
     """Return ANI inclusion status and exclusion reasons for one sample."""
     if not ani_requested:
         return "na", ""
 
     exclusion_reasons: list[str] = []
-    atypical_value = table_helpers.detect_metadata_value(metadata_row, "Atypical_Warnings")
+    atypical_value = table_helpers.detect_metadata_value(
+        metadata_row, "Atypical_Warnings"
+    )
     is_atypical, is_exception = classify_atypical_warnings(atypical_value)
 
     if gcode_value == "NA":
@@ -464,7 +467,7 @@ def derive_ani_decision(
 
     sixteen_s_reason = derive_sixteen_s_ani_exclusion_reason(
         sixteen_s_value,
-        allow_incomplete=ani_allow_incomplete_16s,
+        policy=ani_16s_policy,
     )
     if sixteen_s_reason is not None:
         exclusion_reasons.append(sixteen_s_reason)
@@ -576,7 +579,7 @@ def build_status_row(
     ani_index: dict[str, dict[str, str]],
     ani_requested: bool,
     primary_busco_column: str | None,
-    ani_allow_incomplete_16s: bool,
+    ani_16s_policy: str,
 ) -> dict[str, str]:
     """Build one final status row by overlaying derived statuses on the seed row."""
     row = {column: initial_row.get(column, "") for column in output_columns}
@@ -703,7 +706,7 @@ def build_status_row(
         ani_index=ani_index,
         ani_requested=ani_requested,
         primary_busco_value=primary_busco_value,
-        ani_allow_incomplete_16s=ani_allow_incomplete_16s,
+        ani_16s_policy=ani_16s_policy,
     )
 
     row["warnings"] = table_helpers.join_tokens(warnings)
@@ -714,7 +717,9 @@ def build_status_row(
 def run_build(args: argparse.Namespace) -> None:
     """Build the final sample-status table from validation and downstream summaries."""
     if args.ani is not None and not args.primary_busco_column:
-        raise SampleStatusError("--primary-busco-column is required when --ani is supplied.")
+        raise SampleStatusError(
+            "--primary-busco-column is required when --ani is supplied."
+        )
 
     try:
         validated_samples = table_helpers.load_validated_samples(args.validated_samples)
@@ -731,7 +736,9 @@ def run_build(args: argparse.Namespace) -> None:
             output_columns=output_columns,
             validated_samples=validated_samples,
         )
-        metadata_header, metadata_key_column, metadata_index = table_helpers.load_metadata(args.metadata)
+        metadata_header, metadata_key_column, metadata_index = (
+            table_helpers.load_metadata(args.metadata)
+        )
         assembly_stats_index = table_helpers.load_assembly_stats_index(
             args.assembly_stats,
             validated_accessions,
@@ -832,7 +839,7 @@ def run_build(args: argparse.Namespace) -> None:
                 ani_index=ani_index,
                 ani_requested=args.ani is not None,
                 primary_busco_column=args.primary_busco_column,
-                ani_allow_incomplete_16s=args.ani_allow_incomplete_16s,
+                ani_16s_policy=args.ani_16s_policy,
             )
         )
 

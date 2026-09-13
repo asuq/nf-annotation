@@ -603,8 +603,8 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertNotIn("params.busco_lineages[0]", module_text)
         self.assertNotIn("params.busco_lineages[0]", workflow_text)
 
-    def test_ani_allow_incomplete_16s_flag_is_forwarded(self) -> None:
-        """Require the naked Nextflow flag to reach ANI prep and status helpers."""
+    def test_ani_16s_policy_is_forwarded(self) -> None:
+        """Require the explicit 16S policy to reach ANI prep and status helpers."""
         main_text = (ROOT / "main.nf").read_text(encoding="utf-8")
         cohort_workflow_text = (SUBWORKFLOWS_DIR / "cohort_ani.nf").read_text(
             encoding="utf-8"
@@ -619,15 +619,14 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
             encoding="utf-8"
         )
 
-        self.assertIn("def normaliseBooleanParam", main_text)
-        self.assertIn("params.ani_allow_incomplete_16s", main_text)
-        self.assertIn("Channel.value(aniAllowIncomplete16s)", main_text)
-        self.assertIn("ani_allow_incomplete_16s", cohort_workflow_text)
-        self.assertIn("ani_allow_incomplete_16s", final_outputs_text)
-        self.assertIn("val ani_allow_incomplete_16s", build_fastani_text)
-        self.assertIn("val ani_allow_incomplete_16s", write_status_text)
-        self.assertIn("--ani-allow-incomplete-16s", build_fastani_text)
-        self.assertIn("--ani-allow-incomplete-16s", write_status_text)
+        self.assertIn("params.ani_16s_policy", main_text)
+        self.assertIn("Channel.value(params.ani_16s_policy)", main_text)
+        self.assertIn("ani_16s_policy", cohort_workflow_text)
+        self.assertIn("ani_16s_policy", final_outputs_text)
+        self.assertIn("val ani_16s_policy", build_fastani_text)
+        self.assertIn("val ani_16s_policy", write_status_text)
+        self.assertIn("--ani-16s-policy", build_fastani_text)
+        self.assertIn("--ani-16s-policy", write_status_text)
 
     def test_runtime_tool_modules_write_versions_without_indented_headers(self) -> None:
         """Require runtime tool modules to emit versions via printf, not heredoc indentation."""

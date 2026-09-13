@@ -946,9 +946,10 @@ BUSCO summary/log view is retained. Under the 20k OIST override,
 `results/cohort/fastani/` keeps only
 `ani_metadata.tsv`, `ani_exclusions.tsv`, `fastani_paths.txt`, and the FastANI
 matrix/log outputs; the staged `fastani_inputs/` directory remains in `work/`.
-By default, only `16S = Yes` samples pass the ANI 16S gate. Supply the naked
-flag `--ani_allow_incomplete_16s` to also allow `16S = No` and
-`16S = partial`; `16S = NA` remains excluded.
+Use `--ani_16s_policy complete` (default) to require `16S = Yes`,
+`allow_incomplete` to also admit `partial`, or `ignore` to bypass the 16S
+eligibility filter, including `No` and `NA`. Other QC and atypical-sample
+filters still apply. The former boolean flag has been removed.
 
 ## Notes
 
