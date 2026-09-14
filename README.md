@@ -368,6 +368,10 @@ nextflow run . -c annotation.config -profile local,docker \
   --outdir results
 ```
 
+For a local Apptainer run, install Apptainer on the execution host and replace
+`-profile local,docker` above with `-profile local_apptainer`. Set
+`NXF_APPTAINER_CACHEDIR` to choose a persistent container cache directory.
+
 SLURM plus Singularity run:
 
 ```bash
@@ -564,6 +568,7 @@ Run the dependency-locked development test suite with `pixi run test`.
 ## Profiles
 
 - `local`: local executor
+- `local_apptainer`: local executor with Apptainer enabled
 - `docker`: enables Docker execution
 - `slurm`: enables the SLURM executor with optional `--slurm_queue`,
   `--slurm_qos`, and `--slurm_cluster_options`
