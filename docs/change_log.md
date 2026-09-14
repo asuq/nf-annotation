@@ -1,5 +1,12 @@
 # Change Log
 
+## Unreleased
+
+- Bound compliant Prokka contig identifiers before annotation to prevent
+  malformed GenBank LOCUS records from long locus-tag prefixes.
+- Read annotation tasks from the JSON plan so multiline diagnostics cannot
+  create spurious task rows.
+
 ## v0.4.0 - 2026-09-13
 
 - Published the qualified Linux amd64 annotation images and pinned their OCI

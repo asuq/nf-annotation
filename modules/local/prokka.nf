@@ -35,6 +35,20 @@ process PROKKA {
     export TMPDIR="\$PWD/prokka_tmp"
     mkdir -p "\${TMPDIR}"
 
+    # Compliant contig names are <locustag>_<number>; reserve the counter width.
+    contig_count=\$(awk '/^>/ { n++ } END { printf "%.0f\\n", n }' "${genome}")
+    if [[ "\${contig_count}" -lt 1 ]]; then
+        echo 'Prokka input has no FASTA records' >&2
+        exit 1
+    fi
+    max_tag_length=\$((15 - \${#contig_count}))
+    if [[ "\${max_tag_length}" -lt 1 ]]; then
+        echo 'Too many contigs for a valid GenBank LOCUS identifier' >&2
+        exit 1
+    fi
+    locustag="${locustag}"
+    locustag="\${locustag:0:max_tag_length}"
+
     max_attempts="${params.soft_fail_attempts}"
     if [[ "\${max_attempts}" -lt 1 ]]; then
         max_attempts=1
@@ -50,7 +64,7 @@ process PROKKA {
         prokka "${genome}" \
             --outdir prokka \
             --prefix "${internalId}" \
-            --locustag "${locustag}" \
+            --locustag "\${locustag}" \
             --compliant \
             --gcode "${gcode}" \
             --cpus ${task.cpus} \

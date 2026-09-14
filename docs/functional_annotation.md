@@ -337,3 +337,17 @@ then set `prepare_busco_datasets = false`. Every per-sample BUSCO invocation
 uses `--offline` and the staged shared lineage, so sample jobs do not download
 lineages or query the release server. Missing lineages fail before those jobs
 start. Keep acquisition on the login node, separate from cohort submission.
+
+### Plan diagnostics and GenBank identifiers
+
+The workflow consumes the JSON task plan so diagnostic messages containing
+newlines or tabs remain single field values. The TSV plan is retained for
+inspection and is equivalent when read with a multiline-aware TSV parser.
+
+Prokka runs in compliant mode, which appends a contig number to the locus-tag
+prefix. The pipeline reserves space for the largest possible input contig
+number and limits the resulting GenBank LOCUS name to 16 characters. Existing
+prefixes are retained when they fit; overlong prefixes are shortened before
+annotation. Full accession identities remain separate from native locus tags.
+Affected Prokka products must be regenerated. Bundle validation remains strict
+and does not rewrite or infer malformed GenBank headers.

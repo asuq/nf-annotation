@@ -83,8 +83,15 @@ workflow FUNCTIONAL_ANNOTATION {
             }
             directory
         }
-    plannedTasks = PLAN_ANNOTATIONS.out.table
-        .splitCsv(header: true, sep: '\t')
+    // Multi-line diagnostic fields cannot be read safely by splitCsv.
+    // Preserve the existing TSV scalar contract using the canonical JSON plan.
+    plannedTasks = PLAN_ANNOTATIONS.out.plan
+        .flatMap { plan ->
+            def record = new groovy.json.JsonSlurper().parse(plan.toFile())
+            record.tasks.collect { row ->
+                row.collectEntries { key, value -> [(key): value == null ? 'NA' : value.toString()] }
+            }
+        }
         .filter { row -> row.action != 'skip' }
         .unique { row -> row.task_directory }
         .combine(checkedTaskDirectories)

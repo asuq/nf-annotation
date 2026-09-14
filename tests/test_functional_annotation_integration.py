@@ -228,6 +228,25 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
             if row["tool"] == "kofam"
         ]
 
+    def test_multiline_plan_reason_preserves_task_rows(self):
+        planner = self.project / "bin/prepare_annotation_tasks.py"
+        text = planner.read_text()
+        marker = '    record["plan_id"] = identity(record)'
+        self.assertIn(marker, text)
+        text = text.replace(
+            marker,
+            '    tasks[0]["reason"] = "first diagnostic line\\nsecond diagnostic line"\n'
+            + marker,
+        )
+        planner.write_text(text)
+        output = self.run_pipeline("multiline-plan", self.source)
+        rows = read_tsv(output / "pipeline_info/annotation_plan.tsv")
+        self.assertEqual(len(rows), 10)
+        self.assertEqual(
+            rows[0]["reason"], "first diagnostic line\nsecond diagnostic line"
+        )
+        self.assertEqual(self.actions(output), ["run", "run"])
+
     def test_ordinary_host_execution_is_rejected_before_annotation(self):
         self.run_pipeline(
             "host-rejected",
@@ -525,6 +544,10 @@ from pathlib import Path
 if sys.argv[1:] == ['--version']:
     print('prokka synthetic control')
     sys.exit(0)
+tag = sys.argv[sys.argv.index('--locustag') + 1]
+records = sum(line.startswith('>') for line in Path(sys.argv[1]).read_text().splitlines())
+assert len(tag + '_' + str(records)) <= 16
+assert tag[0].isalpha() and tag.isalnum()
 temporary = Path(os.environ['TMPDIR'])
 assert temporary.is_dir() and temporary.parent == Path.cwd()
 output = Path(sys.argv[sys.argv.index('--outdir') + 1])
@@ -538,7 +561,7 @@ for extension in ('gff', 'faa', 'gbk'):
         script.write_text("""nextflow.enable.dsl=2
 include { PROKKA } from './modules/local/prokka'
 workflow {
-    PROKKA(Channel.of(tuple([accession:'A', internal_id:'A'], file(params.genome), 4)))
+    PROKKA(Channel.of(tuple([accession:'A', internal_id:'VERYLONGACCESSIONPREFIX12345'], file(params.genome), 4)))
 }
 """)
         configuration = self.root / "prokka.config"
@@ -546,6 +569,10 @@ workflow {
             'process { withName: PROKKA { beforeScript = "export TMPDIR='
             + str(self.root / "unmounted-host-temporary")
             + '" } }\n'
+        )
+        genome = self.root / "prokka-many-contigs.fasta"
+        genome.write_text(
+            "".join(f">contig_{i}\n" + "ACGT" * 50 + "\n" for i in range(1001))
         )
         output = self.root / "prokka-output"
         result = subprocess.run(
@@ -558,7 +585,7 @@ workflow {
                 "-c",
                 str(configuration),
                 "--genome",
-                str(self.source / "samples/A/annotation/bundle/genome.fasta"),
+                str(genome),
                 "--outdir",
                 str(output),
                 "-work-dir",
