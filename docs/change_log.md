@@ -1,11 +1,12 @@
 # Change Log
 
-## Unreleased
+## v0.4.1 - 2026-09-16
 
 - Bound compliant Prokka contig identifiers before annotation to prevent
   malformed GenBank LOCUS records from long locus-tag prefixes.
 - Read annotation tasks from the JSON plan so multiline diagnostics cannot
   create spurious task rows.
+- Added a local Apptainer profile for running the workflow without a scheduler.
 
 ## v0.4.0 - 2026-09-13
 
