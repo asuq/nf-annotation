@@ -9,7 +9,7 @@ process CCFINDER {
         mode: 'copy',
         overwrite: true,
         saveAs: { filename ->
-            filename in ['result.json', 'ccfinder.log']
+            filename in ['result.json', 'ccfinder.log', 'ccfinder_storage.json']
                 ? filename
                 : null
         },
@@ -22,6 +22,7 @@ process CCFINDER {
     tuple val(meta), path('ccfinder'), path('result.json'), path('ccfinder.log'), emit: results
     tuple val(meta), path('result.json'), emit: result_json
     path 'versions.yml', emit: versions
+    path 'ccfinder_storage.json', optional: true, emit: storage
 
     script:
     def ccfinderRoot = '/usr/local/CRISPRCasFinder'
@@ -43,6 +44,7 @@ process CCFINDER {
     genome_name="\$(basename "${genome}")"
 
     mkdir -p "\${run_root}"
+    : > ccfinder_generated_contigs.txt
 
     awk -v output_root="\${task_root}" '
         /^>/ {
@@ -52,7 +54,11 @@ process CCFINDER {
             contig_id = \$1
             sub(/^>/, "", contig_id)
             sub(/\\.[0-9]+\$/, "", contig_id)
+            if (contig_id == "" || index(contig_id, "/") || index(contig_id, sprintf("%c", 92)) || contig_id ~ /[[:cntrl:]]/) { exit 65 }
             output_path = output_root "/" contig_id ".fna"
+            if ((getline probe < output_path) >= 0) { close(output_path); exit 65 }
+            close(output_path)
+            print contig_id ".fna" >> "ccfinder_generated_contigs.txt"
             print \$0 > output_path
             next
         }
@@ -116,6 +122,16 @@ process CCFINDER {
     if [[ "\${exit_code}" -eq 0 && -n "\${result_json_path}" ]]; then
         perl -0pi -e 's/:\\s*(?=,|\\}|\\])/: null/g' "\${result_json_path}"
     fi
+    json_status=1
+    if [[ "\${exit_code}" -eq 0 && -n "\${result_json_path}" ]]; then
+        set +e
+        perl -MJSON::PP -0777 -e 'my \$r = decode_json(<>); exit(ref(\$r) eq "HASH" && ref(\$r->{Sequences}) eq "ARRAY" ? 0 : 1)' "\${result_json_path}" >/dev/null 2>&1
+        json_status=\$?
+        set -e
+        if [[ "\${json_status}" -ne 0 ]]; then
+            printf 'invalid_result_json=1\n' >> "\${wrapper_log}"
+        fi
+    fi
     if [[ "\${exit_code}" -eq 0 && -n "\${result_json_path}" ]]; then
         cp "\${result_json_path}" result.json
     else
@@ -134,6 +150,9 @@ process CCFINDER {
     mkdir -p ccfinder
     if [[ -s result.json ]]; then
         cp result.json ccfinder/
+    fi
+    if [[ "\${exit_code}" -eq 0 && "\${json_status}" -eq 0 && -s result.json ]]; then
+        bash "\$(command -v annotation_storage.sh)" cleanup-legacy --execution-root "\$PWD" --tool ccfinder --policy '${params.annotation_cleanup}'
     fi
 
     ccfinder_version="\$(perl "\${ccfinder_root}/CRISPRCasFinder.pl" -v 2>&1 | sed -n 's/.*version \\([^,[:space:]]*\\).*/\\1/p' | head -n 1 || true)"

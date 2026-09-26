@@ -2,6 +2,57 @@
 
 The shared annotation workflow is implemented in `main.nf` and `reannotate.nf`.
 
+## Temporary storage and recovery
+
+Native search tasks emit only their own raw evidence and a separate
+`pipeline_info/annotation_storage/<task_directory>.json` report. Task plans,
+protein bundles and shared databases remain inputs; scratch copy stage-out does
+not materialise them as per-search outputs.
+
+`--annotation_cleanup success` (the default) removes only producer-owned
+computational scratch after native success and retained-artifact checks.
+`--annotation_cleanup off` retains scratch in ordinary work directories for
+debugging. Nextflow-managed node scratch can still be removed by the executor.
+Cleanup warnings do not change a successful native result or repeat a search.
+Reports distinguish apparent bytes, allocated bytes and file counts at
+completion; these are not peak measurements. Raw evidence remains intact for
+subsequent validation, including malformed and valid no-hit outputs. No
+checksummed scientific archive is pruned. CRISPRCasFinder and Prokka also retain
+their declared evidence while removing their own successful temporary work.
+
+Before a failed scratch task exits, the execution wrapper attempts to export raw
+evidence to the original durable work directory. It preserves the native exit
+status and records incomplete or failed diagnostic export. SIGKILL, node loss,
+or an unwritable destination can prevent recovery. Existing work trees are not
+cleaned automatically. Modified scripts can invalidate old Nextflow resume
+hashes; complete v0.4.1 published sources remain the portable reuse route because
+native commands, images and scientific identities are unchanged. Shared eggNOG
+batch storage is measured once, not once per member.
+
+## Scheduling and eggNOG readiness groups
+
+Pfam, KOfam, COGclassifier and PADLOC are planned and launched independently as
+each validated protein bundle arrives. They do not wait for other genomes,
+Codetta, CRISPRCasFinder or final cohort reporting. Missing samples are still
+accounted for in the final cohort acceptance gate.
+
+`--eggnog_group_samples 8` sets the maximum number of genomes in a new eggNOG
+readiness group; the default is eight and the value must be a positive integer.
+New groups are assigned deterministically from the sorted sample manifest, so
+completion order does not change their membership. Each group becomes eligible
+as soon as its bundles are ready. The existing 4 MiB FASTA packing target then
+splits that group into native whole-proteome batches if needed; a single large
+proteome remains indivisible. Thus a slow genome can delay its own small group,
+but cannot block other groups or the four independent tools.
+
+When reusing a published source, existing batch memberships are retained even
+if they exceed a newly requested group size. This preserves native batch
+identities and avoids cleanup- or scheduling-only native reruns. The group-size
+option applies to newly grouped genomes. Final plan merging and cohort reports
+wait for complete accounting, but do not gate native search submission.
+
+## Scientific methods
+
 EggNOG uses DIAMOND's `sensitive` ceiling with iterative search enabled,
 matching the pinned eggNOG v3 default. This replaces the initial qualification
 candidate's `ultra-sensitive` ceiling to reduce search cost for large cohorts.

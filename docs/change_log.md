@@ -1,5 +1,23 @@
 # Change Log
 
+## v0.4.2 - 2026-09-25
+
+- Launch KOfam, Pfam, COGclassifier and PADLOC independently when each protein
+  bundle is ready. eggNOG batches now start when their own group is ready;
+  `--eggnog_group_samples` controls the group size and defaults to eight.
+  Published batch identities remain reusable across cohort updates.
+- Remove only owned temporary annotation, Prokka, CCFINDER and Codetta files
+  after successful native execution, retaining scientific outputs and bounded
+  failure diagnostics. The opt-in OIST large-cohort storage config uses node
+  scratch with copy stage-out, without overriding retry times or partitions.
+- Keep generated eggNOG batch paths valid after node-scratch stage-out.
+  Barrnap uses task-owned temporary storage and reports a native failure as a
+  failure instead of publishing a false-negative 16S result.
+- The 100-genome native pilot passed publication audit; six functional count
+  matrices and the feature catalogue matched the previous qualified pilot.
+  The locked suite passed 580 tests with seven optional skips, and native
+  Barrnap/16S replay matched 17 files from the qualified two-genome control.
+
 ## v0.4.1 - 2026-09-16
 
 - Bound compliant Prokka contig identifiers before annotation to prevent

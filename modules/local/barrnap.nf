@@ -23,6 +23,13 @@ process BARRNAP {
     script:
     def barrnapKingdom = params.barrnap_kingdom ?: 'bac'
     """
+    export TMPDIR="\$PWD/barrnap_tmp"
+    if [[ -L "\${TMPDIR}" ]]; then
+        echo 'Barrnap temporary directory must not be a symlink' >&2
+        exit 75
+    fi
+    mkdir -p "\${TMPDIR}"
+
     max_attempts="${params.soft_fail_attempts}"
     if [[ "\${max_attempts}" -lt 1 ]]; then
         max_attempts=1
@@ -54,12 +61,12 @@ process BARRNAP {
         (( attempt += 1 ))
     done
 
-    if [[ "\${exit_code}" -ne 0 ]]; then
-        : > rrna.gff
-        : > rrna.fa
-    fi
-
     printf 'exit_code=%s\n' "\$exit_code" >> barrnap.log
+    if [[ "\${exit_code}" -ne 0 ]]; then
+        echo 'Barrnap failed; refusing to report a false negative 16S result.' >&2
+        exit "\${exit_code}"
+    fi
+    rm -rf -- "\${TMPDIR}"
 
     barrnap_version="\$(command -v barrnap >/dev/null 2>&1 && barrnap --version 2>&1 | awk 'NF { value=\$0 } END { if (value) print value }' || true)"
     barrnap_version="\${barrnap_version:-NA}"

@@ -30,6 +30,7 @@ from annotation_resources import file_records
 from annotation_source import validate_source
 from annotation_tasks import PADLOC_RESOURCE, plan_task, preflight
 from annotation_workflow_fixture import (
+    hold_bundle_until_search,
     install_synthetic_container_engine,
     publish_disabled,
 )
@@ -260,6 +261,12 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
             (self.project / "bin/synthetic-container-calls.jsonl").exists()
         )
 
+    def test_invalid_group_size_is_rejected_before_jobs_start(self):
+        self.run_pipeline('bad-group-size', self.source, succeeds=False,
+                          extra_config='params.eggnog_group_samples = 0\n',
+                          rejection='must be a positive integer')
+        self.assertFalse((self.project / 'bin/synthetic-container-calls.jsonl').exists())
+
     def test_effective_helper_container_override_is_rejected(self):
         self.run_pipeline(
             "wrong-helper",
@@ -286,16 +293,81 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
             (self.project / "bin/synthetic-container-calls.jsonl").read_text(),
         )
 
+    def test_ready_sample_search_starts_before_other_bundle_is_released(self):
+        marker = self.root / 'sample_a_search_started'
+        caller = self.project / 'bin/exec_annotation'
+        caller.write_text(caller.read_text().replace(
+            "task = json.loads(Path('task/task.json').read_text())",
+            "task = json.loads(Path('task/task.json').read_text())\n"
+            + f"if task['accession'] == 'A': Path({str(marker)!r}).write_text('started')",
+        ))
+        hold_bundle_until_search(self.project, marker, 'B')
+        output = self.run_pipeline('streaming-proof', self.source)
+        self.assertTrue(marker.is_file())
+        self.assertTrue(read_json(output / 'annotation_acceptance.json')['complete'])
+
+    def test_scratch_stageout_keeps_inputs_as_links_and_prunes_owned_scratch(self):
+        database_before = {
+            str(path.relative_to(self.database)): digest(path)
+            for path in self.database.rglob("*")
+            if path.is_file()
+        }
+        output = self.run_pipeline(
+            "scratch-storage",
+            self.source,
+            extra_config="process { withName: ANNOTATION_SEARCH { scratch = true; stageOutMode = 'copy' } }\ntrace.fields = 'task_id,hash,name,status,exit,workdir'\n",
+        )
+        trace = [
+            row
+            for row in read_tsv(output / "pipeline_info/trace.tsv")
+            if ":ANNOTATION_SEARCH " in row["name"]
+        ]
+        self.assertEqual(len(trace), 2)
+        for row in trace:
+            work = Path(row["workdir"])
+            for name in ("task", "bundle", "resource"):
+                self.assertFalse((work / name).exists() and not (work / name).is_symlink(), (work, name))
+            self.assertFalse((work / "scratch").exists())
+            self.assertTrue((work / "raw/exit_code.txt").is_file())
+        reports = list((output / "pipeline_info/annotation_storage").glob("*.json"))
+        self.assertEqual(len(reports), 2)
+        self.assertEqual(
+            {read_json(path)["cleanup_status"] for path in reports}, {"removed"}
+        )
+        self.assertEqual(
+            database_before,
+            {
+                str(path.relative_to(self.database)): digest(path)
+                for path in self.database.rglob("*")
+                if path.is_file()
+            },
+        )
+
+    def test_node_scratch_copies_nested_planner_outputs(self):
+        output = self.run_pipeline(
+            "scratch-all-processes",
+            self.source,
+            extra_config=(
+                "process { scratch = true; stageOutMode = 'copy'; "
+                "withName: BUILD_FASTANI_INPUTS { scratch = false } }\n"
+            ),
+        )
+        self.assertTrue(read_json(output / "annotation_acceptance.json")["complete"])
+        self.assertTrue((output / "pipeline_info/annotation_plan.json").is_file())
+
     def test_failed_native_search_reruns_on_resume_and_keeps_prior_diagnostics(self):
         marker = self.project / "bin/fail_b"
         marker.touch()
-        output = self.run_pipeline("recovery", self.source, succeeds=False)
+        scratch_config = "process { withName: ANNOTATION_SEARCH { scratch = true; stageOutMode = 'copy' } }\n"
+        output = self.run_pipeline(
+            "recovery", self.source, succeeds=False, extra_config=scratch_config
+        )
         failed_raw = list(
             (output / "pipeline_info/annotation_failures").rglob("raw/exit_code.txt")
         )
         self.assertEqual([path.read_text() for path in failed_raw], ["4\n"])
         marker.unlink()
-        self.run_pipeline("recovery", self.source, resume=True)
+        self.run_pipeline("recovery", self.source, resume=True, extra_config=scratch_config)
         rows = [
             row
             for row in read_tsv(output / "pipeline_info/trace.tsv")
@@ -313,7 +385,7 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
         )
         self.assertEqual(failed_raw[0].read_text(), "4\n")
         self.assertTrue(failed_raw[0].with_name("failure_only.txt").exists())
-        self.run_pipeline("recovery", self.source, resume=True)
+        self.run_pipeline("recovery", self.source, resume=True, extra_config=scratch_config)
         rows = [
             row
             for row in read_tsv(output / "pipeline_info/trace.tsv")
@@ -341,7 +413,7 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
             [
                 "batch_list.json",
                 "bundle_list.json",
-                "bundle_list.json",
+                "fragment_list.json",
                 "result_list.json",
             ],
         )
@@ -378,9 +450,12 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
         script.write_text("""nextflow.enable.dsl=2
 include { ANNOTATION_SEARCH; NORMALIZE_ANNOTATION } from './modules/local/functional_annotation'
 workflow {
-    meta = [accession:'A', tool:'padloc', cpus:1, memory_gib:1, container:'fixture']
+    meta = [accession:'A', tool:'padloc', task_directory:'task_padloc', cpus:1, memory_gib:1, container:'fixture']
     ANNOTATION_SEARCH(Channel.of(tuple(meta, file(params.fixture_task), file(params.fixture_bundle), [])))
-    NORMALIZE_ANNOTATION(ANNOTATION_SEARCH.out.raw_results)
+    normalization = ANNOTATION_SEARCH.out.raw_results.map { native_meta, raw, storage ->
+        tuple(native_meta, file(params.fixture_task), file(params.fixture_bundle), [], raw)
+    }
+    NORMALIZE_ANNOTATION(normalization)
 }
 """)
         output = self.root / "padloc-output"
@@ -534,6 +609,54 @@ workflow { VALIDATE_INPUTS() }
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual((output / "runtime.txt").read_text().strip(), runtime)
 
+    def test_ccfinder_storage_preserves_lookup_and_failure_evidence(self):
+        native_root = self.root / 'ccfinder-native'
+        native_root.mkdir()
+        native = native_root / 'CRISPRCasFinder.pl'
+        module = self.project / 'modules/local/ccfinder.nf'
+        module.write_text(module.read_text().replace('/usr/local/CRISPRCasFinder', str(native_root)))
+        genome = self.root / 'staged-input.fna'
+        genome.write_text('>contigA.1\n' + 'ACGT' * 30 + '\n')
+        original = genome.read_bytes()
+        script = self.project / 'ccfinder_control.nf'
+        script.write_text('''nextflow.enable.dsl=2
+include { CCFINDER } from './modules/local/ccfinder'
+workflow {
+    CCFINDER(Channel.of(tuple([accession:'A'], file(params.genome), 4)))
+}
+''')
+        for case, status, payload in [('success', 0, '{"Sequences":[]}'), ('failure', 7, '{"partial":true}'), ('malformed', 0, '{broken')]:
+            with self.subTest(case=case):
+                native.write_text('''use strict;
+use warnings;
+if ($ARGV[0] eq '-v') { print "version 4.2.30\\n"; exit 0; }
+die "missing original parent contig lookup" unless -f '../contigA.fna';
+my $output;
+for (my $i=0; $i<@ARGV; $i++) { $output=$ARGV[$i+1] if $ARGV[$i] eq '-outdir'; }
+mkdir $output or die $!;
+open(my $file, '>', "$output/result.json") or die $!;
+print $file ''' + repr(payload) + ''';
+close $file;
+open(my $temp, '>', "$ENV{TMPDIR}/owned.tmp") or die $!;
+print $temp "temporary";
+close $temp;
+exit ''' + str(status) + ';\n')
+                output = self.root / ('ccfinder-' + case)
+                work = self.root / ('ccfinder-work-' + case)
+                result = subprocess.run([NEXTFLOW, 'run', str(script), '-profile', 'test,docker',
+                    '--genome', str(genome), '--outdir', str(output), '-work-dir', str(work)],
+                    cwd=self.root, capture_output=True, text=True, timeout=120, env=self.environment)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                tasks = [p.parent for p in work.rglob('.command.sh') if 'ccfinder_tmp' in p.read_text()]
+                self.assertEqual(len(tasks), 1)
+                task = tasks[0]
+                self.assertEqual(genome.read_bytes(), original)
+                self.assertTrue((task / 'staged-input.fna').is_symlink())
+                self.assertEqual((task / 'result.json').read_text(), payload if status == 0 else '')
+                self.assertIn(f'exit_code={status}', (task / 'ccfinder.log').read_text())
+                for name in ('ccfinder_tmp', 'ccfinder_run', 'ccfinder_raw', 'contigA.fna'):
+                    self.assertEqual((task / name).exists(), case != 'success', name)
+
     def test_prokka_uses_task_temporary_storage_and_preserves_curated_files(self):
         executable = self.project / "bin/prokka"
         executable.write_text(
@@ -550,6 +673,7 @@ assert len(tag + '_' + str(records)) <= 16
 assert tag[0].isalpha() and tag.isalnum()
 temporary = Path(os.environ['TMPDIR'])
 assert temporary.is_dir() and temporary.parent == Path.cwd()
+(temporary / 'owned.tmp').write_text('remove after success')
 output = Path(sys.argv[sys.argv.index('--outdir') + 1])
 output.mkdir()
 for extension in ('gff', 'faa', 'gbk'):
@@ -604,3 +728,10 @@ workflow {
                 (published / ("prokka." + extension)).read_text(), extension + "\n"
             )
         self.assertIn("exit_code=0", (published / "prokka.log").read_text())
+        prokka_tasks = [
+            path.parent
+            for path in (self.root / "prokka-work").rglob(".command.sh")
+            if "prokka_tmp" in path.read_text()
+        ]
+        self.assertEqual(len(prokka_tasks), 1)
+        self.assertFalse((prokka_tasks[0] / "prokka_tmp").exists())

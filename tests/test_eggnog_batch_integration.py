@@ -32,7 +32,7 @@ from annotation_common import (
 )
 from annotation_resources import file_records
 from annotation_source import validate_source
-from annotation_workflow_fixture import publish_disabled
+from annotation_workflow_fixture import hold_bundle_until_search, publish_disabled
 
 NEXTFLOW = shutil.which("nextflow")
 
@@ -214,6 +214,8 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
         succeeds=True,
         resume=False,
         incompatible_archives=False,
+        group_samples=8,
+        node_scratch=False,
     ):
         configuration = self.root / f"{name}.config"
         configuration.write_text(
@@ -226,8 +228,12 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
             + "2" * 64
             + "'\n"
             + " annotation_cpus = 1\n annotation_memory = 18.GB\n"
-            + " max_cpus = 1\n max_memory = 18.GB\n}\n"
+            + " max_cpus = 1\n max_memory = 18.GB\n"
+            + f" eggnog_group_samples = {group_samples}\n}}\n"
         )
+        if node_scratch:
+            with configuration.open('a') as handle:
+                handle.write("process.scratch = true\nprocess.stageOutMode = 'copy'\n")
         output = self.root / name
         entrypoint = "reannotate.nf" if current is None else "batch_change_control.nf"
         command = [
@@ -391,6 +397,36 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
         publish_disabled(source, accessions, bundles)
         return source
 
+    def test_ready_batch_starts_while_another_group_waits(self):
+        fixture = bundle_fixture.AnnotationBundleTests()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        third = fixture.build('C', name='streaming-C')
+        source = self.input_source('three-members', ['A', 'B', 'C'], {'C': third})
+        marker = self.root / 'first_batch_started'
+        caller = self.project / 'bin/emapper.py'
+        caller.write_text(caller.read_text().replace(
+            "input_count = len(proteins)",
+            "input_count = len(proteins)\n"
+            + f"if mode == 'diamond' and input_count == 2: Path({str(marker)!r}).write_text('started')",
+        ))
+        hold_bundle_until_search(self.project, marker, 'C')
+        output = self.run_pipeline('streaming-batches', source, group_samples=2)
+        manifest, batches = validate_source(output)
+        self.assertTrue(manifest['complete'])
+        self.assertTrue(marker.is_file())
+        self.assertEqual({tuple(sorted(batch.members)) for batch in batches.values()}, {('A', 'B'), ('C',)})
+        self.assertEqual(sorted(len(call) for call in self.calls()), [1, 2])
+
+    def test_node_scratch_keeps_generated_batch_paths_portable(self):
+        output = self.run_pipeline('scratch-batch', self.source, node_scratch=True)
+        self.assert_publication(output, ['B', 'A'], 'run')
+        planned = [
+            row for row in read_tsv(output / 'pipeline_info/annotation_plan.tsv')
+            if row['tool'] == 'eggnog'
+        ]
+        self.assertEqual({row['bundle'] for row in planned}, {'batch_inputs/batch00000000'})
+
     def test_one_native_batch_reuses_and_renormalizes_portably(self):
         first = self.run_pipeline("initial", self.source)
         packet, results = self.assert_publication(first, ["B", "A"], "run")
@@ -415,7 +451,7 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
         shutil.rmtree(self.root / "work-initial")
         portable = self.root / "portable first results"
         first.rename(portable)
-        reused = self.run_pipeline("reused", portable)
+        reused = self.run_pipeline("reused", portable, group_samples=1)
         reused_packet, reused_results = self.assert_publication(
             reused, ["B", "A"], "reuse", searches=0
         )

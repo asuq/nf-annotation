@@ -38,7 +38,7 @@ from annotation_tasks import (
     runtime_identity,
     task_identity,
 )
-from prepare_annotation_tasks import plan
+from prepare_annotation_tasks import execution_groups, merge_plans, plan, plan_part
 
 
 class AnnotationTaskTests(unittest.TestCase):
@@ -279,6 +279,42 @@ with tempfile.NamedTemporaryFile() as temporary:
             self.assertRaises(AnnotationError),
         ):
             plan(samples, [self.bundle], receipt, self.root / "tampered-plan")
+
+    def test_streaming_plan_preserves_missing_and_duplicate_accounting(self):
+        samples = self.root / 'streaming-samples.tsv'
+        write_tsv(samples, ('accession',), [{'accession': 'A'}, {'accession': 'B'}])
+        receipt = self.root / 'streaming-preflight.json'
+        entry = self.entry()
+        entry['resource_path'] = str(self.root / 'resource')
+        write_json(receipt, dict(enabled_tools=['kofam'], preflight_id='fixture', tools={'kofam': entry}))
+        members = self.root / 'members.json'
+        write_json(members, dict(accessions=['A']))
+        with patch('prepare_annotation_tasks.validate_preflight'):
+            plan_part(members, [self.bundle], receipt, self.root / 'part', None, 'individual')
+            fragment = self.root / 'part/annotation_plan.json'
+            merged = merge_plans(samples, receipt, [fragment], self.root / 'merged', None)
+            by_key = {(row['accession'], row['tool']): row for row in merged['tasks']}
+            self.assertEqual(len(by_key), 2 * len(TOOLS))
+            self.assertEqual(by_key['A', 'kofam']['action'], 'run')
+            self.assertEqual(by_key['B', 'kofam']['status'], 'upstream_failed')
+            self.assertEqual(by_key['B', 'kofam']['reason'], 'no_valid_protein_bundle')
+            self.assertEqual(by_key['B', 'eggnog']['status'], 'skipped_disabled')
+            with self.assertRaisesRegex(AnnotationError, 'Duplicate or foreign'):
+                merge_plans(samples, receipt, [fragment, fragment], self.root / 'duplicate', None)
+
+    def test_readiness_groups_do_not_depend_on_manifest_order(self):
+        samples = self.root / 'grouping-samples.tsv'
+        receipt = self.root / 'grouping-preflight.json'
+        write_json(receipt, dict(enabled_tools=['eggnog'], preflight_id='fixture'))
+        with patch('prepare_annotation_tasks.validate_preflight'):
+            write_tsv(samples, ('accession',), [{'accession': a} for a in ('C', 'A', 'B')])
+            first = execution_groups(samples, receipt, None, 2)
+            write_tsv(samples, ('accession',), [{'accession': a} for a in ('B', 'C', 'A')])
+            second = execution_groups(samples, receipt, None, 2)
+            self.assertEqual(first['groups'], second['groups'])
+            self.assertEqual([g['accessions'] for g in first['groups']], [['A', 'B'], ['C']])
+            with self.assertRaisesRegex(AnnotationError, 'positive'):
+                execution_groups(samples, receipt, None, 0)
 
     def test_field_errors_invalidate_every_dependent_count(self):
         gene = self.proteins[0]["gene_id"]

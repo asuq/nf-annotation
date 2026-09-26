@@ -177,6 +177,9 @@ class AnnotationPathListTests(unittest.TestCase):
             "bundleList": json.dumps(bundles),
             "resultList": json.dumps(results),
             "batchList": json.dumps(results),
+            "fragmentList": json.dumps(results),
+            "members": json.dumps({"accessions": bundles}),
+            "meta.scope": "individual",
             "samples": "samples.tsv",
             "receipt": "receipt.json",
             "sourceArgs": "",
@@ -195,16 +198,17 @@ class AnnotationPathListTests(unittest.TestCase):
         executables.mkdir()
         helper = executables / (
             "prepare_annotation_tasks.py"
-            if process == "PLAN_ANNOTATIONS"
+            if process != "AGGREGATE_ANNOTATIONS"
             else "aggregate_annotations.py"
         )
         helper.write_text(
             "import json, sys\nfrom pathlib import Path\n"
             "Path('argv.json').write_text(json.dumps(sys.argv[1:]))\n"
-            "if sys.argv[1] == 'plan':\n"
-            " Path('planned').mkdir()\n"
-            " Path('planned/annotation_plan.json').write_text('{}')\n"
-            " Path('planned/annotation_plan.tsv').write_text('accession\\n')\n"
+            "if sys.argv[1] in ('plan-part', 'merge-plans'):\n"
+            " output = Path(sys.argv[sys.argv.index('--output') + 1])\n"
+            " output.mkdir()\n"
+            " (output / 'annotation_plan.json').write_text('{}')\n"
+            " (output / 'annotation_plan.tsv').write_text('accession\\n')\n"
         )
         helper.chmod(0o755)
         script = work / "run.sh"
@@ -222,7 +226,12 @@ class AnnotationPathListTests(unittest.TestCase):
             },
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(read_json(work / "bundle_list.json"), bundles)
+        if process == "MERGE_ANNOTATION_PLANS":
+            self.assertEqual(read_json(work / "fragment_list.json"), results)
+        else:
+            self.assertEqual(read_json(work / "bundle_list.json"), bundles)
+        if process == "PLAN_ANNOTATION_PART":
+            self.assertEqual(read_json(work / "members.json")["accessions"], bundles)
         if process == "AGGREGATE_ANNOTATIONS":
             self.assertEqual(read_json(work / "result_list.json"), results)
             self.assertEqual(read_json(work / "batch_list.json"), results)
@@ -242,7 +251,7 @@ class AnnotationPathListTests(unittest.TestCase):
         ]
         bundles = [f"bundles/bundle{i:02d}" for i in range(10000)]
         results = [f"results/result{i:03d}" for i in range(50000)]
-        for process in ("PLAN_ANNOTATIONS", "AGGREGATE_ANNOTATIONS"):
+        for process in ("PLAN_ANNOTATION_PART", "MERGE_ANNOTATION_PLANS", "AGGREGATE_ANNOTATIONS"):
             with self.subTest(process=process):
                 empty = self.execute_shell(process, [], [], process + "-empty")
                 small = self.execute_shell(
@@ -254,7 +263,7 @@ class AnnotationPathListTests(unittest.TestCase):
                 self.assertEqual(empty, small)
                 self.assertEqual(small, large)
                 self.assertLess(sum(len(value.encode()) + 1 for value in large), 1024)
-                self.assertIn("--bundle-list", large)
+                self.assertIn("--fragment-list" if process == "MERGE_ANNOTATION_PLANS" else "--bundle-list", large)
                 self.assertNotIn("--bundle", large)
                 self.assertNotIn("--result", large)
 

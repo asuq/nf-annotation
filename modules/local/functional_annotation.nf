@@ -27,26 +27,89 @@ process ANNOTATION_PREFLIGHT {
     """
 }
 
-process PLAN_ANNOTATIONS {
+
+process PLAN_ANNOTATION_GROUPS {
     label 'process_single'
     container params.python_container
-    // The preflight receipt is recreated after full resource checks. Hash its
-    // content and the published inputs so an identical plan keeps stable paths.
     cache 'deep'
     errorStrategy 'finish'
     maxRetries 0
-    publishDir "${params.outdir}/pipeline_info", mode: 'copy', overwrite: true,
-        saveAs: { name -> name in ['annotation_plan.tsv', 'annotation_plan.json'] ? name : null }
+    publishDir "${params.outdir}/pipeline_info", mode: 'copy', overwrite: true
 
     input:
     path samples
     path receipt
-    path bundles, stageAs: 'bundles/bundle??'
     path source_results, name: 'source_results'
     path resource_manifests, stageAs: 'resource_manifests/manifest??.json'
 
     output:
-    path 'planned', emit: tasks
+    path 'annotation_groups.json', emit: groups
+
+    script:
+    if (params.annotation_tools) {
+        AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
+    }
+    def sourceArgs = source_results ? "--source '${source_results}'" : ''
+    """
+    python3 "\$(command -v prepare_annotation_tasks.py)" groups \
+        --samples '${samples}' --preflight '${receipt}' ${sourceArgs} \
+        --size '${params.eggnog_group_samples}' --output annotation_groups.json
+    """
+}
+
+process PLAN_ANNOTATION_PART {
+    tag "${meta.key}"
+    label 'process_single'
+    container params.python_container
+    cache 'deep'
+    errorStrategy 'finish'
+    maxRetries 0
+
+    input:
+    tuple val(meta), path(bundles, stageAs: 'bundles/bundle??'), path(previous_inputs, stageAs: 'previous/entry??'), val(source_root)
+    path receipt
+    path resource_manifests, stageAs: 'resource_manifests/manifest??.json'
+
+    output:
+    tuple val(meta), path('planned'), emit: tasks
+    path 'planned/annotation_plan.json', emit: plan
+
+    script:
+    if (params.annotation_tools) {
+        AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
+    }
+    def bundleList = groovy.json.JsonOutput.toJson((bundles instanceof Collection ? bundles : [bundles]).collect { it.toString() })
+    def members = groovy.json.JsonOutput.toJson(meta.members)
+    def sourceArgs = source_root ? "--source '${source_root}'" : ''
+    """
+    cat > members.json <<'ANNOTATION_MEMBERS'
+${members}
+ANNOTATION_MEMBERS
+    cat > bundle_list.json <<'ANNOTATION_BUNDLES'
+${bundleList}
+ANNOTATION_BUNDLES
+    python3 "\$(command -v prepare_annotation_tasks.py)" plan-part \
+        --members members.json --bundle-list bundle_list.json --preflight '${receipt}' \
+        --scope '${meta.scope}' ${sourceArgs} --output planned
+    """
+}
+
+process MERGE_ANNOTATION_PLANS {
+    label 'process_single'
+    container params.python_container
+    cache 'deep'
+    errorStrategy 'finish'
+    maxRetries 0
+    publishDir "${params.outdir}/pipeline_info", mode: 'copy', overwrite: true
+
+    input:
+    path samples
+    path receipt
+    path fragments, stageAs: 'fragments/plan??.json'
+    path source_results, name: 'source_results'
+    path resource_manifests, stageAs: 'resource_manifests/manifest??.json'
+
+    output:
     path 'annotation_plan.json', emit: plan
     path 'annotation_plan.tsv', emit: table
 
@@ -54,17 +117,17 @@ process PLAN_ANNOTATIONS {
     if (params.annotation_tools) {
         AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
     }
-    def bundleList = groovy.json.JsonOutput.toJson((bundles instanceof Collection ? bundles : [bundles]).collect { it.toString() })
+    def fragmentList = groovy.json.JsonOutput.toJson((fragments instanceof Collection ? fragments : [fragments]).collect { it.toString() })
     def sourceArgs = source_results ? "--source '${source_results}'" : ''
     """
-    cat > bundle_list.json <<'ANNOTATION_BUNDLE_LIST'
-${bundleList}
-ANNOTATION_BUNDLE_LIST
-    python3 "\$(command -v prepare_annotation_tasks.py)" plan \
-        --samples '${samples}' --preflight '${receipt}' --bundle-list bundle_list.json \
-        ${sourceArgs} --output planned
-    cp planned/annotation_plan.json annotation_plan.json
-    cp planned/annotation_plan.tsv annotation_plan.tsv
+    cat > fragment_list.json <<'ANNOTATION_FRAGMENTS'
+${fragmentList}
+ANNOTATION_FRAGMENTS
+    python3 "\$(command -v prepare_annotation_tasks.py)" merge-plans \
+        --samples '${samples}' --preflight '${receipt}' --fragment-list fragment_list.json \
+        ${sourceArgs} --output merged
+    cp merged/annotation_plan.json annotation_plan.json
+    cp merged/annotation_plan.tsv annotation_plan.tsv
     """
 }
 
@@ -75,6 +138,8 @@ process ANNOTATION_SEARCH {
     time { params.max_time }
     maxForks params.annotation_max_forks
     container { meta.container }
+    publishDir "${params.outdir}/pipeline_info/annotation_storage", mode: 'copy', overwrite: true,
+        saveAs: { name -> name == 'annotation_storage.json' ? "${meta.task_directory}.json" : null }
     // An abruptly terminated task may not emit raw files. The complete plan lets
     // aggregation record that missing result as failed and reject the final gate
     // after independent samples finish. Nextflow retains the task error/trace.
@@ -88,13 +153,38 @@ process ANNOTATION_SEARCH {
     tuple val(meta), path(task_directory, name: 'task'), path(bundle, name: 'bundle'), path(resource, name: 'resource')
 
     output:
-    tuple val(meta), path(task_directory), path(bundle), path(resource), path('raw'), emit: raw_results
+    tuple val(meta), path('raw'), path('annotation_storage.json'), emit: raw_results
 
     script:
     AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, meta.container)
+    def cleanupPolicy = (params.annotation_cleanup ?: 'success').toString()
     """
+    # Nextflow invokes the durable script by absolute path even under scratch.
+    durable_work="\$(dirname "\${BASH_SOURCE[0]}")"
+    test -f "\${durable_work}/.command.run"
     test '${task.cpus}' -eq '${meta.cpus}'
     test '${task.memory.toBytes()}' -eq '${Math.round((meta.memory_gib as double) * 1024 * 1024 * 1024)}'
+    finalize_storage() {
+      native_exit=\$?
+      trap - EXIT TERM INT
+      set +e
+      bash "\$(command -v annotation_storage.sh)" finalize \
+        --execution-root "\$PWD" \
+        --durable-work "\${durable_work}" \
+        --task-directory '${meta.task_directory}' \
+        --tool '${meta.tool}' \
+        --batch-id '${meta.batch_id ?: 'NA'}' \
+        --native-exit "\${native_exit}" \
+        --policy '${cleanupPolicy}'
+      storage_exit=\$?
+      if [[ "\${native_exit}" -ne 0 ]]; then
+          exit "\${native_exit}"
+      fi
+      exit "\${storage_exit}"
+    }
+    trap finalize_storage EXIT
+    trap 'exit 143' TERM
+    trap 'exit 130' INT
     bash task/run.sh
     """
 }

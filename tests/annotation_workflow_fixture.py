@@ -36,7 +36,7 @@ while args[i].startswith('-'):
     if flag in ('-i', '-t', '--rm', '--privileged') or '=' in flag:
         i += 1
         continue
-    if flag not in ('-v', '-w', '-u', '-e', '--env', '--name', '--cpu-shares', '--cpus', '--memory', '--memory-swap', '--entrypoint', '--user'):
+    if flag not in ('-v', '-w', '-u', '-e', '--env', '--name', '--cpu-shares', '--cpus', '--memory', '--memory-swap', '--entrypoint', '--user', '--platform'):
         sys.exit('Unexpected synthetic Docker option: ' + flag)
     value = args[i + 1]
     if flag in ('-e', '--env') and '=' in value:
@@ -54,6 +54,41 @@ os.execvpe(command[0], command, os.environ)
 """
     )
     script.chmod(0o755)
+
+
+def hold_bundle_until_search(project: Path, marker: Path, accession: str) -> None:
+    """Withhold a bundle until an independent native search writes its marker."""
+    entrypoint = project / 'reannotate.nf'
+    text = entrypoint.read_text()
+    delay = '''process HOLD_SLOW_BUNDLE {
+    label 'process_single'
+    container params.python_container
+    input:
+    tuple val(meta), path(bundle)
+    output:
+    tuple val(meta), path('released')
+    script:
+    """
+    for attempt in \\$(seq 1 60); do
+        test -f 'MARKER' && break
+        sleep 1
+    done
+    test -f 'MARKER'
+    cp -R bundle released
+    """
+}
+
+'''.replace('MARKER', str(marker))
+    branch = f'''    HOLD_SLOW_BUNDLE(bundles.filter {{ item -> item[0].accession == {accession!r} }})
+    ready_bundles = bundles.filter {{ item -> item[0].accession != {accession!r} }}.mix(HOLD_SLOW_BUNDLE.out)
+    FUNCTIONAL_ANNOTATION('''
+    if text.count('IMPORT_ANNOTATION_SOURCE.out.samples, bundles,') != 1:
+        raise AssertionError('Streaming fixture entrypoint changed')
+    text = text.replace('workflow {', delay + 'workflow {', 1)
+    text = text.replace('    FUNCTIONAL_ANNOTATION(', branch, 1)
+    text = text.replace('IMPORT_ANNOTATION_SOURCE.out.samples, bundles,',
+                        'IMPORT_ANNOTATION_SOURCE.out.samples, ready_bundles,', 1)
+    entrypoint.write_text(text)
 
 
 def refresh_tables(source: Path) -> None:

@@ -10,7 +10,7 @@ process PROKKA {
         mode: 'copy',
         overwrite: true,
         saveAs: { filename ->
-            filename in ['prokka.gff', 'prokka.faa', 'prokka.gbk', 'prokka.log']
+            filename in ['prokka.gff', 'prokka.faa', 'prokka.gbk', 'prokka.log', 'prokka_storage.json']
                 ? filename
                 : null
         },
@@ -23,6 +23,7 @@ process PROKKA {
     tuple val(meta), path('prokka'), path('prokka.gff'), path('prokka.faa'), path('prokka.gbk'), path('prokka.log'), emit: results
     tuple val(meta), path(genome), val(gcode), path('prokka.faa'), path('prokka.gff'), path('prokka.gbk'), path('prokka.log'), emit: bundle_inputs
     path 'versions.yml', emit: versions
+    path 'prokka_storage.json', optional: true, emit: storage
 
     script:
     def internalId = (meta.internal_id ?: meta.accession).toString()
@@ -106,16 +107,13 @@ process PROKKA {
         : > prokka.gbk
     fi
 
-    rm -rf prokka
-    mkdir -p prokka
-    if [[ -s prokka.gff ]]; then
+    if [[ "\${exit_code}" -eq 0 && -s prokka.gff && -s prokka.faa && -s prokka.gbk ]]; then
+        rm -rf prokka
+        mkdir -p prokka
         cp prokka.gff prokka/
-    fi
-    if [[ -s prokka.faa ]]; then
         cp prokka.faa prokka/
-    fi
-    if [[ -s prokka.gbk ]]; then
         cp prokka.gbk prokka/
+        bash "\$(command -v annotation_storage.sh)" cleanup-legacy --execution-root "\$PWD" --tool prokka --policy '${params.annotation_cleanup}'
     fi
 
     printf 'exit_code=%s\n' "\$exit_code" >> prokka.log
