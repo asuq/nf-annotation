@@ -116,11 +116,12 @@ workflow FUNCTIONAL_ANNOTATION {
             def group = item[0].getGroupTarget()
             tuple([key: group.key, scope: 'eggnog', members: group], item[1])
         }
-    partInputs = individualInputs.mix(groupedInputs).combine(source_results).map { item ->
+    partInputs = individualInputs.mix(groupedInputs)
+        .combine(source_results.map { roots -> [PublishedSources.items(roots)] }).map { item ->
         def meta = item[0]
-        def source = item[2]
+        def sources = PublishedSources.items(item[2])
         def previous = []
-        if (source) {
+        sources.each { source ->
             meta.members.accessions.each { accession ->
                 def tools = meta.scope == 'eggnog' ? ['eggnog'] : ['cogclassifier', 'pfam', 'kofam', 'padloc']
                 tools.each { tool ->
@@ -129,10 +130,11 @@ workflow FUNCTIONAL_ANNOTATION {
                 }
             }
             (meta.members.previous_batch_ids ?: []).each { key ->
-                previous.add(source.resolve("annotation_batches/${key}"))
+                def path = source.resolve("annotation_batches/${key}")
+                if (path.exists()) { previous.add(path) }
             }
         }
-        tuple(meta, item[1], previous, source ? source.toString() : '')
+        tuple(meta, item[1], previous, sources.collect { it.toString() })
     }
     PLAN_ANNOTATION_PART(partInputs, sharedPreflight, resourceManifests)
     fragments = PLAN_ANNOTATION_PART.out.plan.toList().map { paths -> paths.sort(false) { it.toString() } }

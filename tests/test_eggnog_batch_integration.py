@@ -31,6 +31,7 @@ from annotation_common import (
     write_tsv,
 )
 from annotation_resources import file_records
+from annotation_result import validate_result
 from annotation_source import validate_source
 from annotation_workflow_fixture import hold_bundle_until_search, publish_disabled
 
@@ -125,7 +126,7 @@ include { IMPORT_ANNOTATION_SOURCE } from './modules/local/import_annotation_sou
 include { AGGREGATE_ANNOTATIONS; ANNOTATION_ACCEPTANCE } from './modules/local/functional_annotation'
 workflow {
     current = file(params.fixture_source, checkIfExists: true)
-    previous = file(params.annotation_from, checkIfExists: true)
+    previous = PublishedSources.paths(params.annotation_from)
     ANNOTATION_RESOURCES()
     IMPORT_ANNOTATION_SOURCE(Channel.value(current), ANNOTATION_RESOURCES.out.receipt)
     bundles = IMPORT_ANNOTATION_SOURCE.out.samples.splitCsv(header: true, sep: '\\t').map { sample ->
@@ -245,7 +246,7 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
             "-c",
             str(configuration),
             "--annotation_from",
-            str(previous),
+            ','.join(map(str, previous)) if isinstance(previous, list) else str(previous),
             "--outdir",
             str(output),
             "-work-dir",
@@ -426,6 +427,27 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
             if row['tool'] == 'eggnog'
         ]
         self.assertEqual({row['bundle'] for row in planned}, {'batch_inputs/batch00000000'})
+
+    def test_multiple_publications_preserve_native_batches_without_searches(self):
+        source_a = self.input_source('source-a', ['A'])
+        source_b = self.input_source('source-b', ['B'])
+        first = self.run_pipeline('batch-a', source_a)
+        second = self.run_pipeline('batch-b', source_b)
+        calls = self.calls()
+        before = {**validate_source(first)[1], **validate_source(second)[1]}
+        shutil.rmtree(self.root / 'work-batch-a')
+        shutil.rmtree(self.root / 'work-batch-b')
+        merged = self.run_pipeline('merged-batches', [first, second], current=self.source, node_scratch=True)
+        manifest, batches = validate_source(merged)
+        self.assertTrue(manifest['complete'])
+        self.assertEqual(set(batches), set(before))
+        self.assertEqual(self.calls(), calls)
+        plans = read_tsv(merged / 'pipeline_info/annotation_plan.tsv')
+        self.assertEqual({r['action'] for r in plans if r['tool'] == 'eggnog'}, {'reuse'})
+        for accession, source in [('A', first), ('B', second)]:
+            old = validate_result(source / 'samples' / accession / 'annotation/eggnog', batches=before)
+            new = validate_result(merged / 'samples' / accession / 'annotation/eggnog', batches=batches)
+            self.assertEqual(old['normalized_files'], new['normalized_files'])
 
     def test_one_native_batch_reuses_and_renormalizes_portably(self):
         first = self.run_pipeline("initial", self.source)

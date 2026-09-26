@@ -24,7 +24,7 @@ import summarise_busco
 import summarise_checkm2
 import validate_inputs
 from annotation_common import AnnotationError
-from annotation_source import validate_source
+from annotation_source import source_roots, validate_source
 
 LOGGER = logging.getLogger(__name__)
 AUDIT_COLUMNS = (
@@ -632,14 +632,13 @@ def write_update_tables(
                 *validate_inputs.REQUIRED_SAMPLE_COLUMNS,
                 "internal_id",
                 "source_gcode",
+                "source_index",
             ],
             reused,
         ),
         ("cohort_update.tsv", AUDIT_COLUMNS, audit),
     ):
         write_table(args.outdir / name, header, rows)
-    for row in versions:
-        row["notes"] = f"reused source {identity['source_outdir']}: {row['notes']}"
     write_table(
         args.outdir / "inherited_versions.tsv",
         collect_versions.OUTPUT_COLUMNS,
@@ -652,18 +651,20 @@ def write_update_tables(
 
 def run_prepare(args: argparse.Namespace) -> None:
     """Preflight every retained sample before exposing additions to the workflow."""
-    source = args.source_results.resolve(strict=True)
+    try:
+        sources = source_roots(args.source_results)
+    except AnnotationError as error:
+        raise CohortUpdateError(str(error)) from error
+    if not sources:
+        raise CohortUpdateError("At least one published source is required")
     if any(
         not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", lineage)
         for lineage in args.busco_lineage
     ):
         raise CohortUpdateError("BUSCO lineages must be simple directory names.")
     destination = args.destination.resolve()
-    if (
-        source == destination
-        or source in destination.parents
-        or destination in source.parents
-    ):
+    if any(source == destination or source in destination.parents
+           or destination in source.parents for source in sources):
         raise CohortUpdateError(
             "--update_from and --outdir must be separate, non-overlapping directories."
         )
@@ -676,28 +677,48 @@ def run_prepare(args: argparse.Namespace) -> None:
             "A cohort update requires at least one requested sample."
         )
     requested = index_rows(samples, "accession", args.validated_samples)
-    source_index, statuses, masters, versions = load_source_tables(
-        source, args.busco_lineage, set(requested)
-    )
-    source_manifest = source / "tables/validated_samples.tsv"
-    versions_path = source / "tables/tool_and_db_versions.tsv"
+    source_index, statuses, masters, origins = {}, {}, {}, {}
+    versions, source_identities = [], []
+    for number, source in enumerate(sources):
+        source_samples, source_statuses, source_masters, source_versions = load_source_tables(
+            source, args.busco_lineage, set(requested)
+        )
+        overlap = source_index.keys() & source_samples.keys()
+        if overlap:
+            raise CohortUpdateError(
+                f"Duplicate accessions across published sources: {sorted(overlap)}"
+            )
+        source_index.update(source_samples)
+        statuses.update(source_statuses)
+        masters.update(source_masters)
+        origins.update({accession: number for accession in source_samples})
+        source_identities.append({
+            "source_outdir": str(source),
+            "source_manifest_sha256": file_sha256(source / "tables/validated_samples.tsv"),
+            "source_versions_sha256": file_sha256(source / "tables/tool_and_db_versions.tsv"),
+        })
+        for row in source_versions:
+            versions.append({**row, "notes": f"reused source {source}: {row['notes']}"})
     internal_ids = allocate_internal_ids(list(requested), source_index)
     candidates = sorted(args.genome_inputs.glob("genome*"))
     if len(candidates) != len(samples):
         raise CohortUpdateError(
             "Staged candidate-genome count does not match the requested manifest."
         )
-    manifest_hash = file_sha256(source_manifest)
-    versions_hash = file_sha256(versions_path)
     audit = []
     reused = []
     added = []
     for sample, candidate in zip(samples, candidates, strict=True):
         accession = sample["accession"]
         fingerprint = genome_fingerprint(candidate)
+        origin = origins.get(accession)
+        provenance = source_identities[origin] if origin is not None else (
+            source_identities[0] if len(sources) == 1 else
+            {key: "NA" for key in source_identities[0]}
+        )
         if accession in source_index:
             source_fingerprint = validate_sample_outputs(
-                source / "samples" / accession,
+                sources[origin] / "samples" / accession,
                 source_index[accession],
                 statuses[accession],
                 masters[accession],
@@ -712,6 +733,7 @@ def run_prepare(args: argparse.Namespace) -> None:
                 {
                     **sample,
                     "source_gcode": statuses[accession]["gcode"],
+                    "source_index": str(origin),
                 }
             )
             action = "reused"
@@ -728,15 +750,16 @@ def run_prepare(args: argparse.Namespace) -> None:
                         action,
                         internal_ids[accession],
                         fingerprint,
-                        str(source),
-                        manifest_hash,
-                        versions_hash,
+                        provenance["source_outdir"],
+                        provenance["source_manifest_sha256"],
+                        provenance["source_versions_sha256"],
                     ),
                     strict=True,
                 )
             )
         )
     for accession in sorted(set(source_index) - set(requested)):
+        provenance = source_identities[origins[accession]]
         audit.append(
             dict(
                 zip(
@@ -746,9 +769,9 @@ def run_prepare(args: argparse.Namespace) -> None:
                         "removed",
                         source_index[accession]["internal_id"],
                         "NA",
-                        str(source),
-                        manifest_hash,
-                        versions_hash,
+                        provenance["source_outdir"],
+                        provenance["source_manifest_sha256"],
+                        provenance["source_versions_sha256"],
                     ),
                     strict=True,
                 )
@@ -759,9 +782,7 @@ def run_prepare(args: argparse.Namespace) -> None:
     for sample in reused:
         sample["internal_id"] = internal_ids[sample["accession"]]
     identity = {
-        "source_outdir": str(source),
-        "source_manifest_sha256": manifest_hash,
-        "source_versions_sha256": versions_hash,
+        **(source_identities[0] if len(sources) == 1 else {"sources": source_identities}),
         "metadata_sha256": file_sha256(args.metadata),
         "samples": samples,
         "genomes": {
@@ -800,7 +821,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Run the update preflight CLI."""
     parser = argparse.ArgumentParser(description=__doc__)
     for option in (
-        "source-results",
         "destination",
         "validated-samples",
         "accession-map",
@@ -812,6 +832,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "outdir",
     ):
         parser.add_argument(f"--{option}", type=Path, required=True)
+    parser.add_argument("--source-results", type=Path, action="append", required=True)
     parser.add_argument("--busco-lineage", action="append", required=True)
     parser.add_argument(
         "--gcode-rule", choices=summarise_checkm2.GCODE_RULE_CHOICES,

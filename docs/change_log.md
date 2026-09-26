@@ -1,5 +1,15 @@
 # Change Log
 
+## v0.4.3 - 2026-09-26
+
+- Accept multiple disjoint published cohorts through `--update_from`, retaining
+  single-source compatibility and native v0.4.2 publication reuse without old work
+  directories. Reuse per-sample QC, gene predictions and compatible functional
+  results, preserve native eggNOG batches, and rebuild combined cohort reports.
+- Record each sample's source and inherited provenance; reject duplicate sources,
+  overlapping accessions and conflicting internal IDs rather than choosing by
+  precedence. Resume requires the same sources, inputs and settings.
+
 ## v0.4.2 - 2026-09-25
 
 - Launch KOfam, Pfam, COGclassifier and PADLOC independently when each protein

@@ -25,6 +25,39 @@ from annotation_summary import ANNOTATION_COLUMNS, MATRICES
 from validate_inputs import detect_metadata_key_column
 
 
+def source_roots(source: Path | list[Path] | None) -> list[Path]:
+    """Normalise source paths without changing their caller-visible order."""
+    roots = [] if source is None else source if isinstance(source, list) else [source]
+    resolved = [path.resolve(strict=True) for path in roots]
+    if len(set(resolved)) != len(resolved):
+        raise AnnotationError("Duplicate published source directories")
+    return resolved
+
+
+def validate_sources(source: Path | list[Path] | None) -> dict[str, NativeBatch]:
+    """Validate independent publications and combine their native batch index."""
+    accessions: set[str] = set()
+    batches: dict[str, NativeBatch] = {}
+    for root in source_roots(source):
+        manifest, native = validate_source(root)
+        overlap = accessions.intersection(manifest["accessions"])
+        if overlap:
+            raise AnnotationError(f"Duplicate accessions across published sources: {sorted(overlap)}")
+        if batches.keys() & native.keys():
+            raise AnnotationError("Duplicate native batch IDs across published sources")
+        accessions.update(manifest["accessions"])
+        batches.update(native)
+    return batches
+
+
+def sample_source(roots: list[Path], accession: str) -> Path | None:
+    """Route a sample to its only source; never choose by source precedence."""
+    matches = [root for root in roots if (root / "samples" / accession).exists()]
+    if len(matches) > 1:
+        raise AnnotationError(f"Duplicate accession across published sources: {accession}")
+    return matches[0] if matches else None
+
+
 @contextmanager
 def source_rows(
     path: Path, required: Iterable[str]

@@ -19,7 +19,7 @@ process PREPARE_COHORT_UPDATE {
     path accession_map, name: 'requested_accession_map.tsv'
     path initial_status, name: 'initial_status.tsv'
     path validation_warnings, name: 'requested_validation_warnings.tsv'
-    path source_results, name: 'source_results'
+    path source_results, stageAs: 'source_results/source????'
     path genome_inputs, stageAs: 'candidate_genomes/genome??????'
     path metadata, name: 'metadata_input.tsv'
     path previous_update, name: 'previous_update.json'
@@ -44,6 +44,7 @@ process PREPARE_COHORT_UPDATE {
     def lineageArgs = busco_lineages.collect { "--busco-lineage ${quote.call(it)}" }.join(' ')
     def previousArg = previous_update ? '--previous-update previous_update.json' : ''
     def settingsJson = groovy.json.JsonOutput.toJson(update_settings)
+    def sourceArgs = PublishedSources.arguments(source_results, '--source-results')
     """
     cat <<'UPDATE_SETTINGS' > update_settings.json
     ${settingsJson}
@@ -53,7 +54,7 @@ process PREPARE_COHORT_UPDATE {
         --accession-map ${quote.call(accession_map)} \
         --initial-status initial_status.tsv \
         --validation-warnings ${quote.call(validation_warnings)} \
-        --source-results source_results \
+        ${sourceArgs} \
         --genome-inputs candidate_genomes \
         --metadata ${quote.call(metadata)} \
         --settings update_settings.json \

@@ -314,6 +314,51 @@ class PrepareCohortUpdateTestCase(unittest.TestCase):
         _, new = update.read_table(args.outdir / "new_samples.tsv")
         self.assertEqual([row["accession"] for row in new], ["B"])
 
+    def test_multiple_sources_route_samples_and_preserve_provenance(self) -> None:
+        first = self.source
+        self.published_cohort(["A"])
+        self.source = self.root / "second source"
+        self.published_cohort(["B"])
+        args = self.arguments(["B", "A", "C"])
+        args.source_results = [first, self.source]
+        update.run_prepare(args)
+        _, reused = update.read_table(args.outdir / "reused_samples.tsv")
+        self.assertEqual({r['accession']: r['source_index'] for r in reused}, {'A': '0', 'B': '1'})
+        _, added = update.read_table(args.outdir / "new_samples.tsv")
+        self.assertEqual([r['accession'] for r in added], ['C'])
+        identity = json.loads((args.outdir / "cohort_update_run.json").read_text())
+        self.assertEqual([r['source_outdir'] for r in identity['sources']], [str(first.resolve()), str(self.source.resolve())])
+        _, audit = update.read_table(args.outdir / "cohort_update.tsv")
+        self.assertEqual({r['accession']: r['source_outdir'] for r in audit}, {'A': str(first.resolve()), 'B': str(self.source.resolve()), 'C': 'NA'})
+        args.previous_update = args.outdir / "cohort_update_run.json"
+        update.run_prepare(args)
+        args.source_results.reverse()
+        with self.assertRaisesRegex(update.CohortUpdateError, 'different inputs'):
+            update.run_prepare(args)
+
+    def test_multiple_sources_reject_duplicate_accessions_and_roots(self) -> None:
+        first = self.source
+        self.published_cohort(["A"])
+        self.source = self.root / "second"
+        self.published_cohort(["A"])
+        args = self.arguments(["A"])
+        args.source_results = [first, self.source]
+        with self.assertRaisesRegex(update.CohortUpdateError, 'Duplicate accessions'):
+            update.run_prepare(args)
+        args.source_results = [first, first]
+        with self.assertRaisesRegex(update.CohortUpdateError, 'Duplicate published source'):
+            update.run_prepare(args)
+
+    def test_multiple_sources_reject_published_internal_id_collisions(self) -> None:
+        first = self.source
+        self.published_cohort(["ID-X"])
+        self.source = self.root / "second"
+        self.published_cohort(["ID.X"])
+        args = self.arguments(["ID-X", "ID.X"])
+        args.source_results = [first, self.source]
+        with self.assertRaisesRegex(update.CohortUpdateError, 'duplicate published internal_id'):
+            update.run_prepare(args)
+
     def test_supplemental_columns_cannot_override_internal_reuse_fields(self) -> None:
         self.published_cohort(["A"])
         args = self.arguments(["A"])

@@ -26,7 +26,7 @@ from annotation_common import (
 from annotation_path_lists import read_path_list
 from annotation_resources import AnnotationResourceError
 from annotation_result import validate_result
-from annotation_source import import_source, validate_source
+from annotation_source import import_source, sample_source, source_roots, validate_sources
 from annotation_tasks import (
     normalize_task,
     plan_task,
@@ -60,12 +60,13 @@ def plan(
     bundles: list[Path],
     receipt: Path,
     output: Path,
-    source: Path | None = None,
+    source: Path | list[Path] | None = None,
     *,
     tools: tuple[str, ...] = TOOLS,
     previous_batch_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     """Plan every declared accession/tool combination, including absent bundles."""
+    roots = source_roots(source)
     checked = read_json(receipt)
     validate_preflight(checked)
     rows = read_tsv(samples, ["accession"])
@@ -90,15 +91,20 @@ def plan(
         if record["status"] not in ("success", "upstream_failed", "incompatible_input"):
             raise AnnotationError("Unsupported bundle status")
         by_accession[accession] = (bundle.resolve(), record)
-    if source is not None and "eggnog" in tools:
+    if roots and "eggnog" in tools:
         if previous_batch_ids is None:
-            previous_batches = validate_source(source)[1]
+            previous_batches = validate_sources(roots)
         else:
             from annotation_result import native_batch_index
 
-            previous_batches = native_batch_index(
-                [source / "annotation_batches" / key for key in previous_batch_ids]
-            )
+            previous_paths = []
+            for key in previous_batch_ids:
+                matches = [root / "annotation_batches" / key for root in roots
+                           if (root / "annotation_batches" / key).exists()]
+                if len(matches) != 1:
+                    raise AnnotationError(f"Missing or ambiguous published batch: {key}")
+                previous_paths.extend(matches)
+            previous_batches = native_batch_index(previous_paths)
     else:
         previous_batches = {}
     output.mkdir()
@@ -125,6 +131,7 @@ def plan(
     eggnog_rows = {}
     tasks = []
     for accession in accessions:
+        previous_source = sample_source(roots, accession)
         bundle, bundle_record = by_accession.get(accession, (None, {}))
         proteins = []
         if bundle_record.get("status") == "success":
@@ -158,8 +165,8 @@ def plan(
                 if tools != TOOLS:
                     name = "task_" + identity([accession, tool])
                 old = (
-                    source / "samples" / accession / "annotation" / tool
-                    if source
+                    previous_source / "samples" / accession / "annotation" / tool
+                    if previous_source
                     else None
                 )
                 if tool == "eggnog":
@@ -211,10 +218,11 @@ def plan(
             output / ("eggnog_" + batch["batch_id"]),
             previous_batches.get(batch["batch_id"]),
             {
-                accession: source / "samples" / accession / "annotation" / "eggnog"
+                accession: previous / "samples" / accession / "annotation" / "eggnog"
                 for accession in member_accessions
+                if (previous := sample_source(roots, accession)) is not None
             }
-            if source is not None
+            if roots
             else {},
         )
         for accession in member_accessions:
@@ -254,7 +262,7 @@ def reuse(taskdir: Path, outdir: Path) -> None:
     write_json(outdir / "result.json", record)
 
 
-def execution_groups(samples: Path, receipt: Path, source: Path | None, size: int) -> dict:
+def execution_groups(samples: Path, receipt: Path, source: Path | list[Path] | None, size: int) -> dict:
     """Freeze small eggNOG readiness groups without waiting for new proteins."""
     if size < 1:
         raise AnnotationError("eggNOG group size must be positive")
@@ -268,7 +276,7 @@ def execution_groups(samples: Path, receipt: Path, source: Path | None, size: in
     groups = []
     remaining = set(accessions)
     if "eggnog" in checked["enabled_tools"]:
-        previous = validate_source(source)[1] if source is not None else {}
+        previous = validate_sources(source)
         for batch_id, native in sorted(previous.items()):
             members = sorted(remaining.intersection(native.members))
             if members:
@@ -285,7 +293,7 @@ def execution_groups(samples: Path, receipt: Path, source: Path | None, size: in
 
 
 def plan_part(members: Path, bundles: list[Path], receipt: Path, output: Path,
-              source: Path | None, scope: str) -> dict:
+              source: Path | list[Path] | None, scope: str) -> dict:
     """Plan one ready proteome or one ready eggNOG group with existing methods."""
     group = read_json(members)
     accessions = group["accessions"]
@@ -301,12 +309,12 @@ def plan_part(members: Path, bundles: list[Path], receipt: Path, output: Path,
 
 
 def merge_plans(samples: Path, receipt: Path, fragments: list[Path], output: Path,
-                source: Path | None) -> dict:
+                source: Path | list[Path] | None) -> dict:
     """Build the complete cohort accounting after independently scheduled work."""
     checked = read_json(receipt)
     validate_preflight(checked)
     if source is not None:
-        validate_source(source)
+        validate_sources(source)
     accessions = [row["accession"] for row in read_tsv(samples, ["accession"])]
     if not accessions or len(set(accessions)) != len(accessions):
         raise AnnotationError("Invalid cohort planning manifest")
@@ -351,26 +359,26 @@ def main() -> int:
     planner.add_argument("--samples", type=Path, required=True)
     planner.add_argument("--bundle-list", type=Path, required=True)
     planner.add_argument("--preflight", type=Path, required=True)
-    planner.add_argument("--source", type=Path)
+    planner.add_argument("--source", type=Path, action="append")
     planner.add_argument("--output", type=Path, required=True)
     groups = sub.add_parser("groups", allow_abbrev=False)
     groups.add_argument("--samples", type=Path, required=True)
     groups.add_argument("--preflight", type=Path, required=True)
-    groups.add_argument("--source", type=Path)
+    groups.add_argument("--source", type=Path, action="append")
     groups.add_argument("--size", type=int, default=8)
     groups.add_argument("--output", type=Path, required=True)
     part = sub.add_parser("plan-part", allow_abbrev=False)
     part.add_argument("--members", type=Path, required=True)
     part.add_argument("--bundle-list", type=Path, required=True)
     part.add_argument("--preflight", type=Path, required=True)
-    part.add_argument("--source", type=Path)
+    part.add_argument("--source", type=Path, action="append")
     part.add_argument("--scope", choices=("individual", "eggnog"), required=True)
     part.add_argument("--output", type=Path, required=True)
     merger = sub.add_parser("merge-plans", allow_abbrev=False)
     merger.add_argument("--samples", type=Path, required=True)
     merger.add_argument("--preflight", type=Path, required=True)
     merger.add_argument("--fragment-list", type=Path, required=True)
-    merger.add_argument("--source", type=Path)
+    merger.add_argument("--source", type=Path, action="append")
     merger.add_argument("--output", type=Path, required=True)
     normalizer = sub.add_parser("normalize")
     for name in ("task", "raw", "bundle", "output"):

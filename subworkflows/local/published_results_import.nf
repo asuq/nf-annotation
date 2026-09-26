@@ -13,7 +13,7 @@ workflow PUBLISHED_RESULTS_IMPORT {
     busco_lineages
 
     main:
-    sourceRoot = file(params.update_from, checkIfExists: true)
+    sourceRoots = PublishedSources.paths(params.update_from)
     candidateGenomes = validated_samples
         .splitCsv(header: true, sep: '\t')
         .map { row -> java.nio.file.Path.of(row.genome_fasta).toRealPath() }
@@ -33,7 +33,7 @@ workflow PUBLISHED_RESULTS_IMPORT {
 
     PREPARE_COHORT_UPDATE(
         validated_samples, accession_map, initial_status, validation_warnings,
-        Channel.value(sourceRoot), candidateGenomes, metadata, previousUpdate,
+        Channel.value(sourceRoots), candidateGenomes, metadata, previousUpdate,
         busco_lineages, Channel.value(updateSettings),
         Channel.value(file(params.outdir).toAbsolutePath().normalize().toString()),
     )
@@ -44,8 +44,8 @@ workflow PUBLISHED_RESULTS_IMPORT {
     reusedSamples = PREPARE_COHORT_UPDATE.out.reused_samples
         .splitCsv(header: true, sep: '\t')
         .map { row ->
-            def meta = row.findAll { key, value -> key != 'source_gcode' }
-            tuple(meta, sourceRoot.resolve("samples/${row.accession}"), row.source_gcode)
+            def meta = row.findAll { key, value -> !(key in ['source_gcode', 'source_index']) }
+            tuple(meta, sourceRoots[row.source_index as int].resolve("samples/${row.accession}"), row.source_gcode)
         }
     IMPORT_PUBLISHED_SAMPLE(reusedSamples, busco_lineages)
     imported = IMPORT_PUBLISHED_SAMPLE.out.results.map { item ->

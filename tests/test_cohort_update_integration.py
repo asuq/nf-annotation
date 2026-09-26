@@ -158,7 +158,7 @@ class CohortUpdateIntegrationTestCase(unittest.TestCase):
         name: str,
         accessions: list[str],
         *,
-        source: Path | None = None,
+        source: Path | list[Path] | None = None,
         extra: list[str] = (),
         resume: bool = False,
         expected_code: int = 0,
@@ -187,7 +187,7 @@ class CohortUpdateIntegrationTestCase(unittest.TestCase):
             *extra,
         ]
         if source:
-            command.extend(["--update_from", str(source)])
+            command.extend(["--update_from", ','.join(map(str, source)) if isinstance(source, list) else str(source)])
         if resume:
             command.append("-resume")
         environment = os.environ.copy()
@@ -277,6 +277,30 @@ class CohortUpdateIntegrationTestCase(unittest.TestCase):
                 (source / "samples/B/prokka" / name).read_bytes(),
                 (updated / "samples/B/prokka" / name).read_bytes(),
             )
+
+    def test_merge_independent_publications_without_rerunning_samples(self) -> None:
+        first = self.run_pipeline('multi-a', ['A'])
+        second = self.run_pipeline('multi-b', ['B'])
+        before = [fingerprints(p) for p in (first, second)]
+        for name in ('multi-a', 'multi-b'):
+            shutil.rmtree(self.root / f'work-{name}')
+        merged = self.run_pipeline('multi-ab', ['A', 'B'], source=[first, second])
+        self.assert_members(merged, {'A', 'B'})
+        self.assertEqual(self.heavy_tasks(merged), [])
+        for source, accession, original in zip((first, second), ('A', 'B'), before):
+            self.assertEqual(fingerprints(source), original)
+            self.assertEqual(fingerprints(source / 'samples' / accession), fingerprints(merged / 'samples' / accession))
+        self.assertEqual({r['action'] for r in read_rows(merged / 'tables/cohort_update.tsv')}, {'reused'})
+        parameters = self.root / 'multi-sources.json'
+        parameters.write_text(json.dumps({'update_from': [str(first), str(second)]}))
+        resumed = self.run_pipeline('multi-ab', ['A', 'B'], resume=True,
+                                    extra=['-params-file', str(parameters)])
+        self.assert_members(resumed, {'A', 'B'})
+        self.assertEqual(self.heavy_tasks(resumed), [])
+        # The merged output is itself a normal portable source for later additions.
+        successor = self.run_pipeline('multi-abc', ['A', 'B', 'C'], source=merged)
+        self.assert_members(successor, {'A', 'B', 'C'})
+        self.assertTrue(all('(C' in r['name'] for r in self.heavy_tasks(successor)))
 
     def test_add_remove_and_successive_updates_without_original_work(self) -> None:
         source = self.run_pipeline("ab", ["A", "B"])

@@ -54,13 +54,14 @@ workflow {
         if (!params.codetta_db) { error "params.codetta_db is required." }
     }
     if (params.update_from) {
-        def sourceRoot = new File(params.update_from.toString()).canonicalFile.toPath()
         def outputRoot = new File(params.outdir.toString()).canonicalFile.toPath()
-        if (!sourceRoot.toFile().isDirectory()) {
-            error "params.update_from must point to a published results directory."
-        }
-        if (outputRoot.startsWith(sourceRoot) || sourceRoot.startsWith(outputRoot)) {
-            error "--update_from and --outdir must be separate, non-overlapping directories."
+        PublishedSources.paths(params.update_from).each { sourceRoot ->
+            if (!sourceRoot.toFile().isDirectory()) {
+                error "params.update_from must point to published results directories."
+            }
+            if (outputRoot.startsWith(sourceRoot) || sourceRoot.startsWith(outputRoot)) {
+                error "--update_from and --outdir must be separate, non-overlapping directories."
+            }
         }
         def existingOutputs = outputRoot.toFile().listFiles()?.findAll { it.name != 'pipeline_info' }
         if (existingOutputs) {
@@ -135,7 +136,7 @@ workflow {
         INPUT_VALIDATION_AND_STAGING.out.validated_samples,
         PER_SAMPLE_ANNOTATION.out.bundles.mix(INPUT_VALIDATION_AND_STAGING.out.reused_bundles),
         ANNOTATION_RESOURCES.out.receipt,
-        Channel.value(params.update_from ? file(params.update_from, checkIfExists: true) : []),
+        Channel.value(params.update_from ? PublishedSources.paths(params.update_from) : []),
     )
     COHORT_ANI(
         INPUT_VALIDATION_AND_STAGING.out.validated_samples,

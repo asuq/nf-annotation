@@ -254,7 +254,38 @@ for routine sample additions and removals. The sample CSV is the complete
 desired cohort, not a list of changes. An accession is reused only when it is
 in the source's `tables/validated_samples.tsv`; the `is_new` CSV flag does not
 control reuse. An accession absent from the chosen source is analysed again,
-even if it appeared in some other, older results directory.
+even if it appeared in some other, unselected results directory.
+
+From v0.4.3, combine independent published cohorts with a comma-separated
+source list:
+
+```bash
+nextflow run . -c annotation.config -profile oist \
+  --update_from '/path/to/batch-1,/path/to/batch-2' \
+  --sample_csv combined-samples.csv --metadata combined-metadata.tsv \
+  --outdir /path/to/combined-results
+```
+
+Alternatively, set `update_from: ["/path/to/batch-1", "/path/to/batch-2"]` in a
+Nextflow parameter YAML/JSON file (`-params-file`), or use a list in a config.
+Use a list for paths containing commas. Do not repeat the CLI flag: provide
+one value containing the source list. A single path remains supported.
+
+Every source must be a complete native publication. Source accessions must be
+disjoint, including samples omitted from the desired cohort; duplicate accessions
+are rejected even when their files look identical. Conflicting published internal
+IDs are also rejected, because relabelling native artefacts could corrupt joins.
+There is no source-precedence rule. Select disjoint publications or the latest
+cumulative publication instead of supplying overlapping snapshots.
+
+Retained samples keep their native QC and gene predictions; compatible functional
+results and existing eggNOG batch membership are reused from their owning source.
+No original work directories are required, including for v0.4.2 publications.
+The combined output is portable and can itself become the source of a later
+update. ANI and cohort reports are still rebuilt across the entire desired cohort.
+The per-sample audit identifies its source; the update identity records all source
+manifests and version-report hashes, and provenance retains each source label.
+Keep the same ordered source list when resuming an interrupted update.
 
 For example, after a normal run containing A and B, give the update a sample
 CSV containing B and C. B's published QC and gene predictions are reused, C receives

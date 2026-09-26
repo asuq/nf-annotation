@@ -302,6 +302,23 @@ with tempfile.NamedTemporaryFile() as temporary:
             with self.assertRaisesRegex(AnnotationError, 'Duplicate or foreign'):
                 merge_plans(samples, receipt, [fragment, fragment], self.root / 'duplicate', None)
 
+    def test_individual_plan_reuses_result_from_second_source(self):
+        first = self.root / 'first-source'
+        first.mkdir()
+        second = self.root / 'second-source'
+        old = self.write_result(self.result(), 'second-source/samples/A/annotation/kofam')
+        receipt = self.root / 'multi-preflight.json'
+        entry = self.entry()
+        entry['resource_path'] = str(self.root / 'resource')
+        write_json(receipt, dict(enabled_tools=['kofam'], preflight_id='fixture', tools={'kofam': entry}))
+        members = self.root / 'multi-members.json'
+        write_json(members, dict(accessions=['A']))
+        with patch('prepare_annotation_tasks.validate_preflight'):
+            record = plan_part(members, [self.bundle], receipt, self.root / 'multi-plan', [first, second], 'individual')
+        row = next(r for r in record['tasks'] if r['tool'] == 'kofam')
+        self.assertEqual(row['action'], 'reuse')
+        self.assertEqual(row['search_fingerprint'], validate_result(old)['search_fingerprint'])
+
     def test_readiness_groups_do_not_depend_on_manifest_order(self):
         samples = self.root / 'grouping-samples.tsv'
         receipt = self.root / 'grouping-preflight.json'

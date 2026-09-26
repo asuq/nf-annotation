@@ -39,7 +39,7 @@ process PLAN_ANNOTATION_GROUPS {
     input:
     path samples
     path receipt
-    path source_results, name: 'source_results'
+    path source_results, stageAs: 'source_results/source????'
     path resource_manifests, stageAs: 'resource_manifests/manifest??.json'
 
     output:
@@ -49,7 +49,7 @@ process PLAN_ANNOTATION_GROUPS {
     if (params.annotation_tools) {
         AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
     }
-    def sourceArgs = source_results ? "--source '${source_results}'" : ''
+    def sourceArgs = PublishedSources.arguments(source_results)
     """
     python3 "\$(command -v prepare_annotation_tasks.py)" groups \
         --samples '${samples}' --preflight '${receipt}' ${sourceArgs} \
@@ -80,7 +80,7 @@ process PLAN_ANNOTATION_PART {
     }
     def bundleList = groovy.json.JsonOutput.toJson((bundles instanceof Collection ? bundles : [bundles]).collect { it.toString() })
     def members = groovy.json.JsonOutput.toJson(meta.members)
-    def sourceArgs = source_root ? "--source '${source_root}'" : ''
+    def sourceArgs = PublishedSources.arguments(source_root)
     """
     cat > members.json <<'ANNOTATION_MEMBERS'
 ${members}
@@ -106,7 +106,7 @@ process MERGE_ANNOTATION_PLANS {
     path samples
     path receipt
     path fragments, stageAs: 'fragments/plan??.json'
-    path source_results, name: 'source_results'
+    path source_results, stageAs: 'source_results/source????'
     path resource_manifests, stageAs: 'resource_manifests/manifest??.json'
 
     output:
@@ -118,7 +118,7 @@ process MERGE_ANNOTATION_PLANS {
         AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
     }
     def fragmentList = groovy.json.JsonOutput.toJson((fragments instanceof Collection ? fragments : [fragments]).collect { it.toString() })
-    def sourceArgs = source_results ? "--source '${source_results}'" : ''
+    def sourceArgs = PublishedSources.arguments(source_results)
     """
     cat > fragment_list.json <<'ANNOTATION_FRAGMENTS'
 ${fragmentList}
