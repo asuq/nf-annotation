@@ -70,21 +70,29 @@ workflow PER_SAMPLE_ANNOTATION {
 
     PROKKA(annotation_candidates)
     PREPARE_ANNOTATION_BUNDLE(PROKKA.out.bundle_inputs)
-    CCFINDER(annotation_candidates)
-    SUMMARISE_CCFINDER(CCFINDER.out.result_json)
+    if (SamplePolicy.stage(params) == 'full') {
+        CCFINDER(annotation_candidates)
+        SUMMARISE_CCFINDER(CCFINDER.out.result_json)
+        crisprResults = CCFINDER.out.results
+        crisprSummary = SUMMARISE_CCFINDER.out.summaries
+        crisprVersions = CCFINDER.out.versions.mix(SUMMARISE_CCFINDER.out.versions)
+    } else {
+        crisprResults = Channel.empty()
+        crisprSummary = Channel.empty()
+        crisprVersions = Channel.empty()
+    }
     versions = PROKKA.out.versions
         .mix(PREPARE_ANNOTATION_BUNDLE.out.versions)
         .mix(CODETTA.out.versions)
         .mix(SUMMARISE_CODETTA.out.versions)
-        .mix(CCFINDER.out.versions)
-        .mix(SUMMARISE_CCFINDER.out.versions)
+        .mix(crisprVersions)
 
     emit:
     codetta = CODETTA.out.results
     codetta_summary = SUMMARISE_CODETTA.out.summary
     prokka = PROKKA.out.results
     bundles = PREPARE_ANNOTATION_BUNDLE.out.bundle
-    ccfinder = CCFINDER.out.results
-    ccfinder_summary = SUMMARISE_CCFINDER.out.summaries
+    ccfinder = crisprResults
+    ccfinder_summary = crisprSummary
     versions = versions
 }

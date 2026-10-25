@@ -190,6 +190,9 @@ The most important implementation-level parameters are:
 | `codetta_db` | `main.nf`, `prepare_databases.nf` | Codetta profile directory rooted at `Pfam-A_enone.hmm`. |
 | `busco_db` | `main.nf`, `prepare_databases.nf` | Offline BUSCO lineage root unless datasets are downloaded on demand. |
 | `prepare_busco_datasets` | `main.nf` | Switches BUSCO lineage resolution from reuse to download. |
+| `pipeline_stage` | `main.nf` | `full` (default), `qc`, or `ani`; ANI-only requires completed published sources for every sample. |
+| `domain` | `main.nf` | Required: `bacteria`, `archaea`, or `metadata`; metadata mode reads the exact `Domain` column. Prokka/Barrnap kingdoms are derived internally. |
+| `busco_domain_lineages` | both | Explicit domain-to-lineage-list map; first entry per domain supplies the existing BUSCO scoring term. |
 | `busco_lineages` | both | Non-empty lineage list; defaults to `bacillota_odb12` and `mycoplasmatota_odb12`. |
 | `eggnog_db` | `main.nf`, `prepare_databases.nf` | eggNOG data directory. |
 | `cogclassifier_db`, `pfam_db`, `kofam_db` | all three | Prepared immutable annotation resources. |
@@ -478,3 +481,19 @@ or labels, pipeline metadata, and the active container engine in one final TSV.
 - `docs/design_spec.md`: frozen v1 behaviour contract and original design scope
 - `docs/run_pipeline_test.md`: wrapper-specific usage for `bin/run_pipeline_test.sh`
 - `docs/change_log.md`: high-level repository change log
+
+## Domain routing and stage publications
+
+The [domain/stage contract](domain_stages.md) extends the existing full workflow
+without rewriting native identifiers or changing QC thresholds or the ANI formula. Domain
+profiles replace the cohort-wide BUSCO selection when configured; the master
+table records the selected lineage, its actual result and the domain declaration
+source. The global table contract uses the union of configured profiles, while
+each sample runs only its own profile. Other-domain lineage fields remain
+unavailable and are not treated as failed analyses.
+
+QC-only publications retain the normal reusable manifest and protein bundles,
+with explicit scope and unavailable ANI/CRISPR evidence. ANI-only runs reject
+new samples or changed/unrecorded source policies. Imported policy code is an
+explicit input to validation, source-import validation and reporting tasks, so
+changes to that code invalidate the corresponding Nextflow cache entries.

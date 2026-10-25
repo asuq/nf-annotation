@@ -28,6 +28,7 @@ process BUILD_FASTANI_INPUTS {
     path assembly_stats
     val primary_busco_column
     val ani_16s_policy
+    val policy_code
 
     output:
     path 'fastani_inputs', emit: fastani_inputs
@@ -39,7 +40,10 @@ process BUILD_FASTANI_INPUTS {
     script:
     def buscoTableList = busco_tables instanceof Collection ? busco_tables : [busco_tables]
     def buscoArgs = buscoTableList.collect { "--busco \"${it}\"" }.join(' \\\n        ')
-    """build_fastani_inputs.py \
+    """
+    # sample_policy_sha256=${policy_code}
+
+build_fastani_inputs.py \
     --validated-samples "${validated_samples}" \
     --metadata "${metadata}" \
     --staged-manifest "${staged_manifest}" \

@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
+import sample_policy
 import master_table_contract
 
 
@@ -679,6 +680,13 @@ def run_build(args: argparse.Namespace) -> None:
             "contract: " + ", ".join(unexpected_busco_columns)
         )
 
+    policy_columns = []
+    if any("annotation_domain" in row for row in validated_samples):
+        policy_columns += list(sample_policy.PROVENANCE_COLUMNS[:4])
+    if any("qc_scope" in row for row in validated_samples):
+        policy_columns += ["QC_Scope"]
+    if set(policy_columns) & set(metadata_header):
+        raise MasterTableError("Metadata overlaps resolved sample-policy columns")
     rows: list[dict[str, str]] = []
     for sample_row in validated_samples:
         master_row = build_master_row(
@@ -696,9 +704,22 @@ def run_build(args: argparse.Namespace) -> None:
             ani_index=ani_index,
             append_columns=append_columns,
         )
+        if "Annotation_Domain" in policy_columns:
+            column = sample_policy.primary_column(sample_row, None)
+            if column is None:
+                raise MasterTableError("Missing domain policy in mixed-domain cohort")
+            summary = busco_index.get(sample_row["accession"], {}).get(column)
+            master_row.update(
+                Annotation_Domain=sample_row["annotation_domain"],
+                Annotation_Domain_Source=sample_row["domain_source"],
+                Primary_BUSCO_Lineage=sample_row["primary_busco_lineage"],
+                Primary_BUSCO_Score=summary.value if summary else "NA",
+            )
+        if "QC_Scope" in policy_columns:
+            master_row["QC_Scope"] = sample_policy.qc_scope(sample_row)
         rows.append(master_row)
 
-    output_header = [*metadata_header, *append_columns]
+    output_header = [*metadata_header, *append_columns, *policy_columns]
     if len(rows) != len({row[metadata_key_column] for row in rows}):
         raise MasterTableError("Final master table contains duplicate accession rows.")
 

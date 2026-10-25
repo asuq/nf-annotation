@@ -16,7 +16,7 @@ process ANNOTATION_PREFLIGHT {
     path 'annotation_preflight.json', emit: receipt
 
     script:
-    if (params.annotation_tools) {
+    if (SamplePolicy.annotationTools(params)) {
         AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
     }
     def encoded = groovy.json.JsonOutput.toJson(configuration).bytes.encodeBase64().toString()
@@ -46,7 +46,7 @@ process PLAN_ANNOTATION_GROUPS {
     path 'annotation_groups.json', emit: groups
 
     script:
-    if (params.annotation_tools) {
+    if (SamplePolicy.annotationTools(params)) {
         AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
     }
     def sourceArgs = PublishedSources.arguments(source_results)
@@ -75,7 +75,7 @@ process PLAN_ANNOTATION_PART {
     path 'planned/annotation_plan.json', emit: plan
 
     script:
-    if (params.annotation_tools) {
+    if (SamplePolicy.annotationTools(params)) {
         AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
     }
     def bundleList = groovy.json.JsonOutput.toJson((bundles instanceof Collection ? bundles : [bundles]).collect { it.toString() })
@@ -114,7 +114,7 @@ process MERGE_ANNOTATION_PLANS {
     path 'annotation_plan.tsv', emit: table
 
     script:
-    if (params.annotation_tools) {
+    if (SamplePolicy.annotationTools(params)) {
         AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
     }
     def fragmentList = groovy.json.JsonOutput.toJson((fragments instanceof Collection ? fragments : [fragments]).collect { it.toString() })
@@ -205,7 +205,7 @@ process NORMALIZE_ANNOTATION {
     tuple val(meta), path('result'), emit: result
 
     script:
-    if (params.annotation_tools) {
+    if (SamplePolicy.annotationTools(params)) {
         AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
     }
     def resourceArg = resource ? "--resource '${resource}'" : ''
@@ -231,7 +231,7 @@ process REUSE_ANNOTATION {
     tuple val(meta), path('result'), emit: result
 
     script:
-    if (params.annotation_tools) {
+    if (SamplePolicy.annotationTools(params)) {
         AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
     }
     """
@@ -256,7 +256,7 @@ process COMPLETE_EGGNOG_BATCH {
     path 'published/samples/*/annotation/eggnog', emit: members
 
     script:
-    if (params.annotation_tools) {
+    if (SamplePolicy.annotationTools(params)) {
         AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
     }
     """
@@ -288,7 +288,7 @@ process AGGREGATE_ANNOTATIONS {
     path 'report/annotation_acceptance.json', emit: acceptance
 
     script:
-    if (params.annotation_tools) {
+    if (SamplePolicy.annotationTools(params)) {
         AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
     }
     def bundleList = groovy.json.JsonOutput.toJson((bundles instanceof Collection ? bundles : [bundles]).collect { it.toString() })
@@ -325,7 +325,7 @@ process ANNOTATION_ACCEPTANCE {
     path 'annotation_complete.txt', emit: complete
 
     script:
-    if (params.annotation_tools) {
+    if (SamplePolicy.annotationTools(params)) {
         AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
     }
     """

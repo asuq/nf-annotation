@@ -102,37 +102,55 @@ workflow COHORT_ANI {
 
     CALCULATE_ASSEMBLY_STATS(staged_manifest, staged_fasta_files)
 
-    BUILD_FASTANI_INPUTS(
-        validated_samples,
-        metadata,
-        staged_manifest,
-        staged_fasta_files,
-        combined_checkm2,
-        combined_16s,
-        busco_tables,
-        CALCULATE_ASSEMBLY_STATS.out.stats,
-        primary_busco_column,
-        ani_16s_policy,
-    )
-    FASTANI(BUILD_FASTANI_INPUTS.out.fastani_inputs, BUILD_FASTANI_INPUTS.out.paths)
-    CLUSTER_ANI(FASTANI.out.matrix, BUILD_FASTANI_INPUTS.out.metadata)
+    if (SamplePolicy.stage(params) == 'qc') {
+        preparedInputs = Channel.empty()
+        preparedPaths = Channel.empty()
+        preparedMetadata = Channel.empty()
+        preparedExclusions = Channel.empty()
+        matrix = Channel.empty()
+        raw = Channel.empty()
+        aniLog = Channel.empty()
+        clusters = Channel.empty()
+        aniVersions = Channel.empty()
+    } else {
+        BUILD_FASTANI_INPUTS(
+            validated_samples,
+            metadata,
+            staged_manifest,
+            staged_fasta_files,
+            combined_checkm2,
+            combined_16s,
+            busco_tables,
+            CALCULATE_ASSEMBLY_STATS.out.stats,
+            primary_busco_column,
+            ani_16s_policy,
+            Channel.value(SamplePolicy.codeHash(projectDir)),
+        )
+        FASTANI(BUILD_FASTANI_INPUTS.out.fastani_inputs, BUILD_FASTANI_INPUTS.out.paths)
+        CLUSTER_ANI(FASTANI.out.matrix, BUILD_FASTANI_INPUTS.out.metadata)
 
-    versions = SUMMARISE_BUSCO.out.versions
-        .mix(CALCULATE_ASSEMBLY_STATS.out.versions)
-        .mix(BUILD_FASTANI_INPUTS.out.versions)
-        .mix(FASTANI.out.versions)
-        .mix(CLUSTER_ANI.out.versions)
+        preparedInputs = BUILD_FASTANI_INPUTS.out.fastani_inputs
+        preparedPaths = BUILD_FASTANI_INPUTS.out.paths
+        preparedMetadata = BUILD_FASTANI_INPUTS.out.metadata
+        preparedExclusions = BUILD_FASTANI_INPUTS.out.exclusions
+        matrix = FASTANI.out.matrix
+        raw = FASTANI.out.raw_output
+        aniLog = FASTANI.out.log
+        clusters = CLUSTER_ANI.out.clusters
+        aniVersions = BUILD_FASTANI_INPUTS.out.versions.mix(FASTANI.out.versions).mix(CLUSTER_ANI.out.versions)
+    }
+    versions = SUMMARISE_BUSCO.out.versions.mix(CALCULATE_ASSEMBLY_STATS.out.versions).mix(aniVersions)
 
     emit:
     parsed_busco = busco_tables
-    fastani_inputs = BUILD_FASTANI_INPUTS.out.fastani_inputs
-    fastani_paths = BUILD_FASTANI_INPUTS.out.paths
-    ani_metadata = BUILD_FASTANI_INPUTS.out.metadata
-    ani_exclusions = BUILD_FASTANI_INPUTS.out.exclusions
+    fastani_inputs = preparedInputs
+    fastani_paths = preparedPaths
+    ani_metadata = preparedMetadata
+    ani_exclusions = preparedExclusions
     assembly_stats = CALCULATE_ASSEMBLY_STATS.out.stats
-    fastani_matrix = FASTANI.out.matrix
-    fastani_raw = FASTANI.out.raw_output
-    fastani_log = FASTANI.out.log
-    clusters = CLUSTER_ANI.out.clusters
+    fastani_matrix = matrix
+    fastani_raw = raw
+    fastani_log = aniLog
+    clusters = clusters
     versions = versions
 }

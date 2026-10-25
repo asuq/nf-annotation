@@ -240,7 +240,7 @@ and retains quadratic memory and pairwise-work limits.
 Use the configuration with the normal input and upstream-resource parameters:
 
 ```bash
-nextflow run main.nf -profile slurm,singularity -c annotation.config \
+nextflow run main.nf --domain bacteria -profile slurm,singularity -c annotation.config \
   --sample_csv samples.csv --metadata metadata.tsv \
   --taxdump /path/to/taxdump --checkm2_db /path/to/checkm2 \
   --codetta_db /path/to/codetta --busco_db /path/to/busco \

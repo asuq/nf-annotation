@@ -20,6 +20,7 @@ process VALIDATE_INPUTS {
     path sample_csv
     path metadata
     val busco_lineages
+    val policy_code
 
     output:
     path 'validated_samples.tsv', emit: validated_samples
@@ -29,12 +30,19 @@ process VALIDATE_INPUTS {
     path 'versions.yml', emit: versions
 
     script:
+    def qcArg = SamplePolicy.stage(params) == 'qc' ? '--qc-only' : ''
+    def policyEncoded = SamplePolicy.encoded(params)
     def lineageArgs = (busco_lineages as List).collect {
         "--busco-lineage \"${it}\""
     }.join(' \\\n    ')
-    """validate_inputs.py \
+    """
+    # sample_policy_sha256=${policy_code}
+
+validate_inputs.py \
     --sample-csv "${sample_csv}" \
     --metadata "${metadata}" \
+    --sample-policy-base64 "${policyEncoded}" \
+    ${qcArg} \
     ${lineageArgs} \
     --defer-genome-fasta-check \
     --genome-base-dir "${workflow.launchDir}" \

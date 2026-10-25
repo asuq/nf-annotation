@@ -21,6 +21,7 @@ process BUILD_MASTER_TABLE {
     path ccfinder_strains
     path ani_summary
     path assembly_stats
+    val policy_code
 
     output:
     path 'master_table.tsv', emit: master_table
@@ -33,6 +34,8 @@ process BUILD_MASTER_TABLE {
         "--busco-lineage \"${it}\""
     }.join(' \\\n        ')
     """
+    # sample_policy_sha256=${policy_code}
+
     build_master_table.py \
         --validated-samples "${validated_samples}" \
         --metadata "${metadata}" \

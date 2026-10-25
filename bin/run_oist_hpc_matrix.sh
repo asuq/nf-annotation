@@ -727,7 +727,7 @@ run_real_case() {
     fi
 
     run_or_print \
-        nextflow run . -profile oist \
+        nextflow run . -profile oist --domain bacteria \
         -work-dir "${work_dir}" \
         "${resume_args[@]}" \
         --sample_csv "${sample_csv}" \

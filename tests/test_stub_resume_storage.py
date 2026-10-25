@@ -47,6 +47,8 @@ class StubResumeStorageTestCase(unittest.TestCase):
             ".",
             "-profile",
             "test",
+            "--domain",
+            "bacteria",
             "-stub-run",
             "--outdir",
             str(outdir),

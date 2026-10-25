@@ -22,7 +22,7 @@ used by current stable Nextflow releases. Select a v26 runtime explicitly on
 systems where multiple versions are available:
 
 ```bash
-NXF_VER=26.04.0 nextflow run . -profile test -stub-run
+NXF_VER=26.04.0 nextflow run . --domain bacteria -profile test -stub-run
 ```
 
 ## BUSCO lineage datasets
@@ -51,7 +51,7 @@ nextflow run prepare_databases.nf -profile oist \
 Run the analysis with preparation and downloads disabled:
 
 ```bash
-nextflow run . -c annotation.config -profile oist \
+nextflow run . --domain bacteria -c annotation.config -profile oist \
   --sample_csv "$SAMPLE_CSV" \
   --metadata "$METADATA_TSV" \
   --taxdump "$TAXDUMP_DIR" \
@@ -241,7 +241,7 @@ under `--outdir` on success.
 Use the frozen fixtures under `assets/testdata/stub/`:
 
 ```bash
-nextflow run . -profile test -stub-run
+nextflow run . --domain bacteria -profile test -stub-run
 ```
 
 This validates the DSL wiring, channel contracts, publish locations, and final
@@ -256,11 +256,16 @@ in the source's `tables/validated_samples.tsv`; the `is_new` CSV flag does not
 control reuse. An accession absent from the chosen source is analysed again,
 even if it appeared in some other, unselected results directory.
 
+For the QC-only and cumulative ANI-only stages introduced in v0.4.4, use the
+[domain/stage guide](domain_stages.md). It defines explicit domain declarations,
+per-sample BUSCO scoring provenance and the reuse requirements for each stage.
+These options do not change ANI distances, thresholds or representative weights.
+
 From v0.4.3, combine independent published cohorts with a comma-separated
 source list:
 
 ```bash
-nextflow run . -c annotation.config -profile oist \
+nextflow run . --domain bacteria -c annotation.config -profile oist \
   --update_from '/path/to/batch-1,/path/to/batch-2' \
   --sample_csv combined-samples.csv --metadata combined-metadata.tsv \
   --outdir /path/to/combined-results
@@ -295,7 +300,7 @@ changed eggNOG batches require new searches for all their members. A's files
 remain in the previous output and are not copied into the new cohort.
 
 ```bash
-nextflow run . -c annotation.config -profile local,docker \
+nextflow run . --domain bacteria -c annotation.config -profile local,docker \
   --update_from /path/to/results-v1 \
   --sample_csv samples-v2.csv \
   --metadata metadata-v2.tsv \
@@ -314,7 +319,7 @@ on every update.
 For a removal-only update:
 
 ```bash
-nextflow run . -c annotation.config -profile local,docker \
+nextflow run . --domain bacteria -c annotation.config -profile local,docker \
   --update_from /path/to/results-v2 \
   --sample_csv samples-v3.csv \
   --metadata metadata-v3.tsv \
@@ -502,7 +507,7 @@ python3 bin/run_acceptance_tests.py dbprep-slurm \
 Local:
 
 ```bash
-nextflow run . \
+nextflow run . --domain bacteria \
   --sample_csv samples.csv \
   --metadata metadata.tsv \
   --taxdump /path/to/pinned-taxdump \
@@ -516,7 +521,7 @@ nextflow run . \
 SLURM:
 
 ```bash
-nextflow run . -c annotation.config -profile slurm \
+nextflow run . --domain bacteria -c annotation.config -profile slurm \
   --sample_csv samples.csv \
   --metadata metadata.tsv \
   --taxdump /path/to/pinned-taxdump \
@@ -535,7 +540,7 @@ example `--slurm_cluster_options='--qos=2h'`.
 Singularity:
 
 ```bash
-nextflow run . -c annotation.config -profile singularity \
+nextflow run . --domain bacteria -c annotation.config -profile singularity \
   --sample_csv samples.csv \
   --metadata metadata.tsv \
   --taxdump /path/to/pinned-taxdump \
@@ -549,7 +554,7 @@ nextflow run . -c annotation.config -profile singularity \
 OIST:
 
 ```bash
-nextflow run . -c annotation.config -profile oist \
+nextflow run . --domain bacteria -c annotation.config -profile oist \
   --sample_csv samples.csv \
   --metadata metadata.tsv \
   --taxdump /path/to/pinned-taxdump \
@@ -564,7 +569,7 @@ nextflow run . -c annotation.config -profile oist \
 GWDG SCC:
 
 ```bash
-nextflow run . -c annotation.config -profile gwdg \
+nextflow run . --domain bacteria -c annotation.config -profile gwdg \
   --sample_csv samples.csv \
   --metadata metadata.tsv \
   --taxdump /path/to/pinned-taxdump \
@@ -581,7 +586,7 @@ nextflow run . -c annotation.config -profile gwdg \
 Use the OIST profile directly for full eggNOG runs:
 
 ```bash
-nextflow run . -c annotation.config -profile oist ...
+nextflow run . --domain bacteria -c annotation.config -profile oist ...
 ```
 
 Select every required tool in `annotation.config` when the goal
@@ -592,7 +597,7 @@ HPC. Use three stages in order:
 
 1. prepare the tracked acceptance cohort on the HPC login node
 2. prepare runtime databases on SLURM with `dbprep-slurm`
-3. run the real pipeline with raw `nextflow run . -c annotation.config -profile oist`
+3. run the real pipeline with raw `nextflow run . --domain bacteria -c annotation.config -profile oist`
 
 For the scripted campaign through the medium Mycoplasmatota/Bacillota run, use
 the dedicated wrapper:
@@ -787,7 +792,7 @@ acceptance validation.
 6. Run one optional structural smoke test.
 
 ```bash
-nextflow run . -profile test -stub-run --outdir "$RESULT_ROOT/stub"
+nextflow run . --domain bacteria -profile test -stub-run --outdir "$RESULT_ROOT/stub"
 ```
 
 7. Run the tracked 9-sample cohort on OIST with full eggNOG.
@@ -796,7 +801,7 @@ Do not jump straight to `all` on a new HPC setup. Make this tracked run pass
 first, then move on to the full scripted campaign.
 
 ```bash
-nextflow run . -c annotation.config -profile oist \
+nextflow run . --domain bacteria -c annotation.config -profile oist \
   -work-dir "$RESULT_ROOT/p1/work" \
   --sample_csv "$ACCEPT_ROOT/generated/sample_sheet.csv" \
   --metadata "$ACCEPT_ROOT/generated/metadata.tsv" \
@@ -820,7 +825,7 @@ and ANI memory on the target system before a full campaign. The current evidence
 and remaining limits are in the [qualification record](development/v0.4_qualification.md).
 
 ```bash
-nextflow run . -c annotation.config -profile oist \
+nextflow run . --domain bacteria -c annotation.config -profile oist \
   -c conf/oist_20k_storage.config \
   -work-dir /flash/path/to/work_nf_annotation_20k \
   --sample_csv "$ACCEPT_ROOT/generated/sample_sheet.csv" \
@@ -845,7 +850,7 @@ To guarantee `-resume` for that run design:
 Resume example:
 
 ```bash
-nextflow run . -c annotation.config -profile oist \
+nextflow run . --domain bacteria -c annotation.config -profile oist \
   -c conf/oist_20k_storage.config \
   -resume \
   -work-dir /flash/path/to/work_nf_annotation_20k \

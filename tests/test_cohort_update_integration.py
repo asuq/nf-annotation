@@ -162,6 +162,7 @@ class CohortUpdateIntegrationTestCase(unittest.TestCase):
         extra: list[str] = (),
         resume: bool = False,
         expected_code: int = 0,
+        domain: str | None = "bacteria",
     ) -> Path:
         launch = self.root / f"launch-{name}"
         launch.mkdir(exist_ok=True)
@@ -186,6 +187,8 @@ class CohortUpdateIntegrationTestCase(unittest.TestCase):
             "1",
             *extra,
         ]
+        if domain is not None:
+            command.extend(["--domain", domain])
         if source:
             command.extend(["--update_from", ','.join(map(str, source)) if isinstance(source, list) else str(source)])
         if resume:

@@ -21,7 +21,7 @@ process BARRNAP {
     path 'versions.yml', emit: versions
 
     script:
-    def barrnapKingdom = params.barrnap_kingdom ?: 'bac'
+    def barrnapKingdom = meta.barrnap_kingdom ?: 'bac'
     """
     export TMPDIR="\$PWD/barrnap_tmp"
     if [[ -L "\${TMPDIR}" ]]; then

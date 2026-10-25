@@ -7,6 +7,8 @@ include { IMPORT_ANNOTATION_SOURCE } from './modules/local/import_annotation_sou
 include { AGGREGATE_ANNOTATIONS; ANNOTATION_ACCEPTANCE } from './modules/local/functional_annotation'
 
 workflow {
+    SamplePolicy.rejectRemovedOptions(params)
+    if (SamplePolicy.stage(params) != 'full') { error '--pipeline_stage applies to main.nf, not reannotate.nf' }
     if (!params.annotation_from) { error '--annotation_from requires native v0.4 published results' }
     def source = file(params.annotation_from, checkIfExists: true).toFile().canonicalFile.toPath()
     def destination = file(params.outdir).toFile().canonicalFile.toPath()

@@ -1,5 +1,26 @@
 # Change Log
 
+## v0.4.4 - 2026-10-25
+
+- Require `--domain bacteria|archaea|metadata` for pipeline runs. Metadata mode
+  reads the fixed `Domain` column; Prokka/Barrnap settings are derived internally.
+  Preserve existing bacterial BUSCO settings with `--domain bacteria`, codes 4/11,
+  missing-code skips, native identifier conventions and existing quality policies.
+- Run only each sample's configured BUSCO profile and use its first lineage's
+  actual result in unchanged ANI eligibility and representative scoring. Retain
+  per-lineage results and record domain, declaration source and selected score.
+- Add `--pipeline_stage qc|ani|full`, with `full` as the default. QC publications
+  omit CRISPR, separate functional searches and ANI; ANI-only runs combine
+  completed publications and reject missing samples or incompatible policies.
+- Preserve domain/scope fields through multi-source reuse without allowing
+  supplemental metadata to override internal routing fields. Revalidate imported
+  policy-code changes on resume and reject unrecorded domain assignments.
+- Stage the Codetta database under `codetta_db` and reject output symlinks before
+  writing, without changing native commands or reference identities.
+- Document the public interfaces and explicit reuse boundaries in the
+  [domain/stage guide](domain_stages.md), with checks and limits in the
+  [qualification record](development/v0.4.4_qualification.md).
+
 ## v0.4.3 - 2026-09-26
 
 - Accept multiple disjoint published cohorts through `--update_from`, retaining

@@ -38,7 +38,7 @@ For OIST or any other full-eggNOG HPC validation, use this sequence:
 
 1. `bin/run_pipeline_test.sh prepare` on the login node
 2. `bin/run_pipeline_test.sh dbprep-slurm` on SLURM
-3. raw `nextflow run . -c annotation.config -profile oist` for the real pipeline run
+3. raw `nextflow run . --domain bacteria -c annotation.config -profile oist` for the real pipeline run
 
 Do not start with `all` on a fresh HPC environment. First make `prepare`,
 then `dbprep-slurm`, then the tracked real pipeline run pass. Only use `all`
@@ -147,7 +147,8 @@ python3 --version
 
 Acceptance-backed `local`, `slurm`, and `all` runs use the normal execution
 profiles and the complete declared cohort. Pass
-`--annotation-config annotation.config` with the immutable tool runtimes and
+`--annotation-config annotation.config` with an explicit `params.domain`
+(`bacteria` for the bundled acceptance cohort), the immutable tool runtimes and
 resource paths documented in [functional annotation](functional_annotation.md).
 
 ## Examples

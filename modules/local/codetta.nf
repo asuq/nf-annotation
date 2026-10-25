@@ -12,7 +12,7 @@ process CODETTA {
     )
 
     input:
-    tuple val(meta), path(genome), path(codetta_db)
+    tuple val(meta), path(genome), path(codetta_db, name: 'codetta_db')
 
     output:
     tuple val(meta), path('codetta'), emit: results
@@ -34,6 +34,10 @@ process CODETTA {
     results_summary="codetta/codetta_results_summary.csv"
     resource_directory="\$PWD/codetta_resources"
 
+    if [[ -L codetta || ( -e codetta && ! -d codetta ) ]]; then
+        echo 'Codetta output must be an ordinary directory, not a staged reference or symlink.' >&2
+        exit 75
+    fi
     mkdir -p codetta
     rm -rf "\${resource_directory}"
     mkdir -p "\${resource_directory}"

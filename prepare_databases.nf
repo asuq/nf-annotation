@@ -17,6 +17,7 @@ include { PER_SAMPLE_QC as UNUSED_PER_SAMPLE_QC } from './subworkflows/local/per
 include { RUNTIME_DATABASE_PREP } from './subworkflows/local/runtime_database_prep'
 
 workflow {
+    SamplePolicy.rejectRemovedOptions(params)
     def normaliseBuscoLineages = { rawValue ->
         def rawItems = rawValue instanceof List ? rawValue : [rawValue]
         def lineages = rawItems
@@ -34,7 +35,7 @@ workflow {
         }
         return lineages
     }
-    buscoLineagesList = normaliseBuscoLineages.call(params.busco_lineages)
+    buscoLineagesList = SamplePolicy.lineages(params, params.busco_domain_lineages ? [] : normaliseBuscoLineages.call(params.busco_lineages))
 
     def parseBoolean = { value ->
         if (value instanceof Boolean) {

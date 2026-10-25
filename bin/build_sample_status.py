@@ -14,6 +14,7 @@ from typing import Sequence
 from ani_common import ANI_16S_POLICIES, derive_sixteen_s_ani_exclusion_reason
 from atypical_warnings import classify_atypical_warnings
 import build_master_table as table_helpers
+import sample_policy
 import master_table_contract
 import validate_inputs
 
@@ -635,7 +636,13 @@ def build_status_row(
     busco_status_values, busco_warnings, busco_values = derive_busco_statuses(
         accession=accession,
         busco_index=busco_index,
-        provided_busco_columns=provided_busco_columns,
+        provided_busco_columns=(
+            provided_busco_columns & {
+                "BUSCO_" + lineage
+                for lineage in sample_policy.sample_lineages(sample_row, [])
+            }
+            if "annotation_domain" in sample_row else provided_busco_columns
+        ),
         output_columns=output_columns,
     )
     row.update(busco_status_values)
@@ -652,7 +659,7 @@ def build_status_row(
     ccfinder_status, ccfinder_warnings = derive_ccfinder_status(
         accession=accession,
         ccfinder_index=ccfinder_index,
-        ccfinder_requested=ccfinder_requested,
+        ccfinder_requested=ccfinder_requested and sample_policy.qc_scope(sample_row) == "full",
         gcode_value=gcode_value,
     )
     row["ccfinder_status"] = ccfinder_status
@@ -674,8 +681,9 @@ def build_status_row(
 
     sixteen_s_value = sixteen_s_index.get(accession, {}).get("16S", "NA") or "NA"
     primary_busco_value = "NA"
-    if primary_busco_column is not None:
-        primary_busco_value = busco_values.get(primary_busco_column, "NA")
+    selected_busco_column = sample_policy.primary_column(sample_row, primary_busco_column)
+    if selected_busco_column is not None:
+        primary_busco_value = busco_values.get(selected_busco_column, "NA")
     assembly_level_value = table_helpers.choose_assembly_level(sample_row, metadata_row)
     assembly_metrics = EffectiveAssemblyMetrics(
         n50=table_helpers.resolve_assembly_metric_value(
@@ -798,6 +806,10 @@ def run_build(args: argparse.Namespace) -> None:
     if (
         args.primary_busco_column is not None
         and args.primary_busco_column not in expected_busco_columns
+        and not (
+            args.primary_busco_column == "BUSCO_selected"
+            and all("annotation_domain" in row for row in validated_samples)
+        )
     ):
         raise SampleStatusError(
             "--primary-busco-column is not present in the sample-status BUSCO contract: "

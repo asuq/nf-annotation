@@ -19,6 +19,7 @@ import build_master_table
 import build_sample_status
 import collect_versions
 import master_table_contract
+import sample_policy
 import summarise_16s
 import summarise_busco
 import summarise_checkm2
@@ -364,7 +365,7 @@ def validate_busco(
 
 
 def validate_annotations(
-    root: Path, accession: str, status: dict[str, str], gcode: str
+    root: Path, accession: str, status: dict[str, str], gcode: str, scope: str = "full"
 ) -> list[dict[str, str]]:
     """Keep documented annotation outcomes and reject contradictory evidence."""
     summaries = []
@@ -379,7 +380,8 @@ def validate_annotations(
     summaries.append(codetta)
     if gcode == "NA":
         for tool in ("prokka", "ccfinder"):
-            check_status(status, f"{tool}_status", "skipped", accession)
+            expected = "na" if tool == "ccfinder" and scope == "qc" else "skipped"
+            check_status(status, f"{tool}_status", expected, accession)
     else:
         require_files(
             root,
@@ -388,32 +390,34 @@ def validate_annotations(
                 "prokka/prokka.faa",
                 "prokka/prokka.gbk",
                 "prokka/prokka.log",
-                "ccfinder/result.json",
-                "ccfinder/ccfinder.log",
-                "ccfinder/ccfinder_contigs.tsv",
-                "ccfinder/ccfinder_crisprs.tsv",
             ),
         )
-        ccfinder = single_summary(
-            root / "ccfinder/ccfinder_strains.tsv",
-            accession,
-            (*build_master_table.CRISPR_COLUMNS, "ccfinder_status", "warnings"),
-        )
-        if ccfinder["ccfinder_status"] not in {"done", "failed"}:
-            raise CohortUpdateError(
-                f"Invalid published CRISPRCasFinder status for {accession!r}"
+        if scope == "qc":
+            check_status(status, "ccfinder_status", "na", accession)
+            if (root / "ccfinder").exists():
+                raise CohortUpdateError("QC-only source contains contradictory CRISPR outputs")
+        else:
+            require_files(root, ("ccfinder/result.json", "ccfinder/ccfinder.log", "ccfinder/ccfinder_contigs.tsv", "ccfinder/ccfinder_crisprs.tsv"))
+            ccfinder = single_summary(
+                root / "ccfinder/ccfinder_strains.tsv",
+                accession,
+                (*build_master_table.CRISPR_COLUMNS, "ccfinder_status", "warnings"),
             )
-        check_status(status, "ccfinder_status", ccfinder["ccfinder_status"], accession)
-        if ccfinder["ccfinder_status"] == "done":
-            for column in build_master_table.CRISPR_COLUMNS:
-                number = float(ccfinder[column])
-                if not math.isfinite(number) or number < 0:
-                    raise CohortUpdateError(
-                        f"Invalid published {column} for {accession!r}"
-                    )
-            with (root / "ccfinder/result.json").open() as handle:
-                json.load(handle)
-        summaries.append(ccfinder)
+            if ccfinder["ccfinder_status"] not in {"done", "failed"}:
+                raise CohortUpdateError(
+                    f"Invalid published CRISPRCasFinder status for {accession!r}"
+                )
+            check_status(status, "ccfinder_status", ccfinder["ccfinder_status"], accession)
+            if ccfinder["ccfinder_status"] == "done":
+                for column in build_master_table.CRISPR_COLUMNS:
+                    number = float(ccfinder[column])
+                    if not math.isfinite(number) or number < 0:
+                        raise CohortUpdateError(
+                            f"Invalid published {column} for {accession!r}"
+                        )
+                with (root / "ccfinder/result.json").open() as handle:
+                    json.load(handle)
+            summaries.append(ccfinder)
         exit_code = read_exit_code(root / "prokka/prokka.log")
         present = all((root / "prokka" / name).stat().st_size > 0 for name in ("prokka.gff", "prokka.faa"))
         check_status(status, "prokka_status", "done" if exit_code == "0" and present else "failed", accession)
@@ -467,8 +471,24 @@ def validate_sample_outputs(
     sixteen_s = validate_sixteen_s(root, accession, status)
     qc = validate_qc(root, sample, status, gcode_rule)
     master_summaries = [qc, sixteen_s]
-    master_summaries.extend(validate_busco(root, accession, status, lineages))
-    master_summaries.extend(validate_annotations(root, accession, status, qc["Gcode"]))
+    selected_lineages = sample_policy.sample_lineages(sample, lineages)
+    master_summaries.extend(validate_busco(root, accession, status, selected_lineages))
+    if "annotation_domain" in sample:
+        if (
+            master.get("Annotation_Domain") != sample["annotation_domain"]
+            or master.get("Primary_BUSCO_Lineage") != sample["primary_busco_lineage"]
+            or master.get("Annotation_Domain_Source") != sample["domain_source"]
+        ):
+            raise CohortUpdateError("Published master/domain policy mismatch")
+        if master.get("Primary_BUSCO_Score") != master.get("BUSCO_" + sample["primary_busco_lineage"]):
+            raise CohortUpdateError("Published primary BUSCO score does not match its lineage")
+    elif any(key in master for key in sample_policy.PROVENANCE_COLUMNS[:4]):
+        raise CohortUpdateError("Published source omits its resolved domain policy")
+    scope = sample_policy.qc_scope(sample)
+    if scope == "qc" or "QC_Scope" in master:
+        if master.get("QC_Scope") != scope:
+            raise CohortUpdateError("Published master/QC scope mismatch")
+    master_summaries.extend(validate_annotations(root, accession, status, qc["Gcode"], scope))
     derived_columns = set(master_table_contract.build_append_columns(lineages))
     for summary in master_summaries:
         for column in derived_columns & summary.keys():
@@ -527,7 +547,12 @@ def load_source_tables(
             status_header
         )
     )
-    if requested & source_index.keys() and not set(lineages) <= set(source_lineages):
+    required_lineages = {
+        lineage
+        for accession in requested & source_index.keys()
+        for lineage in sample_policy.sample_lineages(source_index[accession], lineages)
+    }
+    if not required_lineages <= set(source_lineages):
         raise CohortUpdateError(
             "The update requests BUSCO lineages absent from the published source."
         )
@@ -631,6 +656,7 @@ def write_update_tables(
             [
                 *validate_inputs.REQUIRED_SAMPLE_COLUMNS,
                 "internal_id",
+                *[name for name in (*sample_policy.DOMAIN_FIELDS, "qc_scope") if name in sample_header],
                 "source_gcode",
                 "source_index",
             ],
@@ -699,6 +725,19 @@ def run_prepare(args: argparse.Namespace) -> None:
         })
         for row in source_versions:
             versions.append({**row, "notes": f"reused source {source}: {row['notes']}"})
+    stage = json.loads(args.settings.read_text()).get("pipeline_stage", "full")
+    if stage not in ("full", "qc", "ani"):
+        raise CohortUpdateError("Unknown pipeline stage")
+    if stage == "ani" and set(requested) - set(source_index):
+        raise CohortUpdateError("ANI-only stage requires completed QC publications for every requested sample")
+    if "qc_scope" in sample_header or any("qc_scope" in row for row in source_index.values()):
+        metadata_header, _ = validate_inputs.read_delimited_table(args.metadata)
+        if "QC_Scope" in metadata_header:
+            raise CohortUpdateError("Metadata overlaps resolved QC_Scope column")
+        if "qc_scope" not in sample_header:
+            sample_header.append("qc_scope")
+        for sample in samples:
+            sample["qc_scope"] = sample_policy.qc_scope(source_index.get(sample["accession"], sample))
     internal_ids = allocate_internal_ids(list(requested), source_index)
     candidates = sorted(args.genome_inputs.glob("genome*"))
     if len(candidates) != len(samples):
@@ -717,6 +756,11 @@ def run_prepare(args: argparse.Namespace) -> None:
             {key: "NA" for key in source_identities[0]}
         )
         if accession in source_index:
+            if stage == "full" and sample_policy.qc_scope(source_index[accession]) == "qc":
+                raise CohortUpdateError("QC-only publications support ANI-only and annotation-only reuse; full-stage reuse requires CRISPR evidence")
+            for field in sample_policy.DOMAIN_FIELDS:
+                if sample.get(field) != source_index[accession].get(field):
+                    raise CohortUpdateError(f"Domain/BUSCO policy changed or is unrecorded for {accession!r}: {field}; regenerate QC")
             source_fingerprint = validate_sample_outputs(
                 sources[origin] / "samples" / accession,
                 source_index[accession],

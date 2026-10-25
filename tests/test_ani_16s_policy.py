@@ -51,6 +51,8 @@ class Ani16sPolicyTests(unittest.TestCase):
                         str(ROOT / "main.nf"),
                         "-profile",
                         "test",
+                        "--domain",
+                        "bacteria",
                         *arguments,
                     ],
                     cwd=name,

@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import csv
 import hashlib
+import json
 import logging
 import sys
 from collections import defaultdict
@@ -13,6 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
+import sample_policy
 import master_table_contract
 
 
@@ -24,7 +27,7 @@ REQUIRED_SAMPLE_COLUMNS = (
     "assembly_level",
     "genome_fasta",
 )
-RESERVED_SAMPLE_COLUMNS = {"internal_id"}
+RESERVED_SAMPLE_COLUMNS = {"internal_id", "qc_scope", *sample_policy.DOMAIN_FIELDS}
 ACCESSION_MAP_COLUMNS = (
     "accession",
     "internal_id",
@@ -114,6 +117,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--genome-base-dir", type=Path, default=Path.cwd(),
                         help="Resolve relative genome paths against this explicit launch directory.")
+    parser.add_argument("--sample-policy-base64")
+    parser.add_argument("--qc-only", action="store_true")
     return parser.parse_args(argv)
 
 
@@ -551,6 +556,8 @@ def run_validation(
     busco_lineages: Sequence[str] | None = None,
     defer_genome_fasta_check: bool = False,
     genome_base_dir: Path | None = None,
+    policy_settings: dict | None = None,
+    qc_only: bool = False,
 ) -> None:
     """Validate inputs and write the expected downstream TSV outputs."""
     sample_header, sample_rows = read_delimited_table(sample_csv, delimiter=",")
@@ -571,6 +578,30 @@ def run_validation(
         defer_genome_fasta_check=defer_genome_fasta_check,
         genome_base_dir=genome_base_dir,
     )
+    if policy_settings is not None:
+        policies = []
+        for record in validated_records:
+            accession = record.values["accession"]
+            try:
+                policies.append(sample_policy.resolve_sample(
+                    metadata_index.get(accession, {}), policy_settings
+                ))
+            except ValueError as error:
+                raise ValidationError(f"Sample {accession!r}: {error}") from error
+        if any(policies):
+            if set(sample_policy.PROVENANCE_COLUMNS[:4]) & set(metadata_header):
+                raise ValidationError("Metadata overlaps resolved domain-policy columns")
+            if not all(policies):
+                raise ValidationError("Domain-aware records cannot be mixed with implicit legacy records")
+            sample_header = [*sample_header, *sample_policy.DOMAIN_FIELDS]
+            for record, policy in zip(validated_records, policies, strict=True):
+                record.values.update(policy)
+    if qc_only:
+        if "QC_Scope" in metadata_header:
+            raise ValidationError("Metadata overlaps resolved QC_Scope column")
+        sample_header = [*sample_header, "qc_scope"]
+        for record in validated_records:
+            record.values["qc_scope"] = "qc"
     sample_status_columns = resolve_sample_status_columns(
         sample_status_columns_path,
         busco_lineages=busco_lineages,
@@ -615,6 +646,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             busco_lineages=args.busco_lineage,
             defer_genome_fasta_check=args.defer_genome_fasta_check,
             genome_base_dir=args.genome_base_dir,
+            qc_only=args.qc_only,
+            policy_settings=(
+                json.loads(base64.b64decode(args.sample_policy_base64))
+                if args.sample_policy_base64 else None
+            ),
         )
     except ValidationError as error:
         LOGGER.error(str(error))

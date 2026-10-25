@@ -1203,6 +1203,8 @@ def run_stub_smoke(args: argparse.Namespace) -> None:
         ".",
         "-profile",
         "test",
+        "--domain",
+        "bacteria",
         "-stub-run",
         "-work-dir",
         str(work_dir),

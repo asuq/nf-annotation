@@ -13,6 +13,11 @@ include { PER_SAMPLE_QC } from './subworkflows/local/per_sample_qc'
 include { ANNOTATION_RESOURCES; FUNCTIONAL_ANNOTATION } from './subworkflows/local/functional_annotation'
 
 workflow {
+    SamplePolicy.requireDomain(params)
+    def pipelineStage = SamplePolicy.stage(params)
+    if (pipelineStage == 'ani' && !params.update_from) {
+        error '--pipeline_stage ani requires completed QC publications via --update_from'
+    }
     if (!(params.gcode_rule in ['mean_gene_length_ratio', 'strict_delta', 'delta_then_11'])) {
         error "--gcode_rule must be one of: mean_gene_length_ratio, strict_delta, delta_then_11"
     }
@@ -70,8 +75,8 @@ workflow {
             }
         }
     }
-    buscoLineagesList = normaliseBuscoLineages.call(params.busco_lineages)
-    primaryBuscoColumn = (params.busco_primary_column ?: "BUSCO_${buscoLineagesList[0]}").toString()
+    buscoLineagesList = SamplePolicy.lineages(params, params.busco_domain_lineages ? [] : normaliseBuscoLineages.call(params.busco_lineages))
+    primaryBuscoColumn = params.busco_domain_lineages ? "BUSCO_selected" : (params.busco_primary_column ?: "BUSCO_${buscoLineagesList[0]}").toString()
     def aniThresholdValue = null
     try {
         aniThresholdValue = params.ani_threshold.toString().toDouble()
@@ -84,7 +89,7 @@ workflow {
     if (!(params.ani_score_profile in ['default', 'isolate', 'mag'])) {
         error "params.ani_score_profile must be default, isolate, or mag."
     }
-    if (!(primaryBuscoColumn in buscoLineagesList.collect { lineage -> "BUSCO_${lineage}".toString() })) {
+    if (!params.busco_domain_lineages && !(primaryBuscoColumn in buscoLineagesList.collect { lineage -> "BUSCO_${lineage}".toString() })) {
         error "params.busco_primary_column must identify one of the configured BUSCO lineages."
     }
 

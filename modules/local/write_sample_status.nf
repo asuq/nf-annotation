@@ -25,18 +25,22 @@ process WRITE_SAMPLE_STATUS {
     path assembly_stats
     val primary_busco_column
     val ani_16s_policy
+    val policy_code
 
     output:
     path 'sample_status.tsv', emit: sample_status
     path 'versions.yml', emit: versions
 
     script:
+    def aniArg = SamplePolicy.stage(params) == 'qc' ? '' : "--ani \"${ani_summary}\""
     def buscoTableList = busco_tables instanceof Collection ? busco_tables : [busco_tables]
     def buscoArgs = buscoTableList.collect { "--busco \"${it}\"" }.join(' \\\n        ')
     def lineageArgs = (busco_lineages as List).collect {
         "--busco-lineage \"${it}\""
     }.join(' \\\n        ')
     """
+    # sample_policy_sha256=${policy_code}
+
     script_path="\$(command -v build_sample_status.py)"
     python3 "\${script_path}" \
         --validated-samples "${validated_samples}" \
@@ -50,7 +54,7 @@ process WRITE_SAMPLE_STATUS {
         --codetta-summary "${codetta_summary}" \
         --ccfinder-strains "${ccfinder_strains}" \
         --prokka-manifest "${prokka_manifest}" \
-        --ani "${ani_summary}" \
+        ${aniArg} \
         --assembly-stats "${assembly_stats}" \
         --primary-busco-column "${primary_busco_column}" \
         --ani-16s-policy "${ani_16s_policy}" \

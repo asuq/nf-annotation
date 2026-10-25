@@ -31,7 +31,6 @@ class BarrnapRuntimeTests(unittest.TestCase):
             (project / "nextflow.config").write_text(
                 "params.soft_fail_attempts = 1\n"
                 "params.barrnap_container = null\n"
-                "params.barrnap_kingdom = 'bac'\n"
                 f"process.scratch = '{root / 'node_scratch'}'\n"
                 "process.stageOutMode = 'copy'\n"
                 "process.executor = 'local'\n"

@@ -139,7 +139,7 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         )
         self.assertIn("CODETTA(sample_genomes.combine(codetta_db))", per_sample_annotation_text)
         self.assertIn("SUMMARISE_CODETTA(CODETTA.out.summary_input)", per_sample_annotation_text)
-        self.assertIn("tuple val(meta), path(genome), path(codetta_db)", codetta_text)
+        self.assertIn("tuple val(meta), path(genome), path(codetta_db, name: 'codetta_db')", codetta_text)
         self.assertIn('{ "${params.outdir}/samples/${meta.accession}" }', codetta_text)
         self.assertIn('cp -R "${codetta_db}/". "\\${resource_directory}/"', codetta_text)
 
@@ -537,7 +537,7 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertNotIn("BUILD_OUTPUT_CONTRACTS", main_text)
         self.assertIn("def normaliseBuscoLineages = { rawValue ->", main_text)
         self.assertIn("collectMany { it.toString().split(',') as List }", main_text)
-        self.assertIn("buscoLineagesList = normaliseBuscoLineages.call(params.busco_lineages)", main_text)
+        self.assertIn("buscoLineagesList = SamplePolicy.lineages(params, params.busco_domain_lineages ? [] : normaliseBuscoLineages.call(params.busco_lineages))", main_text)
         self.assertIn("Channel.value(buscoLineagesList)", main_text)
 
     def test_final_outputs_pass_busco_lineages_to_reporting_modules(self) -> None:
@@ -559,7 +559,7 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertNotIn("BUILD_OUTPUT_CONTRACTS", main_text)
         self.assertIn("Channel.value(buscoLineagesList)", main_text)
         self.assertIn(
-            'primaryBuscoColumn = (params.busco_primary_column ?: "BUSCO_${buscoLineagesList[0]}").toString()',
+            'primaryBuscoColumn = params.busco_domain_lineages ? "BUSCO_selected" : (params.busco_primary_column ?: "BUSCO_${buscoLineagesList[0]}").toString()',
             main_text,
         )
         self.assertIn("Channel.value(primaryBuscoColumn)", main_text)
@@ -1076,7 +1076,7 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
             encoding="utf-8"
         )
 
-        self.assertIn("buscoLineagesList = normaliseBuscoLineages.call(params.busco_lineages)", workflow_text)
+        self.assertIn("buscoLineagesList = SamplePolicy.lineages(params, params.busco_domain_lineages ? [] : normaliseBuscoLineages.call(params.busco_lineages))", workflow_text)
         self.assertIn("buscoLineagesList,", workflow_text)
         self.assertNotIn("params.busco_lineages as List<String>", workflow_text)
         self.assertIn("""printf '%s\\n' "\\${lineages[@]}" > lineages.txt""", busco_module_text)

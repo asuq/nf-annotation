@@ -140,11 +140,16 @@ workflow FINAL_OUTPUTS {
             storeDir: finalOutputsCollectDir,
         )
 
-    SELECT_ANI_REPRESENTATIVES(
-        ani_clusters,
-        ani_metadata,
-        ani_matrix,
-    )
+    if (SamplePolicy.stage(params) == 'qc') {
+        aniSummary = Channel.value(file("${projectDir}/assets/tables/headers/ani_not_requested.tsv"))
+        aniRepresentatives = Channel.value(file("${projectDir}/assets/tables/headers/ani_representatives_not_requested.tsv"))
+        aniVersions = Channel.empty()
+    } else {
+        SELECT_ANI_REPRESENTATIVES(ani_clusters, ani_metadata, ani_matrix)
+        aniSummary = SELECT_ANI_REPRESENTATIVES.out.ani_summary
+        aniRepresentatives = SELECT_ANI_REPRESENTATIVES.out.ani_representatives
+        aniVersions = SELECT_ANI_REPRESENTATIVES.out.versions
+    }
 
     BUILD_MASTER_TABLE(
         validated_samples,
@@ -156,8 +161,9 @@ workflow FINAL_OUTPUTS {
         collected_busco,
         combined_codetta,
         combined_ccfinder,
-        SELECT_ANI_REPRESENTATIVES.out.ani_summary,
+        aniSummary,
         assembly_stats,
+        Channel.value(SamplePolicy.codeHash(projectDir)),
     )
 
     WRITE_SAMPLE_STATUS(
@@ -172,10 +178,11 @@ workflow FINAL_OUTPUTS {
         combined_codetta,
         combined_ccfinder,
         prokkaManifest,
-        SELECT_ANI_REPRESENTATIVES.out.ani_summary,
+        aniSummary,
         assembly_stats,
         primary_busco_column,
         ani_16s_policy,
+        Channel.value(SamplePolicy.codeHash(projectDir)),
     )
 
     AGGREGATE_ANNOTATIONS(
@@ -187,7 +194,7 @@ workflow FINAL_OUTPUTS {
         annotation_batches.toList(),
     )
 
-    final_versions = SELECT_ANI_REPRESENTATIVES.out.versions
+    final_versions = aniVersions
         .mix(BUILD_MASTER_TABLE.out.versions)
         .mix(WRITE_SAMPLE_STATUS.out.versions)
 
@@ -214,7 +221,7 @@ workflow FINAL_OUTPUTS {
     master_table = AGGREGATE_ANNOTATIONS.out.tables.map { files -> files.find { it.name == 'master_table.tsv' } }
     sample_status = AGGREGATE_ANNOTATIONS.out.tables.map { files -> files.find { it.name == 'sample_status.tsv' } }
     annotation_manifest = AGGREGATE_ANNOTATIONS.out.manifest
-    ani_representatives = SELECT_ANI_REPRESENTATIVES.out.ani_representatives
+    ani_representatives = aniRepresentatives
     versions_table = COLLECT_VERSIONS.out.versions_table
     versions = final_versions
 }

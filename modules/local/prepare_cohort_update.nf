@@ -26,6 +26,7 @@ process PREPARE_COHORT_UPDATE {
     val busco_lineages
     val update_settings
     val destination
+    val policy_code
 
     output:
     path 'validated_samples.tsv', emit: validated_samples
@@ -46,6 +47,8 @@ process PREPARE_COHORT_UPDATE {
     def settingsJson = groovy.json.JsonOutput.toJson(update_settings)
     def sourceArgs = PublishedSources.arguments(source_results, '--source-results')
     """
+    # sample_policy_sha256=${policy_code}
+
     cat <<'UPDATE_SETTINGS' > update_settings.json
     ${settingsJson}
     UPDATE_SETTINGS

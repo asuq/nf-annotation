@@ -13,7 +13,7 @@ workflow INPUT_VALIDATION_AND_STAGING {
     busco_lineages
 
     main:
-    VALIDATE_INPUTS(sample_csv, metadata, busco_lineages)
+    VALIDATE_INPUTS(sample_csv, metadata, busco_lineages, Channel.value(SamplePolicy.codeHash(projectDir)))
 
     if (params.update_from) {
         PUBLISHED_RESULTS_IMPORT(

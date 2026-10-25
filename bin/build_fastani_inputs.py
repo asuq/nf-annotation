@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+import sample_policy
 from ani_common import ANI_16S_POLICIES, derive_sixteen_s_ani_exclusion_reason
 from atypical_warnings import classify_atypical_warnings
 from build_master_table import (
@@ -318,7 +319,10 @@ def run_build_fastani_inputs(
         {row["accession"] for row in validated_rows},
     )
 
-    if primary_busco_column not in {
+    domain_aware = any("annotation_domain" in row for row in validated_rows)
+    if domain_aware and not all("annotation_domain" in row for row in validated_rows):
+        raise FastAniInputError("Mixed implicit and explicit domain policies")
+    if not domain_aware and primary_busco_column not in {
         column for busco_row in busco_index.values() for column in busco_row
     }:
         raise FastAniInputError(
@@ -370,7 +374,8 @@ def run_build_fastani_inputs(
         if is_atypical and not is_exception:
             reasons.append("atypical")
 
-        primary_busco_value = busco_row.get(primary_busco_column, MISSING_VALUE)
+        selected_busco_column = sample_policy.primary_column(sample_row, primary_busco_column)
+        primary_busco_value = busco_row.get(selected_busco_column, MISSING_VALUE)
         if is_missing(primary_busco_value):
             reasons.append("missing_primary_busco")
 
@@ -440,6 +445,11 @@ def run_build_fastani_inputs(
                 ),
                 primary_busco_column: primary_busco_value,
             }
+            if domain_aware:
+                metadata_record.update(
+                    annotation_domain=sample_row["annotation_domain"],
+                    primary_busco_lineage=sample_row["primary_busco_lineage"],
+                )
             metadata_rows.append(metadata_record)
             fastani_paths.append(relative_path)
             inclusion = "true"
@@ -454,6 +464,8 @@ def run_build_fastani_inputs(
         )
 
     metadata_header_out = [*ANI_METADATA_COLUMNS, primary_busco_column]
+    if domain_aware:
+        metadata_header_out += ["annotation_domain", "primary_busco_lineage"]
     write_path_list(outdir / "fastani_paths.txt", fastani_paths)
     write_tsv(outdir / "ani_metadata.tsv", metadata_header_out, metadata_rows)
     write_tsv(outdir / "ani_exclusions.tsv", ANI_EXCLUSION_COLUMNS, exclusion_rows)

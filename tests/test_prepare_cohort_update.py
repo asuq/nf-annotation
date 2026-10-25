@@ -372,6 +372,27 @@ class PrepareCohortUpdateTestCase(unittest.TestCase):
         self.assertEqual(len(header), len(set(header)))
         self.assertEqual(reused[0]["source_gcode"], "4")
 
+    def test_scoped_reuse_reads_csv_metadata_and_rejects_reserved_scope(self) -> None:
+        self.published_cohort(["A"])
+        args = self.arguments(["A"])
+        header, rows = update.read_table(args.validated_samples)
+        rows[0]["qc_scope"] = "full"
+        table(args.validated_samples, [*header, "qc_scope"], rows)
+        # Staging fixes the suffix to .tsv; content must determine the delimiter.
+        with args.metadata.open("w", newline="") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(["accession", "Assembly_Level", "Description"])
+            writer.writerow(["A", "Scaffold", "quoted\tmetadata"])
+        update.run_prepare(args)
+        _, validated = update.read_table(args.outdir / "validated_samples.tsv")
+        self.assertEqual(validated[0]["qc_scope"], "full")
+        with args.metadata.open("w", newline="") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(["accession", "Assembly_Level", "QC_Scope"])
+            writer.writerow(["A", "Scaffold", "qc"])
+        with self.assertRaisesRegex(update.CohortUpdateError, "overlaps resolved QC_Scope"):
+            update.run_prepare(args)
+
     def test_preserves_published_ids_when_adding_a_sanitisation_collision(self) -> None:
         self.published_cohort(["ID-X"])
         args = self.arguments(["ID-X", "ID.X"])

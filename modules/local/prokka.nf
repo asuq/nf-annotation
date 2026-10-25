@@ -26,6 +26,8 @@ process PROKKA {
     path 'prokka_storage.json', optional: true, emit: storage
 
     script:
+    def kingdom = (meta.prokka_kingdom ?: 'Bacteria').toString().trim().toLowerCase(java.util.Locale.ROOT).capitalize()
+    if (!(kingdom in ['Bacteria', 'Archaea'])) { error 'Prokka kingdom must be Bacteria or Archaea' }
     def internalId = (meta.internal_id ?: meta.accession).toString()
     def rawLocustag = internalId.toUpperCase().replaceAll(/[^A-Z0-9]/, '')
     def locustag = rawLocustag ? rawLocustag.take(20) : 'PROKKA'
@@ -67,6 +69,7 @@ process PROKKA {
             --prefix "${internalId}" \
             --locustag "\${locustag}" \
             --compliant \
+            --kingdom "${kingdom}" \
             --gcode "${gcode}" \
             --cpus ${task.cpus} \
             --rfam \

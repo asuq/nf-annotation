@@ -35,6 +35,13 @@ covers annotation-only reuse through `reannotate.nf`. The
 10,000-sample performance and the four-CPU/32-GB defaults remain unqualified.
 The native qualification used 16 CPUs and 64 GiB per search.
 
+Mixed bacterial/archaeal cohorts and separate QC/ANI runs are supported through
+the required `--domain bacteria|archaea|metadata` option, per-domain BUSCO
+profiles and `--pipeline_stage`.
+See [domain routing and stage boundaries](docs/domain_stages.md) before enabling
+these options. Use `--domain bacteria` to retain the existing bacterial BUSCO
+configuration; the domain itself has no default.
+
 ## Table of contents
 
 - [Project summary](#project-summary)
@@ -119,7 +126,8 @@ scored from six components:
 - ANI centrality within the cluster
 
 The BUSCO component uses the primary BUSCO lineage, which is the first lineage
-in `--busco_lineages`. The CheckM2 component uses the completeness and
+in `--busco_lineages` in legacy mode, or the first lineage of that sample's
+explicit domain profile. The CheckM2 component uses the completeness and
 contamination values associated with the sample's assigned gcode. Raw BUSCO,
 CheckM2, N50, and scaffold values are winsorised for larger clusters,
 normalised to the `[0, 1]` range within the cluster, and combined with the
@@ -332,7 +340,7 @@ nextflow run prepare_databases.nf -profile local,docker \
 ### 2. Run the main analysis workflow
 
 ```bash
-nextflow run . -c annotation.config -profile local,docker \
+nextflow run . --domain bacteria -c annotation.config -profile local,docker \
   --sample_csv samples.csv \
   --metadata metadata.tsv \
   --taxdump /path/to/pinned-taxdump \
@@ -346,7 +354,7 @@ nextflow run . -c annotation.config -profile local,docker \
 ### 3. Optionally run the stub smoke test
 
 ```bash
-nextflow run . -profile test -stub-run
+nextflow run . --domain bacteria -profile test -stub-run
 ```
 
 This validates the DSL wiring, channel contracts, publish locations, and final
@@ -357,7 +365,7 @@ report outputs without requiring real external databases or tool containers.
 Local Docker run:
 
 ```bash
-nextflow run . -c annotation.config -profile local,docker \
+nextflow run . --domain bacteria -c annotation.config -profile local,docker \
   --sample_csv samples.csv \
   --metadata metadata.tsv \
   --taxdump /path/to/pinned-taxdump \
@@ -375,7 +383,7 @@ For a local Apptainer run, install Apptainer on the execution host and replace
 SLURM plus Singularity run:
 
 ```bash
-nextflow run . -c annotation.config -profile slurm,singularity \
+nextflow run . --domain bacteria -c annotation.config -profile slurm,singularity \
   --sample_csv samples.csv \
   --metadata metadata.tsv \
   --taxdump /path/to/pinned-taxdump \
@@ -394,7 +402,7 @@ dash, pass the Nextflow parameter with equals syntax, for example
 OIST profile run:
 
 ```bash
-nextflow run . -c annotation.config -profile oist \
+nextflow run . --domain bacteria -c annotation.config -profile oist \
   --sample_csv samples.csv \
   --metadata metadata.tsv \
   --taxdump /path/to/pinned-taxdump \
@@ -411,7 +419,7 @@ MPCDF Viper CPU run, launched from `viper05i`:
 ```bash
 export NXF_APPTAINER_CACHEDIR="/ptmp/$USER/apptainer-cache"
 
-nextflow run . -c annotation.config -profile viper-cpu \
+nextflow run . --domain bacteria -c annotation.config -profile viper-cpu \
   -w "/ptmp/$USER/nf-annotation-work" \
   --sample_csv samples.csv \
   --metadata metadata.tsv \
@@ -444,7 +452,7 @@ label uses `$JOB_TMPDIR` only for processes explicitly assigned that label.
 Large OIST cohort run with the opt-in storage overrides:
 
 ```bash
-nextflow run . -c annotation.config -profile oist \
+nextflow run . --domain bacteria -c annotation.config -profile oist \
   -c conf/oist_20k_storage.config \
   -work-dir /flash/path/to/work_nf_annotation_20k \
   --sample_csv samples.csv \
@@ -471,7 +479,7 @@ To resume that run safely, reuse the same launch directory, Lustre-backed
 Main-workflow BUSCO dataset download variant:
 
 ```bash
-nextflow run . -c annotation.config -profile local,docker \
+nextflow run . --domain bacteria -c annotation.config -profile local,docker \
   --sample_csv samples.csv \
   --metadata metadata.tsv \
   --taxdump /path/to/pinned-taxdump \
@@ -489,7 +497,7 @@ removing samples. Supply the **complete revised sample CSV**, current metadata,
 and a fresh results directory:
 
 ```bash
-nextflow run . -c annotation.config -profile local,docker \
+nextflow run . --domain bacteria -c annotation.config -profile local,docker \
   --update_from /path/to/results-v1 \
   --sample_csv samples-v2.csv \
   --metadata metadata-v2.tsv \

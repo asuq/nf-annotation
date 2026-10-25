@@ -79,7 +79,7 @@ workflow PER_SAMPLE_QC {
             tuple(meta, genome, lineage, datasetDir)
         }
 
-    BUSCO(busco_jobs)
+    BUSCO(busco_jobs.filter { item -> !item[0].busco_lineages || SamplePolicy.sampleLineages(item[0], []).contains(item[2]) })
 
     versions = BARRNAP.out.versions
         .mix(SUMMARISE_16S.out.versions)

@@ -41,7 +41,7 @@ Before any real-data server run, confirm the checkout still passes the stub
 path:
 
 ```bash
-nextflow run . -profile test -stub-run
+nextflow run . --domain bacteria -profile test -stub-run
 ```
 
 Success criteria:
@@ -171,7 +171,7 @@ If you want to bypass the acceptance harness after the cohort is prepared, use
 the generated inputs directly:
 
 ```bash
-nextflow run . -c annotation.config -profile oist \
+nextflow run . --domain bacteria -c annotation.config -profile oist \
   --sample_csv /path/to/test_root/generated/sample_sheet.csv \
   --metadata /path/to/test_root/generated/metadata.tsv \
   --taxdump /shared/db/ncbi_taxdump_YYYYMMDD \

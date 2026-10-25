@@ -17,7 +17,8 @@ workflow ANNOTATION_RESOURCES {
     if (!params.eggnog_group_samples.toString().isInteger() || (params.eggnog_group_samples as int) < 1) {
         error '--eggnog_group_samples must be a positive integer'
     }
-    def selected = params.annotation_tools ? params.annotation_tools.toString().split(',') as List : []
+    def effectiveTools = SamplePolicy.annotationTools(params)
+    def selected = effectiveTools ? effectiveTools.split(',') as List : []
     if (selected.unique(false).size() != selected.size() || selected.any { !(it in supported) }) {
         error "--annotation_tools must be a unique comma-separated subset of ${supported.join(',')}"
     }
