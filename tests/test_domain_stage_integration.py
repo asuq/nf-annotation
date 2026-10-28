@@ -140,6 +140,30 @@ class DomainStageIntegrationTests(unittest.TestCase):
                 "ANNOTATION_SEARCH",
             }
         )
+        self.assertFalse(
+            names
+            & {
+                "IMPORT_PUBLISHED_SAMPLE",
+                "PREPARE_ANNOTATION_BUNDLE",
+                "SUMMARISE_BUSCO",
+                "PLAN_ANNOTATION_PART",
+            }
+        )
+        trace = fixture.read_rows(output / "pipeline_info/trace.tsv")
+        self.assertLessEqual(
+            sum(
+                row["name"].split(" (")[0].endswith(":IMPORT_ANI_BATCH")
+                for row in trace
+            ),
+            8,
+        )
+        self.assertEqual(
+            sum(
+                row["name"].split(" (")[0].endswith(":PLAN_DISABLED_ANNOTATIONS")
+                for row in trace
+            ),
+            1,
+        )
         self.assertIn("FASTANI", names)
         master = {
             r["accession"]: r
@@ -173,6 +197,92 @@ class DomainStageIntegrationTests(unittest.TestCase):
                 (source / f"samples/{accession}/prokka/prokka.faa").read_bytes(),
                 (output / f"samples/{accession}/prokka/prokka.faa").read_bytes(),
             )
+        # First resume must not invalidate validation just because the published
+        # run-identity file now exists. Changed source contents must invalidate it.
+        self.run_stage(
+            "domain-ani",
+            ["A", "B", "LOW", "NOGCODE"],
+            "ani",
+            source=[a, b],
+            resume=True,
+        )
+        resumed = fixture.read_rows(output / "pipeline_info/trace.tsv")
+        validation = [
+            row
+            for row in resumed
+            if row["name"].split(" (")[0].endswith(":PREPARE_COHORT_UPDATE")
+        ]
+        self.assertEqual([row["status"] for row in validation], ["CACHED"])
+        checks = [
+            row
+            for row in resumed
+            if row["name"].split(" (")[0].endswith(":CHECK_COHORT_UPDATE")
+        ]
+        self.assertEqual([row["status"] for row in checks], ["COMPLETED"])
+        audits = [
+            json.loads(path.read_text())
+            for path in (output / "pipeline_info/ani_import").glob("batch_*.json")
+        ]
+        self.assertTrue(
+            all(
+                row["publication"] == "verified_existing"
+                for audit in audits
+                for row in audit["samples"]
+            )
+        )
+        original_metadata = self.case.metadata.read_bytes()
+        try:
+            altered_metadata = original_metadata.replace(
+                b"Synthetic bacterium", b"Changed synthetic label"
+            )
+            self.assertNotEqual(altered_metadata, original_metadata)
+            self.case.metadata.write_bytes(altered_metadata)
+            self.run_stage(
+                "domain-ani",
+                ["A", "B", "LOW", "NOGCODE"],
+                "ani",
+                source=[a, b],
+                resume=True,
+                expected_code=1,
+            )
+            changed_trace = fixture.read_rows(output / "pipeline_info/trace.tsv")
+            validation = [
+                row
+                for row in changed_trace
+                if row["name"].split(" (")[0].endswith(":PREPARE_COHORT_UPDATE")
+            ]
+            self.assertEqual([row["status"] for row in validation], ["COMPLETED"])
+            self.assertIn(
+                "existing update output belongs to different inputs or settings",
+                (self.root / "launch-domain-ani/captured.log").read_text(),
+            )
+        finally:
+            self.case.metadata.write_bytes(original_metadata)
+        changed = a / "samples/A/annotation/bundle/proteins.faa"
+        original_bytes = changed.read_bytes()
+        try:
+            changed.write_text(">corrupt\nM\n")
+            self.run_stage(
+                "domain-ani",
+                ["A", "B", "LOW", "NOGCODE"],
+                "ani",
+                source=[a, b],
+                resume=True,
+                expected_code=1,
+            )
+            failed_trace = fixture.read_rows(output / "pipeline_info/trace.tsv")
+            validation = [
+                row
+                for row in failed_trace
+                if row["name"].split(" (")[0].endswith(":VALIDATE_REUSE_SOURCES")
+            ]
+            self.assertTrue(any(row["status"] == "FAILED" for row in validation))
+            self.assertIn(
+                "Bundle content mismatch",
+                (self.root / "launch-domain-ani/captured.log").read_text(),
+            )
+        finally:
+            changed.write_bytes(original_bytes)
         self.run_stage(
             "domain-ani-missing", ["A", "D"], "ani", source=a, expected_code=1
         )

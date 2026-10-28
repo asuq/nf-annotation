@@ -4,7 +4,7 @@
  */
 process WRITE_SAMPLE_STATUS {
     tag "sample_status"
-    label 'process_single'
+    label 'process_cohort'
     cache 'deep'
     errorStrategy 'finish'
     maxRetries 0

@@ -16,6 +16,7 @@ workflow COHORT_ANI {
     gcode_qc
     sixteen_s_summaries
     busco_summaries
+    reused_busco_tables
     primary_busco_column
     ani_16s_policy
 
@@ -82,7 +83,7 @@ workflow COHORT_ANI {
             newLine: true,
         )
 
-    busco_tables = SUMMARISE_BUSCO.out.summary
+    busco_tables = SUMMARISE_BUSCO.out.summary.mix(reused_busco_tables)
         .map { item ->
             def values = unpackTuple.call(item, 'busco_summary', 3)
             def lineage = values[1]

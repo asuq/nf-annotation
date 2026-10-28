@@ -38,7 +38,7 @@ from annotation_tasks import (
     runtime_identity,
     task_identity,
 )
-from prepare_annotation_tasks import execution_groups, merge_plans, plan, plan_part
+from prepare_annotation_tasks import execution_groups, merge_plans, plan, plan_part, plan_disabled
 
 
 class AnnotationTaskTests(unittest.TestCase):
@@ -49,6 +49,40 @@ class AnnotationTaskTests(unittest.TestCase):
         self.root = self.fixture.root
         self.bundle = self.fixture.build("A")
         self.metadata, self.proteins = bundle_proteins(self.bundle)
+
+    def test_disabled_cohort_plan_matches_streaming_grid_without_revalidating_payloads(self):
+        samples = self.root / "disabled-samples.tsv"
+        write_tsv(samples, ("accession",), [{"accession": "A"}, {"accession": "B"}])
+        members = self.root / "members.json"
+        write_json(members, {"accessions": ["A"]})
+        receipt = self.root / "disabled-preflight.json"
+        write_json(receipt, {"enabled_tools": [], "preflight_id": "fixture", "tools": {}})
+        with patch("prepare_annotation_tasks.validate_preflight"):
+            plan_part(members, [self.bundle], receipt, self.root / "fragment", None, "individual")
+            expected = merge_plans(samples, receipt, [self.root / "fragment/annotation_plan.json"], self.root / "merged", None)
+            with patch("prepare_annotation_tasks.bundle_proteins", side_effect=AssertionError("unexpected payload reread")):
+                actual = plan_disabled(samples, [self.bundle], receipt, self.root / "disabled")
+        self.assertEqual(actual, expected)
+        self.assertEqual(len(actual["tasks"]), 2 * len(TOOLS))
+        self.assertTrue(all(row["status"] == "skipped_disabled" for row in actual["tasks"]))
+        write_json(receipt, {"enabled_tools": ["pfam"], "preflight_id": "fixture", "tools": {}})
+        with patch("prepare_annotation_tasks.validate_preflight"), self.assertRaises(AnnotationError):
+            plan_disabled(samples, [self.bundle], receipt, self.root / "invalid")
+
+    def test_disabled_planning_still_requires_content_integrity_at_aggregation(self):
+        samples = self.root / "samples.tsv"
+        master = self.root / "master.tsv"
+        status = self.root / "status.tsv"
+        receipt = self.root / "receipt.json"
+        write_tsv(samples, ("accession",), [{"accession": "A"}])
+        write_tsv(master, ("Accession", "Gcode"), [{"Accession": "A", "Gcode": "4"}])
+        write_tsv(status, ("accession",), [{"accession": "A"}])
+        write_json(receipt, {"enabled_tools": [], "preflight_id": "fixture", "tools": {}})
+        with patch("prepare_annotation_tasks.validate_preflight"):
+            plan_disabled(samples, [self.bundle], receipt, self.root / "disabled-plan")
+        (self.bundle / "proteins.faa").write_text(">tampered\nM\n")
+        with self.assertRaisesRegex(AnnotationError, "content mismatch"):
+            aggregate(self.root / "disabled-plan/annotation_plan.json", master, status, [self.bundle], [], self.root / "report")
 
     def entry(self, tool="kofam"):
         search = dict(

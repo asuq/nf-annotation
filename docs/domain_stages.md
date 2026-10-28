@@ -174,3 +174,11 @@ or published scientific output formats.
   biological completeness. These interfaces retain the pinned BUSCO runtime and
   prepared dataset versions rather than switching to the current guide's newest
   software or OrthoDB release.
+
+## ANI reuse performance
+
+From v0.4.5, ANI-only reuse batches import work, retains matching validated bundles
+and reuses checked BUSCO summaries. Disabled functional tools use one cohort
+plan. The [performance guide](ani_performance.md) describes source integrity,
+resume behaviour, self-contained publication and optional resource settings.
+The domain and scientific policies above are unchanged.

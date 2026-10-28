@@ -15,6 +15,12 @@ include { ANNOTATION_RESOURCES; FUNCTIONAL_ANNOTATION } from './subworkflows/loc
 workflow {
     SamplePolicy.requireDomain(params)
     def pipelineStage = SamplePolicy.stage(params)
+    ['ani_import_batches', 'ani_import_max_forks'].each { name ->
+        def value = params[name].toString()
+        if (!value.isInteger() || (value as int) < 1 || (value as int) > 64) {
+            error "--${name} must be an integer from 1 to 64"
+        }
+    }
     if (pipelineStage == 'ani' && !params.update_from) {
         error '--pipeline_stage ani requires completed QC publications via --update_from'
     }
@@ -150,6 +156,7 @@ workflow {
         allGcodeQc,
         allSixteenS,
         allBusco,
+        INPUT_VALIDATION_AND_STAGING.out.reused_parsed_busco,
         Channel.value(primaryBuscoColumn),
         Channel.value(params.ani_16s_policy),
     )

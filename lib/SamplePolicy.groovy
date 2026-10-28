@@ -7,6 +7,16 @@ class SamplePolicy {
         java.security.MessageDigest.getInstance('SHA-256').digest(source.bytes).encodeHex().toString()
     }
 
+    static String reuseCodeHash(Object projectDir) {
+        def digest = java.security.MessageDigest.getInstance('SHA-256')
+        new File(projectDir.toString(), 'bin').listFiles().findAll { it.name.endsWith('.py') }.sort { it.name }.each { source ->
+            digest.update((source.name + '\u0000').getBytes('UTF-8'))
+            digest.update(source.bytes)
+            digest.update((byte) 0)
+        }
+        digest.digest().encodeHex().toString()
+    }
+
     static String stage(params) {
         def value = params.pipeline_stage
         if (!(value in ['full', 'qc', 'ani'])) { throw new IllegalArgumentException('pipeline_stage must be full, qc or ani') }

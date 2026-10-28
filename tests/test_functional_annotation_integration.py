@@ -413,11 +413,14 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
             [
                 "batch_list.json",
                 "bundle_list.json",
-                "fragment_list.json",
+                "bundle_list.json",
                 "result_list.json",
             ],
         )
         self.assertTrue(all(read_json(path) == [] for path in lists))
+        names = [row["name"].split(" (")[0].split(":")[-1] for row in read_tsv(output / "pipeline_info/trace.tsv")]
+        self.assertEqual(names.count("PLAN_DISABLED_ANNOTATIONS"), 1)
+        self.assertFalse(set(names) & {"PLAN_ANNOTATION_PART", "PLAN_ANNOTATION_GROUPS", "MERGE_ANNOTATION_PLANS"})
 
     def test_padloc_stages_the_bundle_without_an_external_resource(self):
         entry = preflight(

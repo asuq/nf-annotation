@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "bin"))
 
 from annotation_common import AnnotationError, read_json, write_json, write_tsv
-from annotation_path_lists import read_path_list
+from annotation_path_lists import read_path_list, read_publication_paths
 from annotation_tasks import preflight
 
 
@@ -61,6 +61,22 @@ class AnnotationPathListTests(unittest.TestCase):
         self.manifest.write_text('["truncated"')
         with self.assertRaisesRegex(AnnotationError, "Invalid JSON"):
             read_path_list(self.manifest)
+
+    def test_publication_mount_keeps_exact_paths_and_rejects_escapes(self):
+        publication = self.root / "publication"
+        bundle = publication / "samples/A/annotation/bundle"
+        bundle.mkdir(parents=True)
+        (bundle / "bundle.json").write_text("{}")
+        write_json(self.manifest, [str(bundle)])
+        self.assertEqual(read_publication_paths(self.manifest, publication), [bundle.resolve()])
+        alias = publication / "alias"
+        alias.symlink_to(bundle, target_is_directory=True)
+        write_json(self.manifest, [str(alias)])
+        with self.assertRaises(AnnotationError):
+            read_publication_paths(self.manifest, publication)
+        write_json(self.manifest, [str(self.root)])
+        with self.assertRaises(AnnotationError):
+            read_publication_paths(self.manifest, publication)
 
     def planner_cli(self, *arguments):
         return subprocess.run(
@@ -184,6 +200,7 @@ class AnnotationPathListTests(unittest.TestCase):
             "receipt": "receipt.json",
             "sourceArgs": "",
             "plan": "annotation_plan.json",
+            "publicationArg": "",
         }
         for name, value in replacements.items():
             shell = shell.replace("${" + name + "}", value)

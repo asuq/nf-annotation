@@ -261,6 +261,10 @@ For the QC-only and cumulative ANI-only stages introduced in v0.4.4, use the
 per-sample BUSCO scoring provenance and the reuse requirements for each stage.
 These options do not change ANI distances, thresholds or representative weights.
 
+For large ANI-only views, use the [v0.4.5 performance guidance](ani_performance.md).
+It covers bounded import allocations, reusable validation, shared-storage
+requirements and the distinction between requested resources and their caps.
+
 From v0.4.3, combine independent published cohorts with a comma-separated
 source list:
 

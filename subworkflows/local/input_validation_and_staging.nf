@@ -34,6 +34,7 @@ workflow INPUT_VALIDATION_AND_STAGING {
         reused_cohort_qc = PUBLISHED_RESULTS_IMPORT.out.gcode_qc_for_cohort_16s
         reused_16s = PUBLISHED_RESULTS_IMPORT.out.sixteen_s_summaries
         reused_busco = PUBLISHED_RESULTS_IMPORT.out.busco_summaries
+        reused_parsed_busco = PUBLISHED_RESULTS_IMPORT.out.parsed_busco
         reused_codetta = PUBLISHED_RESULTS_IMPORT.out.codetta_summary
         reused_ccfinder = PUBLISHED_RESULTS_IMPORT.out.ccfinder_summary
         reused_prokka = PUBLISHED_RESULTS_IMPORT.out.prokka
@@ -57,6 +58,7 @@ workflow INPUT_VALIDATION_AND_STAGING {
         reused_cohort_qc = Channel.empty()
         reused_16s = Channel.empty()
         reused_busco = Channel.empty()
+        reused_parsed_busco = Channel.empty()
         reused_codetta = Channel.empty()
         reused_ccfinder = Channel.empty()
         reused_prokka = Channel.empty()
@@ -80,6 +82,7 @@ workflow INPUT_VALIDATION_AND_STAGING {
     reused_gcode_qc_for_cohort_16s = reused_cohort_qc
     reused_sixteen_s = reused_16s
     reused_busco_summaries = reused_busco
+    reused_parsed_busco = reused_parsed_busco
     reused_codetta_summary = reused_codetta
     reused_ccfinder_summary = reused_ccfinder
     reused_prokka_results = reused_prokka

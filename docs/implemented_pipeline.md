@@ -190,6 +190,9 @@ The most important implementation-level parameters are:
 | `codetta_db` | `main.nf`, `prepare_databases.nf` | Codetta profile directory rooted at `Pfam-A_enone.hmm`. |
 | `busco_db` | `main.nf`, `prepare_databases.nf` | Offline BUSCO lineage root unless datasets are downloaded on demand. |
 | `prepare_busco_datasets` | `main.nf` | Switches BUSCO lineage resolution from reuse to download. |
+| `ani_import_batches` | `main.nf` ANI-only reuse | Maximum import allocations, default 8; accepts 1-64. |
+| `ani_import_max_forks` | reuse bookkeeping | Concurrent import/source-validation groups, default 2; accepts 1-64. |
+| `cohort_time`, `cohort_memory` | cohort bookkeeping | Requests default to 8 h / 8 GB and remain subject to global/site caps. |
 | `pipeline_stage` | `main.nf` | `full` (default), `qc`, or `ani`; ANI-only requires completed published sources for every sample. |
 | `domain` | `main.nf` | Required: `bacteria`, `archaea`, or `metadata`; metadata mode reads the exact `Domain` column. Prokka/Barrnap kingdoms are derived internally. |
 | `busco_domain_lineages` | both | Explicit domain-to-lineage-list map; first entry per domain supplies the existing BUSCO scoring term. |
@@ -497,3 +500,13 @@ with explicit scope and unavailable ANI/CRISPR evidence. ANI-only runs reject
 new samples or changed/unrecorded source policies. Imported policy code is an
 explicit input to validation, source-import validation and reporting tasks, so
 changes to that code invalidate the corresponding Nextflow cache entries.
+
+## Bounded ANI reuse
+
+The [v0.4.5 performance contract](ani_performance.md) adds content-bound source
+validation receipts, a separate resume guard and bounded import allocations.
+Source validation is cached across sequential cumulative views when the same
+Nextflow cache/work context is retained. Scientific inputs are fingerprinted
+again before a cached receipt is accepted. Matched bundles retain their original
+bytes; disabled planning and 16S cohort reporting are consolidated. Native
+prediction, genomic classification and ANI methodology are not added or changed.

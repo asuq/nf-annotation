@@ -516,7 +516,7 @@ def write_table(
 
 
 def load_source_tables(
-    source: Path, lineages: Sequence[str], requested: set[str]
+    source: Path, lineages: Sequence[str], requested: set[str], *, source_validated: bool = False
 ) -> tuple[
     dict[str, dict[str, str]],
     dict[str, dict[str, str]],
@@ -525,7 +525,8 @@ def load_source_tables(
 ]:
     """Load a completed source cohort and validate the reporting contracts."""
     try:
-        validate_source(source)
+        if not source_validated:
+            validate_source(source)
     except AnnotationError as error:
         raise CohortUpdateError(str(error)) from error
     source_manifest = source / "tables/validated_samples.tsv"
@@ -703,11 +704,18 @@ def run_prepare(args: argparse.Namespace) -> None:
             "A cohort update requires at least one requested sample."
         )
     requested = index_rows(samples, "accession", args.validated_samples)
+    checked = set()
+    if getattr(args, "source_validation", None) is not None:
+        from reuse_source_validation import checked_roots
+        receipt = json.loads(args.source_validation.read_text())
+        checked = checked_roots(receipt["receipts"], receipt["fingerprints"])
+        if checked != set(sources):
+            raise CohortUpdateError("Validated source receipts do not match the requested sources")
     source_index, statuses, masters, origins = {}, {}, {}, {}
     versions, source_identities = [], []
     for number, source in enumerate(sources):
         source_samples, source_statuses, source_masters, source_versions = load_source_tables(
-            source, args.busco_lineage, set(requested)
+            source, args.busco_lineage, set(requested), source_validated=source in checked
         )
         overlap = source_index.keys() & source_samples.keys()
         if overlap:
@@ -883,6 +891,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=summarise_checkm2.DEFAULT_GCODE_RULE,
     )
     parser.add_argument("--previous-update", type=Path)
+    parser.add_argument("--source-validation", type=Path)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     try:

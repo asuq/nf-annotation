@@ -4,7 +4,7 @@
  */
 process BUILD_MASTER_TABLE {
     tag "master_table"
-    label 'process_single'
+    label 'process_cohort'
     cache 'deep'
     errorStrategy 'finish'
     maxRetries 0

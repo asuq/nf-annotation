@@ -42,6 +42,10 @@ See [domain routing and stage boundaries](docs/domain_stages.md) before enabling
 these options. Use `--domain bacteria` to retain the existing bacterial BUSCO
 configuration; the domain itself has no default.
 
+ANI-only reuse is batched from v0.4.5. See [ANI performance and resource settings](docs/ani_performance.md)
+for bounded submissions, validation-cache reuse, independent publication and
+measured limits.
+
 ## Table of contents
 
 - [Project summary](#project-summary)

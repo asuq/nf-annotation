@@ -1,5 +1,26 @@
 # Change Log
 
+## v0.4.5 - 2026-10-28
+
+- Batch ANI-only imports into at most eight allocations by default, with bounded
+  concurrency. Reuse matching canonical bundles and validated BUSCO summaries;
+  eliminate per-genome functional planning when all tools are disabled.
+- Publish independent sample payloads once, using filesystem clones when supported
+  and one normal copy otherwise. Preserve per-genome failure diagnostics and
+  verify existing payloads on resume; source and work directories remain removable.
+- Bind reusable source validation to fresh content fingerprints and validator code.
+  Separate the lightweight resume-identity guard so the first normal resume does
+  not invalidate expensive cohort validation. Changed nested source files still fail.
+- Generate the four existing 16S views in one pass with unchanged selection rules,
+  identifiers and output order. Retain fixed-taxdump metadata lineage reporting.
+- Give cohort bookkeeping explicit time/memory requests instead of inheriting the
+  one-hour per-sample timeout. No worker pool, large task array or queue-size
+  increase is required.
+- Preserve scientific methods, the default 95% ANI threshold, genetic-code/domain
+  policies and image references. See the [performance guide](ani_performance.md)
+  and [qualification record](development/v0.4.5_qualification.md) for measurements
+  and remaining storage/runtime limits.
+
 ## v0.4.4 - 2026-10-25
 
 - Require `--domain bacteria|archaea|metadata` for pipeline runs. Metadata mode

@@ -23,7 +23,7 @@ from annotation_common import (
     write_json,
     write_tsv,
 )
-from annotation_path_lists import read_path_list
+from annotation_path_lists import read_path_list, read_publication_paths
 from annotation_resources import AnnotationResourceError
 from annotation_result import validate_result
 from annotation_source import import_source, sample_source, source_roots, validate_sources
@@ -64,11 +64,14 @@ def plan(
     *,
     tools: tuple[str, ...] = TOOLS,
     previous_batch_ids: list[str] | None = None,
+    metadata_only: bool = False,
 ) -> dict[str, Any]:
     """Plan every declared accession/tool combination, including absent bundles."""
     roots = source_roots(source)
     checked = read_json(receipt)
     validate_preflight(checked)
+    if metadata_only and checked["enabled_tools"]:
+        raise AnnotationError("Metadata-only planning requires all tools disabled")
     rows = read_tsv(samples, ["accession"])
     accessions = [row["accession"] for row in rows]
     accession_set = set(accessions)
@@ -134,7 +137,7 @@ def plan(
         previous_source = sample_source(roots, accession)
         bundle, bundle_record = by_accession.get(accession, (None, {}))
         proteins = []
-        if bundle_record.get("status") == "success":
+        if bundle_record.get("status") == "success" and not metadata_only:
             bundle_record, proteins = bundle_proteins(bundle)
             if bundle_record["accession"] != accession:
                 raise AnnotationError(
@@ -237,6 +240,24 @@ def plan(
     record["plan_id"] = identity(record)
     write_json(output / "annotation_plan.json", record)
     write_tsv(output / "annotation_plan.tsv", PLAN_COLUMNS, tasks)
+    return record
+
+
+def plan_disabled(samples: Path, bundles: list[Path], receipt: Path, output: Path) -> dict:
+    """Record the complete disabled grid; aggregation validates bundle contents."""
+    checked = read_json(receipt)
+    validate_preflight(checked)
+    if checked["enabled_tools"]:
+        raise AnnotationError("Disabled planning cannot accept enabled tools")
+    record = plan(samples, bundles, receipt, output, metadata_only=True)
+    # The existing disabled streaming path has no eggNOG fragment. Preserve
+    # its unavailable input count, including the missing-versus-zero distinction.
+    for row in record["tasks"]:
+        if row["tool"] == "eggnog":
+            row["input_proteins"] = None
+    record["plan_id"] = identity({key: value for key, value in record.items() if key != "plan_id"})
+    write_json(output / "annotation_plan.json", record)
+    write_tsv(output / "annotation_plan.tsv", PLAN_COLUMNS, record["tasks"])
     return record
 
 
@@ -361,6 +382,12 @@ def main() -> int:
     planner.add_argument("--preflight", type=Path, required=True)
     planner.add_argument("--source", type=Path, action="append")
     planner.add_argument("--output", type=Path, required=True)
+    disabled = sub.add_parser("plan-disabled", allow_abbrev=False)
+    disabled.add_argument("--samples", type=Path, required=True)
+    disabled.add_argument("--bundle-list", type=Path, required=True)
+    disabled.add_argument("--preflight", type=Path, required=True)
+    disabled.add_argument("--output", type=Path, required=True)
+    disabled.add_argument("--publication", type=Path)
     groups = sub.add_parser("groups", allow_abbrev=False)
     groups.add_argument("--samples", type=Path, required=True)
     groups.add_argument("--preflight", type=Path, required=True)
@@ -398,6 +425,8 @@ def main() -> int:
     try:
         if args.command == "preflight":
             write_json(args.output, preflight(read_json(args.config)))
+        elif args.command == "plan-disabled":
+            plan_disabled(args.samples, read_publication_paths(args.bundle_list, args.publication), args.preflight, args.output)
         elif args.command == "groups":
             write_json(args.output, execution_groups(args.samples, args.preflight, args.source, args.size))
         elif args.command == "plan-part":

@@ -31,7 +31,7 @@ from annotation_common import (
     write_tsv,
 )
 from annotation_normalization import json_cell
-from annotation_path_lists import read_path_list
+from annotation_path_lists import read_path_list, read_publication_paths
 from annotation_result import (
     NativeBatch,
     inventory,
@@ -618,6 +618,7 @@ def main() -> int:
         "batch-list",
     ):
         parser.add_argument("--" + name, type=Path, required=True)
+    parser.add_argument("--publication", type=Path)
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     try:
@@ -625,7 +626,7 @@ def main() -> int:
             args.plan,
             args.master,
             args.sample_status,
-            read_path_list(args.bundle_list),
+            read_publication_paths(args.bundle_list, args.publication),
             read_path_list(args.result_list),
             args.output,
             batch_dirs=read_path_list(args.batch_list),

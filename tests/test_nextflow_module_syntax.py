@@ -269,30 +269,10 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertIn("path status_tables, stageAs: 'summaries/*'", module_text)
         self.assertIn("path qc_tables, stageAs: 'qc/*'", module_text)
         self.assertIn("path metadata", module_text)
-        self.assertIn(
-            (
-                "printf 'accession\\tinternal_id\\tstatus_tsv\\tbest_16s_fasta\\t"
-                "qc_tsv\\n' > cohort_inputs.tsv"
-            ),
-            module_text,
-        )
-        self.assertNotIn(
-            'printf \'accession\\tstatus_tsv\\tbest_16s_fasta\\n\' > cohort_inputs.tsv',
-            module_text,
-        )
-        self.assertIn('python3 "\\${script_path}"', module_text)
+        self.assertIn('build_all_cohort_16s.py', module_text)
+        self.assertIn('--statuses status_paths.list0 --qc-dir qc', module_text)
         self.assertIn('--metadata "${metadata}"', module_text)
-        self.assertIn("--cohort-kind intact", module_text)
-        self.assertIn("--cohort-kind partial", module_text)
-        self.assertIn("--cohort-kind low_quality_intact", module_text)
-        self.assertIn("--cohort-kind low_quality_partial", module_text)
-        self.assertIn('internal_id="\\${stem}"', module_text)
-        self.assertIn('qc_table="qc/\\${stem}_checkm2_summary.tsv"', module_text)
-        self.assertIn('"\\$(pwd)/\\${status_table}"', module_text)
-        self.assertIn('"\\$(pwd)/\\${best_fasta}"', module_text)
-        self.assertIn('"\\$(pwd)/\\${qc_table}"', module_text)
-        self.assertNotIn('"${PWD}/\\${status_table}"', module_text)
-        self.assertNotIn('"${PWD}/\\${best_fasta}"', module_text)
+        self.assertNotIn('for status_table', module_text)
         self.assertIn("path 'all_best_16S.fna', emit: best_fasta", module_text)
         self.assertIn("path 'all_best_16S_manifest.tsv', emit: best_manifest", module_text)
         self.assertIn("path 'all_partial_16S.fna', emit: partial_fasta", module_text)

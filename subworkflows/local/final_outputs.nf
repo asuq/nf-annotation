@@ -185,13 +185,17 @@ workflow FINAL_OUTPUTS {
         Channel.value(SamplePolicy.codeHash(projectDir)),
     )
 
+    def isAni = SamplePolicy.stage(params) == 'ani'
+    aggregateBundles = isAni ? annotation_bundles.map { [file(params.outdir)] } : annotation_bundles
+    aggregateBundlePaths = isAni ? annotation_bundles.map { items -> items.collect { it.toString() } } : Channel.value([])
     AGGREGATE_ANNOTATIONS(
         annotation_plan,
         BUILD_MASTER_TABLE.out.master_table,
         WRITE_SAMPLE_STATUS.out.sample_status,
-        annotation_bundles,
+        aggregateBundles,
         annotation_results.map { item -> item[1] }.toList(),
         annotation_batches.toList(),
+        aggregateBundlePaths,
     )
 
     final_versions = aniVersions

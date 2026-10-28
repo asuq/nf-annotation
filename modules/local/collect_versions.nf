@@ -4,7 +4,7 @@
  */
 process COLLECT_VERSIONS {
     tag "versions"
-    label 'process_single'
+    label 'process_cohort'
     cache 'deep'
     publishDir(
         "${params.outdir}/tables",

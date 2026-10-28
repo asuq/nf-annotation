@@ -28,6 +28,43 @@ process ANNOTATION_PREFLIGHT {
 }
 
 
+/* One cohort plan records every skipped tool without per-genome scheduler jobs. */
+process PLAN_DISABLED_ANNOTATIONS {
+    label 'process_cohort'
+    stageInMode 'symlink'
+    container params.python_container
+    cache false
+    errorStrategy 'finish'
+    maxRetries 0
+    publishDir "${params.outdir}/pipeline_info", mode: 'copy', overwrite: true,
+        saveAs: { name -> name.startsWith('planned/') ? name.substring(8) : null }
+
+    input:
+    path samples
+    path receipt
+    path bundles, stageAs: 'bundles/bundle??????'
+    val bundle_paths
+
+    output:
+    path 'planned/annotation_plan.json', emit: plan
+    path 'planned/annotation_plan.tsv', emit: table
+
+    script:
+    def inputs = bundles instanceof Collection ? bundles : [bundles]
+    def isAni = SamplePolicy.stage(params) == 'ani'
+    def publicationArg = isAni ? "--publication '${inputs[0]}'" : ''
+    def bundleList = groovy.json.JsonOutput.toJson(isAni ? bundle_paths : inputs.collect { it.toString() })
+    """
+    cat > bundle_list.json <<'ANNOTATION_BUNDLES'
+${bundleList}
+ANNOTATION_BUNDLES
+    python3 "\$(command -v prepare_annotation_tasks.py)" plan-disabled \
+        --samples '${samples}' --bundle-list bundle_list.json \
+        --preflight '${receipt}' ${publicationArg} --output planned
+    """
+}
+
+
 process PLAN_ANNOTATION_GROUPS {
     label 'process_single'
     container params.python_container
@@ -266,7 +303,8 @@ process COMPLETE_EGGNOG_BATCH {
 }
 
 process AGGREGATE_ANNOTATIONS {
-    label 'process_single'
+    label 'process_cohort'
+    stageInMode 'symlink'
     container params.python_container
     cache false
     errorStrategy 'finish'
@@ -281,6 +319,7 @@ process AGGREGATE_ANNOTATIONS {
     path bundles, stageAs: 'bundles/bundle??'
     path results, stageAs: 'results/result???'
     path batches, stageAs: 'batches/batch???'
+    val bundle_paths
 
     output:
     path 'report/tables/*', emit: tables
@@ -291,7 +330,10 @@ process AGGREGATE_ANNOTATIONS {
     if (SamplePolicy.annotationTools(params)) {
         AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
     }
-    def bundleList = groovy.json.JsonOutput.toJson((bundles instanceof Collection ? bundles : [bundles]).collect { it.toString() })
+    def inputs = bundles instanceof Collection ? bundles : [bundles]
+    def isAni = SamplePolicy.stage(params) == 'ani'
+    def publicationArg = isAni ? "--publication '${inputs[0]}'" : ''
+    def bundleList = groovy.json.JsonOutput.toJson(isAni ? bundle_paths : inputs.collect { it.toString() })
     def resultList = groovy.json.JsonOutput.toJson((results instanceof Collection ? results : [results]).collect { it.toString() })
     def batchList = groovy.json.JsonOutput.toJson((batches instanceof Collection ? batches : [batches]).collect { it.toString() })
     """
@@ -306,7 +348,7 @@ ${batchList}
 ANNOTATION_BATCH_LIST
     python3 "\$(command -v aggregate_annotations.py)" --plan '${plan}' \
         --master upstream_master.tsv --sample-status upstream_sample_status.tsv \
-        --bundle-list bundle_list.json --result-list result_list.json \
+        --bundle-list bundle_list.json ${publicationArg} --result-list result_list.json \
         --batch-list batch_list.json --output report
     """
 }

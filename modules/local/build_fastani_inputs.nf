@@ -4,7 +4,7 @@
  */
 process BUILD_FASTANI_INPUTS {
     tag "fastani_prep"
-    label 'process_single'
+    label 'process_cohort'
     cache 'deep'
     publishDir(
         { "${params.outdir}/cohort/fastani" },
