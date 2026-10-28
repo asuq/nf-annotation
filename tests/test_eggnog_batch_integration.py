@@ -128,7 +128,7 @@ workflow {
     current = file(params.fixture_source, checkIfExists: true)
     previous = PublishedSources.paths(params.annotation_from)
     ANNOTATION_RESOURCES()
-    IMPORT_ANNOTATION_SOURCE(Channel.value(current), ANNOTATION_RESOURCES.out.receipt)
+    IMPORT_ANNOTATION_SOURCE(Channel.value(current), ANNOTATION_RESOURCES.out.receipt, Channel.value([]))
     bundles = IMPORT_ANNOTATION_SOURCE.out.samples.splitCsv(header: true, sep: '\\t').map { sample ->
         tuple([accession: sample.accession], current.resolve("samples/${sample.accession}/annotation/bundle"))
     }
@@ -137,7 +137,7 @@ workflow {
     AGGREGATE_ANNOTATIONS(FUNCTIONAL_ANNOTATION.out.plan, IMPORT_ANNOTATION_SOURCE.out.master,
         IMPORT_ANNOTATION_SOURCE.out.sample_status, FUNCTIONAL_ANNOTATION.out.bundle_files,
         FUNCTIONAL_ANNOTATION.out.results.map { item -> item[1] }.toList(),
-        FUNCTIONAL_ANNOTATION.out.native_batches.toList(), Channel.value([]))
+        FUNCTIONAL_ANNOTATION.out.native_batches.toList(), Channel.value([]), Channel.value([]))
     ANNOTATION_ACCEPTANCE(AGGREGATE_ANNOTATIONS.out.acceptance, IMPORT_ANNOTATION_SOURCE.out.samples)
 }
 """

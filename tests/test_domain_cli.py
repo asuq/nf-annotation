@@ -15,6 +15,8 @@ NEXTFLOW = shutil.which("nextflow")
 class DomainCliTests(unittest.TestCase):
     def test_missing_invalid_and_removed_options_fail_before_tasks(self):
         cases = [
+            ("main.nf", ["--domain", "bacteria", "--ani_publication_mode", "unknown"], "must be self_contained or reference"),
+            ("main.nf", ["--domain", "bacteria", "--ani_publication_mode", "reference"], "requires --pipeline_stage ani"),
             ("main.nf", [], "--domain is required"),
             ("main.nf", ["--domain", "auto"], "--domain is required"),
             ("main.nf", ["--pipeline_stage", "qc"], "--domain is required"),

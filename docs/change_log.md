@@ -8,6 +8,9 @@
 - Publish independent sample payloads once, using filesystem clones when supported
   and one normal copy otherwise. Preserve per-genome failure diagnostics and
   verify existing payloads on resume; source and work directories remain removable.
+- Add opt-in `--ani_publication_mode reference` while retaining self-contained
+  outputs by default. Reference views are reusable through ANI updates and
+  reannotation, with immutable dependency snapshots and explicit link checks.
 - Bind reusable source validation to fresh content fingerprints and validator code.
   Separate the lightweight resume-identity guard so the first normal resume does
   not invalidate expensive cohort validation. Changed nested source files still fail.

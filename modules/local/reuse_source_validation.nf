@@ -9,6 +9,7 @@ process FINGERPRINT_REUSE_SOURCES {
 
     input:
     path sources, stageAs: 'sources/source????'
+    path dependencies, stageAs: 'dependencies/root????'
 
     output:
     path 'source_fingerprints.json', emit: fingerprints
@@ -36,7 +37,7 @@ process VALIDATE_REUSE_SOURCES {
     maxRetries 0
 
     input:
-    tuple val(records), path(sources, stageAs: 'sources/source????')
+    tuple val(records), path(sources, stageAs: 'sources/source????'), path(dependencies, stageAs: 'dependencies/root????')
     val validator_code
 
     output:

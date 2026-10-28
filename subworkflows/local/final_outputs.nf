@@ -1,3 +1,4 @@
+include { REFERENCE_ACCEPTANCE } from '../../modules/local/reference_acceptance'
 include { BUILD_MASTER_TABLE } from '../../modules/local/build_master_table'
 include { COLLECT_VERSIONS } from '../../modules/local/collect_versions'
 include { SELECT_ANI_REPRESENTATIVES } from '../../modules/local/select_ani_representatives'
@@ -188,6 +189,7 @@ workflow FINAL_OUTPUTS {
     def isAni = SamplePolicy.stage(params) == 'ani'
     aggregateBundles = isAni ? annotation_bundles.map { [file(params.outdir)] } : annotation_bundles
     aggregateBundlePaths = isAni ? annotation_bundles.map { items -> items.collect { it.toString() } } : Channel.value([])
+    publicationDependencies = isAni && params.ani_publication_mode == 'reference' ? Channel.value(ReferenceInputs.paths(PublishedSources.paths(params.update_from))) : Channel.value([])
     AGGREGATE_ANNOTATIONS(
         annotation_plan,
         BUILD_MASTER_TABLE.out.master_table,
@@ -196,6 +198,7 @@ workflow FINAL_OUTPUTS {
         annotation_results.map { item -> item[1] }.toList(),
         annotation_batches.toList(),
         aggregateBundlePaths,
+        publicationDependencies,
     )
 
     final_versions = aniVersions
@@ -219,7 +222,12 @@ workflow FINAL_OUTPUTS {
         container_engine,
     )
 
-    ANNOTATION_ACCEPTANCE(AGGREGATE_ANNOTATIONS.out.acceptance, COLLECT_VERSIONS.out.versions_table)
+    if (isAni && params.ani_publication_mode == 'reference') {
+        REFERENCE_ACCEPTANCE(AGGREGATE_ANNOTATIONS.out.acceptance, COLLECT_VERSIONS.out.versions_table,
+            Channel.value(file(params.outdir)), publicationDependencies, Channel.value([]))
+    } else {
+        ANNOTATION_ACCEPTANCE(AGGREGATE_ANNOTATIONS.out.acceptance, COLLECT_VERSIONS.out.versions_table)
+    }
 
     emit:
     master_table = AGGREGATE_ANNOTATIONS.out.tables.map { files -> files.find { it.name == 'master_table.tsv' } }

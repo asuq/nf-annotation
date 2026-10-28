@@ -18,6 +18,7 @@ process PREPARE_COHORT_UPDATE {
     val destination
     val policy_code
     val source_validation
+    path dependencies, stageAs: 'dependencies/root????'
 
     output:
     path 'prepared', emit: prepared

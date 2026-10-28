@@ -12,6 +12,7 @@ from pathlib import Path
 
 from annotation_common import AnnotationError, digest, identity, read_json, write_json
 from annotation_source import validate_source
+from publication_references import REFERENCE_CONTRACT, REFERENCE_FILE, Publication
 
 
 def code_id() -> str:
@@ -24,15 +25,39 @@ def code_id() -> str:
     return result.hexdigest()
 
 
-def fingerprint(root: Path) -> dict:
+def fingerprint(
+    root: Path, *, cache: dict | None = None, active: tuple[Path, ...] = ()
+) -> dict:
     """Hash scientific publication contents, excluding mutable execution logs."""
     root = root.resolve(strict=True)
+    cache = {} if cache is None else cache
+    if root in active:
+        raise AnnotationError(f"Circular publication reference: {root}")
+    if root in cache:
+        return cache[root]
     manifest = root / "annotation_results.json"
     if manifest.is_symlink() or not manifest.is_file():
         raise AnnotationError(f"Invalid publication manifest: {manifest}")
     # DirEntry retains directory type/stat information. Avoid repeated is_file,
     # is_dir and stat round trips for every small file on a shared filesystem.
     paths = [(manifest, manifest.stat())]
+    reference = read_json(manifest).get("pipeline_contract") == REFERENCE_CONTRACT
+    publication = Publication(root) if reference else None
+    dependencies = []
+    if publication:
+        paths.append((root / REFERENCE_FILE, (root / REFERENCE_FILE).stat()))
+        for source in publication.document["sources"]:
+            current = fingerprint(
+                Path(source["root"]), cache=cache, active=(*active, root)
+            )
+            if current["sha256"] != source["sha256"]:
+                raise AnnotationError(f"Referenced source changed: {source['root']}")
+            dependencies.append({"root": current["root"], "sha256": current["sha256"]})
+    elif (root / REFERENCE_FILE).exists():
+        raise AnnotationError(
+            "Reference manifest lacks the reference publication contract"
+        )
+    links = []
     pending = []
     for name in ("tables", "samples", "annotation_batches"):
         directory = root / name
@@ -45,9 +70,13 @@ def fingerprint(root: Path) -> dict:
         with os.scandir(pending.pop()) as entries:
             for entry in entries:
                 if entry.is_symlink():
-                    raise AnnotationError(
-                        f"Publication fingerprint cannot follow a symlink: {entry.path}"
-                    )
+                    relative = Path(entry.path).relative_to(root).as_posix()
+                    if publication is None or relative not in publication.links:
+                        raise AnnotationError(
+                            f"Publication fingerprint cannot follow a symlink: {entry.path}"
+                        )
+                    links.append([relative, "reference", os.readlink(entry.path)])
+                    continue
                 if entry.is_dir(follow_symlinks=False):
                     pending.append(Path(entry.path))
                 else:
@@ -74,12 +103,18 @@ def fingerprint(root: Path) -> dict:
         )
         files += 1
         total += before.st_size
-    return {
+    for link in sorted(links):
+        tree.update(identity(link).encode())
+    result = {
         "root": str(root),
         "sha256": tree.hexdigest(),
         "files": files,
         "bytes": total,
     }
+    if dependencies:
+        result["references"] = dependencies
+    cache[root] = result
+    return result
 
 
 def validate(roots: list[Path], fingerprints: list[dict]) -> list[dict]:
@@ -91,7 +126,13 @@ def validate(roots: list[Path], fingerprints: list[dict]) -> list[dict]:
     for root, record in zip(roots, fingerprints, strict=True):
         if str(root.resolve(strict=True)) != record["root"]:
             raise AnnotationError("Source fingerprint belongs to a different root")
-        validate_source(root)
+        if (
+            read_json(root / "annotation_results.json").get("pipeline_contract")
+            == REFERENCE_CONTRACT
+        ):
+            validate_source(root, _content_checked=True)
+        else:
+            validate_source(root)
         receipt = {"source": record, "validator": validator}
         receipt["receipt_id"] = identity(receipt)
         receipts.append(receipt)
@@ -137,8 +178,9 @@ def main() -> int:
     start = time.monotonic()
     try:
         roots = [Path(value) for value in read_json(args.sources)]
+        cache = {}
         records = (
-            [fingerprint(root) for root in roots]
+            [fingerprint(root, cache=cache) for root in roots]
             if args.operation == "fingerprint"
             else validate(roots, read_json(args.fingerprints))
         )

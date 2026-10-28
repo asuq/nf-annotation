@@ -619,18 +619,33 @@ def main() -> int:
     ):
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--publication", type=Path)
+    parser.add_argument("--publication-mode", choices=("self_contained", "reference"), default="self_contained")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     try:
-        aggregate(
+        manifest = aggregate(
             args.plan,
             args.master,
             args.sample_status,
-            read_publication_paths(args.bundle_list, args.publication),
+            read_publication_paths(args.bundle_list, args.publication, args.publication_mode),
             read_path_list(args.result_list),
             args.output,
             batch_dirs=read_path_list(args.batch_list),
         )
+        if args.publication_mode == "reference":
+            from publication_references import (
+                REFERENCE_CONTRACT,
+                REFERENCE_FILE,
+                Publication,
+            )
+            if args.publication is None:
+                raise AnnotationError("Reference aggregation requires the publication root")
+            view = Publication(args.publication, pending=True)
+            if set(view.document["samples"]) != set(manifest["accessions"]) or manifest["enabled_tools"]:
+                raise AnnotationError("Reference aggregation requires matching membership and disabled tools")
+            manifest["pipeline_contract"] = REFERENCE_CONTRACT
+            manifest["reference_manifest_sha256"] = digest(view.root / REFERENCE_FILE)
+            write_json(args.output / "annotation_results.json", manifest)
     except (AnnotationError, OSError, sqlite3.Error) as error:
         logging.error("%s", error)
         return 1

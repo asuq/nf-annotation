@@ -23,6 +23,7 @@ from annotation_common import (
     validate_accession,
     write_json,
 )
+from publication_references import Publication
 
 
 def regular_files(root: Path, *, exclude_annotation: bool = False) -> dict[str, Path]:
@@ -94,9 +95,11 @@ def copy_independent(source: Path, destination: Path) -> str:
     return "cloned"
 
 
-def reusable_bundle(sample: Path, meta: dict, gcode: str) -> Path | None:
+def reusable_bundle(
+    sample: Path, meta: dict, gcode: str, bundle: Path | None = None
+) -> Path | None:
     """Bind a previously validated successful bundle to the current native inputs."""
-    bundle = sample / "annotation/bundle"
+    bundle = sample / "annotation/bundle" if bundle is None else bundle
     if not (bundle / "bundle.json").is_file():
         return None
     record = read_json(bundle / "bundle.json")
@@ -148,7 +151,15 @@ def build_bundle(sample: Path, meta: dict, gcode: str, output: Path) -> None:
 
 
 def import_sample(
-    source: Path, meta: dict, gcode: str, destination: Path, channels: Path
+    source: Path,
+    meta: dict,
+    gcode: str,
+    destination: Path,
+    channels: Path,
+    *,
+    view: Publication | None = None,
+    mode: str = "self_contained",
+    source_fingerprint: dict | None = None,
 ) -> dict:
     """Atomically install one sample, or verify an identical previous installation."""
     accession = meta["accession"]
@@ -159,7 +170,13 @@ def import_sample(
         "NA",
     ):
         raise AnnotationError("Invalid internal ID or genetic code in import batch")
-    source = source.resolve(strict=True)
+    if mode not in ("self_contained", "reference") or (
+        mode == "reference" and (view is None or source_fingerprint is None)
+    ):
+        raise AnnotationError("Reference import requires a validated source snapshot")
+    source = (
+        view.native_root(accession) if view is not None else source.resolve(strict=True)
+    )
     if (
         destination == source
         or source in destination.parents
@@ -184,11 +201,25 @@ def import_sample(
         "logical_bytes_cloned": 0,
         "bundle": "not_requested",
         "publication": "created",
+        "links_created": 0,
+        "logical_bytes_referenced": 0,
+        "native_root": str(destination / "samples" / accession)
+        if mode == "self_contained"
+        else str(source),
+        "bundle_root": str(destination / "samples" / accession / "annotation/bundle")
+        if gcode in ("4", "11")
+        else None,
     }
     with tempfile.TemporaryDirectory(prefix=".ani-batch-", dir=parents) as temporary:
         temporary = Path(temporary)
+        bundle = None
         if gcode in ("4", "11"):
-            bundle = reusable_bundle(source, meta, gcode)
+            candidate = (
+                view.path(f"samples/{accession}/annotation/bundle")
+                if view is not None
+                else None
+            )
+            bundle = reusable_bundle(source, meta, gcode, candidate)
             if bundle is None:
                 bundle = temporary / "rebuilt"
                 build_bundle(source, meta, gcode, bundle)
@@ -201,25 +232,98 @@ def import_sample(
                     for name, path in regular_files(bundle).items()
                 }
             )
-        if target.exists() or target.is_symlink():
-            existing = regular_files(target)
-            if set(existing) != set(files) or any(
-                digest(existing[name]) != digest(path) for name, path in files.items()
-            ):
-                raise AnnotationError(
-                    f"Existing publication differs for {accession}; use a fresh --outdir"
+        if mode == "reference":
+            native_owner = view.native_owner(accession)
+            entries = sorted(
+                path.name for path in source.iterdir() if path.name != "annotation"
+            )
+            links = {name: source / name for name in entries}
+            reference = {
+                "native": view.snapshot(native_owner, source_fingerprint),
+                "entries": entries,
+                "bundle": None,
+            }
+            if bundle is not None:
+                if metrics["bundle"] == "reused":
+                    owner = view.bundle_owner(accession)
+                    links["annotation/bundle"] = owner.path(
+                        f"samples/{accession}/annotation/bundle"
+                    )
+                    reference["bundle"] = view.snapshot(owner, source_fingerprint)
+                else:
+                    reference["bundle"] = {"local": True}
+            metrics["reference"] = reference
+            metrics["logical_bytes_referenced"] = sum(
+                path.stat().st_size
+                for name, path in files.items()
+                if not name.startswith("annotation/") or metrics["bundle"] == "reused"
+            )
+            if target.exists() or target.is_symlink():
+                if target.is_symlink() or not target.is_dir():
+                    raise AnnotationError(
+                        f"Invalid reference sample directory: {accession}"
+                    )
+                expected_entries = set(entries) | (
+                    {"annotation"} if bundle is not None else set()
                 )
-            metrics["publication"] = "verified_existing"
+                if {path.name for path in target.iterdir()} != expected_entries:
+                    raise AnnotationError(
+                        f"Reference publication entries changed for {accession}"
+                    )
+                for name, provider in links.items():
+                    path = target / name
+                    if not path.is_symlink() or os.readlink(path) != str(provider):
+                        raise AnnotationError(
+                            f"Reference publication changed for {accession}: {name}"
+                        )
+                if bundle is not None and metrics["bundle"] == "rebuilt":
+                    existing = regular_files(target / "annotation/bundle")
+                    expected = regular_files(bundle)
+                    if set(existing) != set(expected) or any(
+                        digest(existing[name]) != digest(path)
+                        for name, path in expected.items()
+                    ):
+                        raise AnnotationError(
+                            f"Local reference bundle changed for {accession}"
+                        )
+                metrics["publication"] = "verified_existing"
+            else:
+                prepared = temporary / "sample"
+                prepared.mkdir()
+                for name, provider in links.items():
+                    link = prepared / name
+                    link.parent.mkdir(parents=True, exist_ok=True)
+                    link.symlink_to(provider, target_is_directory=provider.is_dir())
+                    metrics["links_created"] += 1
+                if bundle is not None and metrics["bundle"] == "rebuilt":
+                    (prepared / "annotation").mkdir(exist_ok=True)
+                    metrics["local_bundle_bytes"] = sum(
+                        path.stat().st_size for path in regular_files(bundle).values()
+                    )
+                    bundle.rename(prepared / "annotation/bundle")
+                prepared.rename(target)
         else:
-            prepared = temporary / "sample"
-            prepared.mkdir()
-            for name, path in files.items():
-                method = copy_independent(path, prepared / name)
-                metrics["files_" + method] += 1
-                metrics["logical_bytes_" + method] += path.stat().st_size
-            # An ordinary directory rename on the destination filesystem makes
-            # each sample visible only after its complete payload is present.
-            prepared.rename(target)
+            if target.exists() or target.is_symlink():
+                existing = regular_files(target)
+                if set(existing) != set(files) or any(
+                    digest(existing[name]) != digest(path)
+                    for name, path in files.items()
+                ):
+                    raise AnnotationError(
+                        f"Existing publication differs for {accession}; use a fresh --outdir"
+                    )
+                metrics["publication"] = "verified_existing"
+            else:
+                prepared = temporary / "sample"
+                prepared.mkdir()
+                for name, path in files.items():
+                    method = copy_independent(path, prepared / name)
+                    metrics["files_" + method] += 1
+                    metrics["logical_bytes_" + method] += path.stat().st_size
+                # An ordinary directory rename on the destination filesystem makes
+                # each sample visible only after its complete payload is present.
+                prepared.rename(target)
+
     channels.mkdir(parents=True, exist_ok=True)
     for relative, suffix in (
         ("16s/best_16S.fna", "best_16S.fna"),
@@ -236,6 +340,9 @@ def run(
     destination: Path,
     channels: Path,
     audit: Path,
+    *,
+    mode: str = "self_contained",
+    fingerprints: list[dict] | None = None,
 ) -> None:
     """Report individual failures and fail the whole batch before ANI can start."""
     if not records or not sources:
@@ -243,6 +350,8 @@ def run(
     accessions = [record["meta"]["accession"] for record in records]
     if len(set(accessions)) != len(accessions):
         raise AnnotationError("Duplicate accessions in import batch")
+    snapshots = {record["root"]: record for record in (fingerprints or [])}
+    contexts = {}
     results = []
     for record in records:
         try:
@@ -250,11 +359,25 @@ def run(
             index = record["source_index"]
             if not isinstance(index, int) or not 0 <= index < len(sources):
                 raise AnnotationError("Invalid source index in import batch")
-            source = sources[index] / "samples" / record["meta"]["accession"]
+            root = sources[index].resolve(strict=True)
+            if root not in contexts:
+                contexts[root] = (
+                    Publication(root)
+                    if (root / "annotation_results.json").is_file()
+                    else None
+                )
+            source = root / "samples" / record["meta"]["accession"]
             result = import_sample(
-                source, record["meta"], record["gcode"], destination, channels
+                source,
+                record["meta"],
+                record["gcode"],
+                destination,
+                channels,
+                view=contexts[root],
+                mode=mode,
+                source_fingerprint=snapshots.get(str(root)),
             )
-            result["status"] = "done"
+            result.update(status="done", meta=record["meta"], gcode=record["gcode"])
         except (
             AnnotationError,
             OSError,
@@ -285,6 +408,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("records", "sources", "destination", "channels", "audit"):
         parser.add_argument("--" + name, type=Path, required=True)
+    parser.add_argument(
+        "--mode", choices=("self_contained", "reference"), default="self_contained"
+    )
+    parser.add_argument("--source-validation", type=Path)
     args = parser.parse_args()
     try:
         run(
@@ -293,6 +420,10 @@ def main() -> int:
             args.destination.resolve(strict=True),
             args.channels,
             args.audit,
+            mode=args.mode,
+            fingerprints=read_json(args.source_validation)["fingerprints"]
+            if args.source_validation
+            else None,
         )
     except (AnnotationError, OSError, ValueError) as error:
         print(error, file=sys.stderr)

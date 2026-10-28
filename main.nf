@@ -15,6 +15,12 @@ include { ANNOTATION_RESOURCES; FUNCTIONAL_ANNOTATION } from './subworkflows/loc
 workflow {
     SamplePolicy.requireDomain(params)
     def pipelineStage = SamplePolicy.stage(params)
+    if (!(params.ani_publication_mode in ['self_contained', 'reference'])) {
+        error '--ani_publication_mode must be self_contained or reference'
+    }
+    if (params.ani_publication_mode == 'reference' && pipelineStage != 'ani') {
+        error '--ani_publication_mode reference requires --pipeline_stage ani'
+    }
     ['ani_import_batches', 'ani_import_max_forks'].each { name ->
         def value = params[name].toString()
         if (!value.isInteger() || (value as int) < 1 || (value as int) > 64) {
@@ -66,7 +72,7 @@ workflow {
     }
     if (params.update_from) {
         def outputRoot = new File(params.outdir.toString()).canonicalFile.toPath()
-        PublishedSources.paths(params.update_from).each { sourceRoot ->
+        ReferenceInputs.paths(PublishedSources.paths(params.update_from)).each { sourceRoot ->
             if (!sourceRoot.toFile().isDirectory()) {
                 error "params.update_from must point to published results directories."
             }

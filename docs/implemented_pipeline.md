@@ -190,6 +190,7 @@ The most important implementation-level parameters are:
 | `codetta_db` | `main.nf`, `prepare_databases.nf` | Codetta profile directory rooted at `Pfam-A_enone.hmm`. |
 | `busco_db` | `main.nf`, `prepare_databases.nf` | Offline BUSCO lineage root unless datasets are downloaded on demand. |
 | `prepare_busco_datasets` | `main.nf` | Switches BUSCO lineage resolution from reuse to download. |
+| `ani_publication_mode` | `main.nf` ANI-only reuse | `self_contained` (default) or opt-in `reference`; reference views require their declared QC providers. |
 | `ani_import_batches` | `main.nf` ANI-only reuse | Maximum import allocations, default 8; accepts 1-64. |
 | `ani_import_max_forks` | reuse bookkeeping | Concurrent import/source-validation groups, default 2; accepts 1-64. |
 | `cohort_time`, `cohort_memory` | cohort bookkeeping | Requests default to 8 h / 8 GB and remain subject to global/site caps. |

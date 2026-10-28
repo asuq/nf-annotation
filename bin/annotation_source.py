@@ -22,6 +22,7 @@ from annotation_common import (
 )
 from annotation_result import NativeBatch, native_batch_index, validate_raw_evidence
 from annotation_summary import ANNOTATION_COLUMNS, MATRICES
+from publication_references import REFERENCE_CONTRACT, Publication, strict_path
 from validate_inputs import detect_metadata_key_column
 
 
@@ -96,31 +97,18 @@ def source_rows(
 
 def source_path(root: Path, name: str) -> Path:
     """Resolve a declared regular artefact without traversing links or parents."""
-    path = Path(name)
-    if (
-        not name
-        or path.is_absolute()
-        or any(part in ("", ".", "..") for part in name.split("/"))
-    ):
-        raise AnnotationError(f"Invalid published artefact path: {name!r}")
-    current = root
-    for part in path.parts:
-        current = current / part
-        if current.is_symlink():
-            raise AnnotationError(
-                f"Published artefact must not be a symlink: {current}"
-            )
-    return current
+    return strict_path(root, name)
 
 
 def source_batches(
-    root: Path, manifest: dict[str, Any], accessions: list[str]
+    root: Path, manifest: dict[str, Any], accessions: list[str], publication: Publication | None = None
 ) -> dict[str, NativeBatch]:
     """Validate each declared portable shared archive once and match packet IDs."""
+    path_for = publication.path if publication is not None else lambda name: source_path(root, name)
     entries = manifest.get("native_batches", {})
     if not isinstance(entries, dict):
         raise AnnotationError("Invalid published native batch mapping")
-    directory = source_path(root, "annotation_batches")
+    directory = path_for("annotation_batches")
     if directory.exists() and (
         not directory.is_dir()
         or {path.name for path in directory.iterdir()} != set(entries)
@@ -140,10 +128,10 @@ def source_batches(
             or not re.fullmatch(r"[a-f0-9]{64}", entry["batch_result_id"])
         ):
             raise AnnotationError("Invalid published native batch reference or path")
-        path = source_path(root, entry["path"])
+        path = path_for(entry["path"])
         if not path.is_dir():
             raise AnnotationError("Missing published native batch archive")
-        source_path(root, entry["path"] + "/batch_result.json")
+        path_for(entry["path"] + "/batch_result.json")
         paths.append(path)
     batches = native_batch_index(paths)
     if set(batches) != set(entries):
@@ -159,12 +147,24 @@ def source_batches(
     return batches
 
 
-def validate_source(root: Path) -> tuple[dict[str, Any], dict[str, NativeBatch]]:
+def validate_source(root: Path, *, _content_checked: bool = False, _validated: dict | None = None) -> tuple[dict[str, Any], dict[str, NativeBatch]]:
     """Verify source artefacts and return its once-validated native batch index."""
+    cache_key = root.resolve(strict=True)
+    validated = {} if _validated is None else _validated
+    if cache_key in validated:
+        return validated[cache_key]
+    publication = Publication(root)
+    if publication.reference:
+        if not _content_checked:
+            from reuse_source_validation import fingerprint
+            fingerprint(root)
+        for provider in publication.sources:
+            validate_source(provider.root, _content_checked=True, _validated=validated)
+    path_for = publication.path if publication.reference else lambda name: source_path(root, name)
     manifest = read_json(root / "annotation_results.json")
     if (
         manifest.get("schema_version") != SCHEMA_VERSION
-        or manifest.get("pipeline_contract") != "nf-annotation-v0.4"
+        or manifest.get("pipeline_contract") not in ("nf-annotation-v0.4", REFERENCE_CONTRACT)
     ):
         raise AnnotationError("Annotation reuse requires native v0.4 published results")
     accessions = manifest.get("accessions", [])
@@ -197,7 +197,7 @@ def validate_source(root: Path) -> tuple[dict[str, Any], dict[str, NativeBatch]]
     if not required <= set(manifest.get("tables", {})):
         raise AnnotationError("Published annotation manifest omits required tables")
     for name, expected in manifest["tables"].items():
-        path = source_path(root, name)
+        path = path_for(name)
         if (
             not name.startswith("tables/")
             or not path.is_file()
@@ -243,7 +243,7 @@ def validate_source(root: Path) -> tuple[dict[str, Any], dict[str, NativeBatch]]
         raise AnnotationError(
             "Published annotation status does not contain the complete declared grid"
         )
-    batches = source_batches(root, manifest, accessions)
+    batches = source_batches(root, manifest, accessions, publication if publication.reference else None)
     referenced_members = {batch_id: set() for batch_id in batches}
     for master, status in zip(masters, statuses, strict=True):
         accession = master[master_key]
@@ -261,8 +261,8 @@ def validate_source(root: Path) -> tuple[dict[str, Any], dict[str, NativeBatch]]
             expected_path = f"samples/{accession}/annotation/bundle"
             if bundle_record.get("path") != expected_path:
                 raise AnnotationError("Unexpected published bundle path")
-            bundle = source_path(root, expected_path)
-            bundle_json = source_path(root, expected_path + "/bundle.json")
+            bundle = path_for(expected_path)
+            bundle_json = path_for(expected_path + "/bundle.json")
             if digest(bundle_json) != bundle_record.get("manifest_sha256"):
                 raise AnnotationError("Published bundle manifest changed")
             data = read_json(bundle_json)
@@ -288,7 +288,7 @@ def validate_source(root: Path) -> tuple[dict[str, Any], dict[str, NativeBatch]]
             expected_path = f"samples/{accession}/annotation/{tool}"
             if tool not in TOOLS or result_record.get("path") != expected_path:
                 raise AnnotationError("Unexpected published annotation result path")
-            record = read_json(source_path(root, expected_path + "/result.json"))
+            record = read_json(path_for(expected_path + "/result.json"))
             if (
                 record.get("schema_version") != SCHEMA_VERSION
                 or record.get("accession") != accession
@@ -301,7 +301,7 @@ def validate_source(root: Path) -> tuple[dict[str, Any], dict[str, NativeBatch]]
                 or record.get("status") != grid[(accession, tool)]
             ):
                 raise AnnotationError("Published result identity or status changed")
-            validate_raw_evidence(source_path(root, expected_path), record, batches)
+            validate_raw_evidence(path_for(expected_path), record, batches)
             if "native_batch" in record:
                 batch_id = record["native_batch"]["batch_id"]
                 member = batches[batch_id].members[accession]
@@ -333,20 +333,26 @@ def validate_source(root: Path) -> tuple[dict[str, Any], dict[str, NativeBatch]]
             raise AnnotationError(
                 "Published native batch omits a member result reference"
             )
+    validated[cache_key] = (manifest, batches)
     return manifest, batches
 
 
 def import_source(root: Path, output: Path) -> None:
     """Retain published upstream evidence while new functional results are built."""
-    manifest, _ = validate_source(root)
-    # Imported upstream evidence must remain usable after the old work tree is
-    # removed. Inspect every copied entry before creating any new outputs.
+    publication = Publication(root)
+    snapshot = None
+    if publication.reference:
+        from reuse_source_validation import fingerprint
+        snapshot = fingerprint(root)
+    manifest, _ = validate_source(root, _content_checked=publication.reference)
     for accession in manifest["accessions"]:
-        sample = source_path(root, f"samples/{accession}")
+        sample = publication.native_root(accession)
         for path in sample.rglob("*"):
             if path.is_symlink():
                 raise AnnotationError(f"Published sample artefact is a symlink: {path}")
     output.mkdir()
+    from annotation_common import write_json
+    write_json(output / "source_snapshot.json", snapshot or {"root": str(root.resolve()), "mode": "self_contained"})
     inherited = output / "inherited"
     (inherited / "tables").mkdir(parents=True)
     for name, destination in (
@@ -360,7 +366,7 @@ def import_source(root: Path, output: Path) -> None:
             source_path(root, "tables/" + path.name)
             shutil.copyfile(path, inherited / "tables" / path.name)
     for accession in manifest["accessions"]:
-        source_sample = source_path(root, f"samples/{accession}")
+        source_sample = publication.native_root(accession)
         target_sample = inherited / "samples" / accession
         target_sample.mkdir(parents=True)
         for path in source_sample.iterdir():
@@ -373,5 +379,5 @@ def import_source(root: Path, output: Path) -> None:
                 shutil.copyfile(path, target)
         if accession in manifest["bundles"]:
             shutil.copytree(
-                source_sample / "annotation/bundle", target_sample / "annotation/bundle"
+                publication.path(f"samples/{accession}/annotation/bundle"), target_sample / "annotation/bundle"
             )

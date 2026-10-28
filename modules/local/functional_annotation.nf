@@ -44,6 +44,7 @@ process PLAN_DISABLED_ANNOTATIONS {
     path receipt
     path bundles, stageAs: 'bundles/bundle??????'
     val bundle_paths
+    path dependencies, stageAs: 'dependencies/root????'
 
     output:
     path 'planned/annotation_plan.json', emit: plan
@@ -52,7 +53,7 @@ process PLAN_DISABLED_ANNOTATIONS {
     script:
     def inputs = bundles instanceof Collection ? bundles : [bundles]
     def isAni = SamplePolicy.stage(params) == 'ani'
-    def publicationArg = isAni ? "--publication '${inputs[0]}'" : ''
+    def publicationArg = isAni ? "--publication '${inputs[0]}' --publication-mode '${params.ani_publication_mode}'" : ''
     def bundleList = groovy.json.JsonOutput.toJson(isAni ? bundle_paths : inputs.collect { it.toString() })
     """
     cat > bundle_list.json <<'ANNOTATION_BUNDLES'
@@ -78,6 +79,7 @@ process PLAN_ANNOTATION_GROUPS {
     path receipt
     path source_results, stageAs: 'source_results/source????'
     path resource_manifests, stageAs: 'resource_manifests/manifest??.json'
+    path source_dependencies, stageAs: 'source_dependencies/root????'
 
     output:
     path 'annotation_groups.json', emit: groups
@@ -106,6 +108,7 @@ process PLAN_ANNOTATION_PART {
     tuple val(meta), path(bundles, stageAs: 'bundles/bundle??'), path(previous_inputs, stageAs: 'previous/entry??'), val(source_root)
     path receipt
     path resource_manifests, stageAs: 'resource_manifests/manifest??.json'
+    path source_dependencies, stageAs: 'source_dependencies/root????'
 
     output:
     tuple val(meta), path('planned'), emit: tasks
@@ -145,6 +148,7 @@ process MERGE_ANNOTATION_PLANS {
     path fragments, stageAs: 'fragments/plan??.json'
     path source_results, stageAs: 'source_results/source????'
     path resource_manifests, stageAs: 'resource_manifests/manifest??.json'
+    path source_dependencies, stageAs: 'source_dependencies/root????'
 
     output:
     path 'annotation_plan.json', emit: plan
@@ -320,6 +324,7 @@ process AGGREGATE_ANNOTATIONS {
     path results, stageAs: 'results/result???'
     path batches, stageAs: 'batches/batch???'
     val bundle_paths
+    path dependencies, stageAs: 'dependencies/root????'
 
     output:
     path 'report/tables/*', emit: tables
@@ -332,7 +337,7 @@ process AGGREGATE_ANNOTATIONS {
     }
     def inputs = bundles instanceof Collection ? bundles : [bundles]
     def isAni = SamplePolicy.stage(params) == 'ani'
-    def publicationArg = isAni ? "--publication '${inputs[0]}'" : ''
+    def publicationArg = isAni ? "--publication '${inputs[0]}' --publication-mode '${params.ani_publication_mode}'" : ''
     def bundleList = groovy.json.JsonOutput.toJson(isAni ? bundle_paths : inputs.collect { it.toString() })
     def resultList = groovy.json.JsonOutput.toJson((results instanceof Collection ? results : [results]).collect { it.toString() })
     def batchList = groovy.json.JsonOutput.toJson((batches instanceof Collection ? batches : [batches]).collect { it.toString() })

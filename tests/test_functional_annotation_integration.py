@@ -229,6 +229,34 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
             if row["tool"] == "kofam"
         ]
 
+    def test_enabled_annotation_accepts_reference_input_and_materialises_output(self):
+        from publication_references import REFERENCE_CONTRACT, REFERENCE_FILE
+        from reuse_source_validation import fingerprint
+        from annotation_source import validate_source
+        view = self.root / "reference-input"
+        shutil.copytree(self.source / "tables", view / "tables")
+        snapshot = fingerprint(self.source)
+        samples = {}
+        for accession in ("B", "A"):
+            target = view / f"samples/{accession}/annotation/bundle"
+            target.parent.mkdir(parents=True)
+            target.symlink_to((self.source / f"samples/{accession}/annotation/bundle").resolve(), target_is_directory=True)
+            samples[accession] = {"native_source": 0, "entries": [], "bundle": {"source": 0}}
+        references = {"schema_version": 1, "mode": "reference", "sources": [{"root": snapshot["root"], "sha256": snapshot["sha256"]}], "samples": samples}
+        references["reference_id"] = identity(references)
+        write_json(view / REFERENCE_FILE, references)
+        manifest = read_json(self.source / "annotation_results.json")
+        manifest["pipeline_contract"] = REFERENCE_CONTRACT
+        manifest["reference_manifest_sha256"] = digest(view / REFERENCE_FILE)
+        write_json(view / "annotation_results.json", manifest)
+        output = self.run_pipeline("reference-enabled", view)
+        self.assertEqual(self.actions(output), ["run", "run"])
+        self.assertTrue(read_json(output / "annotation_results.json")["complete"])
+        shutil.rmtree(view)
+        shutil.rmtree(self.source)
+        validate_source(output)
+        self.assertFalse(any(path.is_symlink() for path in (output / "samples").rglob("*")))
+
     def test_multiline_plan_reason_preserves_task_rows(self):
         planner = self.project / "bin/prepare_annotation_tasks.py"
         text = planner.read_text()

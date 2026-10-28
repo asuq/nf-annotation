@@ -26,6 +26,7 @@ import summarise_checkm2
 import validate_inputs
 from annotation_common import AnnotationError
 from annotation_source import source_roots, validate_source
+from publication_references import Publication
 
 LOGGER = logging.getLogger(__name__)
 AUDIT_COLUMNS = (
@@ -711,6 +712,17 @@ def run_prepare(args: argparse.Namespace) -> None:
         checked = checked_roots(receipt["receipts"], receipt["fingerprints"])
         if checked != set(sources):
             raise CohortUpdateError("Validated source receipts do not match the requested sources")
+    publications = [Publication(source) for source in sources]
+    pending = list(publications)
+    dependency_roots = set()
+    while pending:
+        publication = pending.pop()
+        if publication.root in dependency_roots:
+            continue
+        dependency_roots.add(publication.root)
+        pending.extend(publication.sources)
+    if any(root == destination or root in destination.parents or destination in root.parents for root in dependency_roots):
+        raise CohortUpdateError("--outdir must not overlap a reference dependency")
     source_index, statuses, masters, origins = {}, {}, {}, {}
     versions, source_identities = [], []
     for number, source in enumerate(sources):
@@ -770,7 +782,7 @@ def run_prepare(args: argparse.Namespace) -> None:
                 if sample.get(field) != source_index[accession].get(field):
                     raise CohortUpdateError(f"Domain/BUSCO policy changed or is unrecorded for {accession!r}: {field}; regenerate QC")
             source_fingerprint = validate_sample_outputs(
-                sources[origin] / "samples" / accession,
+                publications[origin].native_root(accession),
                 source_index[accession],
                 statuses[accession],
                 masters[accession],
@@ -844,6 +856,8 @@ def run_prepare(args: argparse.Namespace) -> None:
         },
         "settings": json.loads(args.settings.read_text()),
     }
+    if getattr(args, "source_validation", None) is not None:
+        identity["source_fingerprints"] = receipt["fingerprints"]
     if (
         args.previous_update
         and json.loads(args.previous_update.read_text()) != identity

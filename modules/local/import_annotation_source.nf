@@ -11,8 +11,10 @@ process IMPORT_ANNOTATION_SOURCE {
     input:
     path source_results, name: 'source_results'
     path preflight
+    path dependencies, stageAs: 'dependencies/root????'
 
     output:
+    path 'imported/source_snapshot.json', emit: snapshot
     path 'imported/upstream_master.tsv', emit: master
     path 'imported/upstream_sample_status.tsv', emit: sample_status
     path 'imported/source_samples.tsv', emit: samples

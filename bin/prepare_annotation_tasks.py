@@ -26,7 +26,12 @@ from annotation_common import (
 from annotation_path_lists import read_path_list, read_publication_paths
 from annotation_resources import AnnotationResourceError
 from annotation_result import validate_result
-from annotation_source import import_source, sample_source, source_roots, validate_sources
+from annotation_source import (
+    import_source,
+    sample_source,
+    source_roots,
+    validate_sources,
+)
 from annotation_tasks import (
     normalize_task,
     plan_task,
@@ -388,6 +393,7 @@ def main() -> int:
     disabled.add_argument("--preflight", type=Path, required=True)
     disabled.add_argument("--output", type=Path, required=True)
     disabled.add_argument("--publication", type=Path)
+    disabled.add_argument("--publication-mode", choices=("self_contained", "reference"), default="self_contained")
     groups = sub.add_parser("groups", allow_abbrev=False)
     groups.add_argument("--samples", type=Path, required=True)
     groups.add_argument("--preflight", type=Path, required=True)
@@ -426,7 +432,7 @@ def main() -> int:
         if args.command == "preflight":
             write_json(args.output, preflight(read_json(args.config)))
         elif args.command == "plan-disabled":
-            plan_disabled(args.samples, read_publication_paths(args.bundle_list, args.publication), args.preflight, args.output)
+            plan_disabled(args.samples, read_publication_paths(args.bundle_list, args.publication, args.publication_mode), args.preflight, args.output)
         elif args.command == "groups":
             write_json(args.output, execution_groups(args.samples, args.preflight, args.source, args.size))
         elif args.command == "plan-part":

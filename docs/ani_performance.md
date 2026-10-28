@@ -60,6 +60,40 @@ removes unnecessary copies and repeated processing; it does not make integrity
 checks or independent publications free. Copy audits distinguish logical bytes
 cloned from logical bytes copied; they do not measure physical storage traffic.
 
+## Optional reference publications
+
+`--ani_publication_mode self_contained` is the default described above. Choose
+`--ani_publication_mode reference` explicitly for ANI-only views that retain
+links to validated QC payloads instead of independent payload copies. The mode
+is rejected for other main-workflow stages. Reannotation always produces
+self-contained outputs.
+
+Reference publications contain their own cohort reports and an
+`ani_references.json` dependency manifest. The manifest binds each permitted
+link to a declared sample in an immutable source snapshot. Missing sources,
+changed contents, retargeted/undeclared links and circular dependencies fail.
+Reference inputs are checked at the start, and dependencies are checked again
+before reference output or reannotation acceptance.
+
+Both `--update_from` and `reannotate.nf` accept reference publications. A later
+ANI run can create another reference view or choose the default self-contained
+mode to materialise independent data. Links are flattened to their physical
+providers, so normal chains of views do not require the intermediate views.
+If a source view owns a rebuilt bundle, that view remains a declared dependency
+for that bundle. Up to 64 dependency levels are accepted; circular graphs are
+always rejected.
+
+Keep every declared provider at its recorded path and unchanged while a reference
+view is needed. Treat references and their sources as read-only: editing through
+a link edits its source. This option does not change source permissions. Removing
+an old work directory is safe; removing a referenced QC publication is not.
+Older pipeline versions reject the explicit reference publication contract;
+self-contained outputs retain the existing native v0.4 contract.
+
+Reference mode saves persistent payload storage, but still writes reports,
+small channel files and any necessary rebuilt bundle. Runtime ANI inputs and
+integrity reads also remain. It is not a promise of zero I/O or faster validation.
+
 ## Resource settings
 
 The optional defaults are:

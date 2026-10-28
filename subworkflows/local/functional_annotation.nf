@@ -76,11 +76,17 @@ workflow FUNCTIONAL_ANNOTATION {
         def isAni = SamplePolicy.stage(params) == 'ani'
         publicationInputs = isAni ? collectedBundles.map { [file(params.outdir)] } : collectedBundles
         publicationPaths = isAni ? collectedBundles.map { items -> items.collect { it.toString() } } : Channel.value([])
-        PLAN_DISABLED_ANNOTATIONS(samples, sharedPreflight, publicationInputs, publicationPaths)
+        publicationDependencies = isAni && params.ani_publication_mode == 'reference' ? Channel.value(ReferenceInputs.paths(PublishedSources.paths(params.update_from))) : Channel.value([])
+        PLAN_DISABLED_ANNOTATIONS(samples, sharedPreflight, publicationInputs, publicationPaths, publicationDependencies)
         functionalResults = Channel.empty()
         nativeBatches = Channel.empty()
         finalPlan = PLAN_DISABLED_ANNOTATIONS.out.plan
     } else {
+        sourceDependencies = source_results.map { roots ->
+            def original = PublishedSources.items(roots)
+            def expanded = ReferenceInputs.paths(original)
+            expanded.size() > original.size() ? expanded : []
+        }.first()
         resourceManifests = sharedPreflight.map { receipt ->
             def record = new groovy.json.JsonSlurper().parse(receipt.toFile())
             record.tools.values().findAll { it.resource_path }.collect {
@@ -91,7 +97,7 @@ workflow FUNCTIONAL_ANNOTATION {
             def accession = item[0].accession.toString()
             tuple([key: accession, scope: 'individual', members: [accessions: [accession]]], [item[1]])
         }
-        PLAN_ANNOTATION_GROUPS(samples, sharedPreflight, source_results, resourceManifests)
+        PLAN_ANNOTATION_GROUPS(samples, sharedPreflight, source_results, resourceManifests, sourceDependencies)
         groupIndex = PLAN_ANNOTATION_GROUPS.out.groups.first().combine(sharedPreflight).map { item ->
             def record = new groovy.json.JsonSlurper().parse(item[0].toFile())
             def checked = new groovy.json.JsonSlurper().parse(item[1].toFile())
@@ -146,9 +152,9 @@ workflow FUNCTIONAL_ANNOTATION {
             }
             tuple(meta, item[1], previous, sources.collect { it.toString() })
         }
-        PLAN_ANNOTATION_PART(partInputs, sharedPreflight, resourceManifests)
+        PLAN_ANNOTATION_PART(partInputs, sharedPreflight, resourceManifests, sourceDependencies)
         fragments = PLAN_ANNOTATION_PART.out.plan.toList().map { paths -> paths.sort(false) { it.toString() } }
-        MERGE_ANNOTATION_PLANS(samples, sharedPreflight, fragments, source_results, resourceManifests)
+        MERGE_ANNOTATION_PLANS(samples, sharedPreflight, fragments, source_results, resourceManifests, sourceDependencies)
         // Batch members share one task directory. Collapse only inside a ready
         // fragment, so an unrelated unfinished fragment cannot hold up execution.
         seenExecutionKeys = [] as Set

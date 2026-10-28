@@ -11,7 +11,7 @@ process IMPORT_PUBLISHED_SAMPLE {
     )
 
     input:
-    tuple val(meta), path(source_sample, name: 'source_sample'), val(gcode)
+    tuple val(meta), path(source_sample, name: 'source_sample'), val(gcode), path(dependencies, stageAs: 'dependencies/root????')
     val busco_lineages
 
     output:

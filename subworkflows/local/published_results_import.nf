@@ -1,3 +1,4 @@
+include { COMPLETE_ANI_REFERENCES } from '../../modules/local/complete_ani_references'
 include { FINGERPRINT_REUSE_SOURCES; VALIDATE_REUSE_SOURCES } from '../../modules/local/reuse_source_validation'
 include { CHECK_COHORT_UPDATE } from '../../modules/local/check_cohort_update'
 include { IMPORT_ANI_BATCH } from '../../modules/local/import_ani_batch'
@@ -17,6 +18,7 @@ workflow PUBLISHED_RESULTS_IMPORT {
 
     main:
     sourceRoots = PublishedSources.paths(params.update_from)
+    dependencyRoots = ReferenceInputs.paths(sourceRoots).findAll { !(it in sourceRoots) }
     candidateGenomes = validated_samples
         .splitCsv(header: true, sep: '\t')
         .map { row -> java.nio.file.Path.of(row.genome_fasta).toRealPath() }
@@ -33,16 +35,19 @@ workflow PUBLISHED_RESULTS_IMPORT {
         'python_container', 'seqtk_container', 'barrnap_container', 'checkm2_container', 'busco_container',
         'prokka_container', 'codetta_container', 'ccfinder_container', 'fastani_container',
     ]
-    if (SamplePolicy.stage(params) == 'ani') { settingsNames.add('ani_import_batches') }
+    if (SamplePolicy.stage(params) == 'ani') { settingsNames.addAll(['ani_import_batches', 'ani_publication_mode']) }
     updateSettings = settingsNames.collectEntries { name -> [(name): params[name]] }
 
-    FINGERPRINT_REUSE_SOURCES(validated_samples.map { sourceRoots })
+    FINGERPRINT_REUSE_SOURCES(validated_samples.map { sourceRoots }, Channel.value(dependencyRoots))
     sourceFingerprints = FINGERPRINT_REUSE_SOURCES.out.fingerprints.map { path ->
         new groovy.json.JsonSlurper().parse(path.toFile()).sort(false) { it.root }
     }.first()
     sourceGroups = sourceFingerprints.flatMap { records ->
         def size = Math.max(1, Math.ceil(records.size() / 8.0) as int)
-        records.collate(size).collect { group -> tuple(group, group.collect { file(it.root) }) }
+        records.collate(size).collect { group ->
+            def roots = group.collect { file(it.root) }
+            tuple(group, roots, ReferenceInputs.paths(roots).findAll { !(it in roots) })
+        }
     }
     VALIDATE_REUSE_SOURCES(sourceGroups, Channel.value(SamplePolicy.reuseCodeHash(projectDir)))
     sourceReceipts = VALIDATE_REUSE_SOURCES.out.receipts.toList().map { paths ->
@@ -51,7 +56,7 @@ workflow PUBLISHED_RESULTS_IMPORT {
     checkedSources = sourceFingerprints.map { [it] }.combine(sourceReceipts.map { [it] }).map { item ->
         // Keep nested lists intact when combining value channels.
         [fingerprints: item[0], receipts: item[1]]
-    }
+    }.first()
     PREPARE_COHORT_UPDATE(
         validated_samples, accession_map, initial_status, validation_warnings,
         Channel.value(sourceRoots), candidateGenomes, metadata,
@@ -59,6 +64,7 @@ workflow PUBLISHED_RESULTS_IMPORT {
         Channel.value(file(params.outdir).toAbsolutePath().normalize().toString()),
         Channel.value(SamplePolicy.codeHash(projectDir)),
         checkedSources,
+        Channel.value(dependencyRoots),
     )
 
     CHECK_COHORT_UPDATE(PREPARE_COHORT_UPDATE.out.prepared, previousUpdate)
@@ -82,28 +88,48 @@ workflow PUBLISHED_RESULTS_IMPORT {
                 tuple(index, group.collect { [meta: it[0], gcode: it[2].toString(), source_index: sourceRoots.indexOf(it[1].parent.parent)] })
             }
         }
-        IMPORT_ANI_BATCH(batches, Channel.value(sourceRoots), Channel.value(destination), Channel.value(destination.toString()))
-        imported = IMPORT_ANI_BATCH.out.results.flatMap { item ->
+        IMPORT_ANI_BATCH(batches, Channel.value(sourceRoots), Channel.value(dependencyRoots), Channel.value(destination), Channel.value(destination.toString()), checkedSources)
+        if (params.ani_publication_mode == 'reference') {
+            COMPLETE_ANI_REFERENCES(IMPORT_ANI_BATCH.out.audit.toList(), CHECK_COHORT_UPDATE.out.validated_samples,
+                Channel.value(destination), Channel.value(ReferenceInputs.paths(sourceRoots)))
+            readyImports = IMPORT_ANI_BATCH.out.results.combine(COMPLETE_ANI_REFERENCES.out.complete).map { item -> item.take(3) }
+        } else {
+            readyImports = IMPORT_ANI_BATCH.out.results
+        }
+        uncheckedImports = readyImports.flatMap { item ->
             if (!(item instanceof List) || item.size() != 3) { error 'Invalid ANI import batch result tuple' }
-            def records = item[0]
+            def records = new groovy.json.JsonSlurper().parse(item[0].toFile()).samples
             def channels = item[1]
             def root = item[2]
             records.collect { record ->
-                tuple(record.meta, java.nio.file.Paths.get(root).resolve("samples/${record.meta.accession}"), channels, record.gcode, [])
+                tuple(record.meta, java.nio.file.Paths.get(record.native_root), channels, record.gcode, [], record.bundle_root ?: '')
             }
         }
+        expectedImports = CHECK_COHORT_UPDATE.out.reused_samples.splitCsv(header: true, sep: '\t').toList()
+        imported = uncheckedImports.toList().map { [it] }.combine(expectedImports.map { [it] }).flatMap { item ->
+            def observed = item[0]
+            def expected = item[1].collect { it.accession }
+            def byAccession = observed.groupBy { it[0].accession }
+            if (byAccession.keySet() != (expected as Set) || byAccession.values().any { it.size() != 1 }) {
+                error 'ANI imports did not produce exactly one result for every requested sample'
+            }
+            expected.collect { byAccession[it][0] }
+        }
         reusedBundles = imported.filter { it[3] in ['4', '11'] }.map { item ->
-            tuple(item[0], item[1].resolve('annotation/bundle'))
+            tuple(item[0], java.nio.file.Paths.get(item[5]))
         }
         importVersions = IMPORT_ANI_BATCH.out.versions
         reusedBuscoJson = Channel.empty()
         reusedBuscoTables = imported.combine(busco_lineages.map { values -> [values] }).flatMap { item ->
-            SamplePolicy.sampleLineages(item[0], item[5] as List).collect { lineage ->
+            SamplePolicy.sampleLineages(item[0], item[6] as List).collect { lineage ->
                 tuple(item[0], lineage, item[1].resolve("busco/${lineage}/busco_summary_${lineage}.tsv"))
             }
         }
     } else {
-        IMPORT_PUBLISHED_SAMPLE(reusedSamples, busco_lineages)
+        IMPORT_PUBLISHED_SAMPLE(reusedSamples.map { item ->
+            def root = item[1].parent.parent
+            tuple(item[0], item[1], item[2], ReferenceInputs.paths([root]).findAll { it != root })
+        }, busco_lineages)
         imported = IMPORT_PUBLISHED_SAMPLE.out.results.map { item ->
             tuple(item[0], item[1].first().parent, item[2], item[3], item[4])
         }

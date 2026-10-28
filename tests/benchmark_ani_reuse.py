@@ -192,6 +192,7 @@ def run_cohort(
     *,
     resume: bool,
     docker: bool,
+    publication_mode: str | None = None,
 ) -> dict:
     root.mkdir(parents=True, exist_ok=True)
     samples = root / f"{name}.csv"
@@ -231,6 +232,8 @@ def run_cohort(
         "-work-dir",
         str(root / "work"),
     ]
+    if publication_mode is not None:
+        command.extend(["--ani_publication_mode", publication_mode])
     if resume:
         command.append("-resume")
     start = time.monotonic()
@@ -268,8 +271,10 @@ def run_cohort(
                 "files_cloned",
                 "logical_bytes_copied",
                 "logical_bytes_cloned",
+                "links_created",
+                "logical_bytes_referenced",
             ):
-                metrics[key] += sample[key]
+                metrics[key] += sample.get(key, 0)
             metrics["bundles_" + sample["bundle"]] += 1
     validate_source(output)
     return {
@@ -289,6 +294,7 @@ def run_cohort(
         if (output / "tables/source_validation.json").exists()
         else None,
         "work": tree_bytes(root / "work"),
+        "published_samples": tree_bytes(output / "samples"),
         "output": str(output),
     }
 
