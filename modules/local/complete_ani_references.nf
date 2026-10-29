@@ -11,6 +11,7 @@ process COMPLETE_ANI_REFERENCES {
     path samples
     path destination, name: 'destination'
     path dependencies, stageAs: 'dependencies/root????'
+    path qc_root, name: 'qc_publications'
 
     output:
     path 'reference_complete.json', emit: complete
@@ -22,6 +23,6 @@ process COMPLETE_ANI_REFERENCES {
 ${paths}
 REFERENCE_AUDITS
     python3 "\$(command -v complete_ani_references.py)" --audits audits.json \
-        --samples '${samples}' --destination destination --receipt reference_complete.json
+        --samples '${samples}' --destination destination --receipt reference_complete.json --qc-publication-root qc_publications
     """
 }

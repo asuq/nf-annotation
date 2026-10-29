@@ -12,7 +12,7 @@ from pathlib import Path
 
 from annotation_common import AnnotationError, digest, identity, read_json, write_json
 from annotation_source import validate_source
-from publication_references import REFERENCE_CONTRACT, REFERENCE_FILE, Publication
+from publication_references import REFERENCE_CONTRACTS, REFERENCE_FILE, Publication
 
 
 def code_id() -> str:
@@ -41,19 +41,19 @@ def fingerprint(
     # DirEntry retains directory type/stat information. Avoid repeated is_file,
     # is_dir and stat round trips for every small file on a shared filesystem.
     paths = [(manifest, manifest.stat())]
-    reference = read_json(manifest).get("pipeline_contract") == REFERENCE_CONTRACT
+    reference = read_json(manifest).get("pipeline_contract") in REFERENCE_CONTRACTS
     publication = Publication(root) if reference else None
     dependencies = []
     if publication:
         paths.append((root / REFERENCE_FILE, (root / REFERENCE_FILE).stat()))
-        for source in publication.document["sources"]:
+        for source in publication.snapshots:
             current = fingerprint(
                 Path(source["root"]), cache=cache, active=(*active, root)
             )
             if current["sha256"] != source["sha256"]:
                 raise AnnotationError(f"Referenced source changed: {source['root']}")
             dependencies.append({"root": current["root"], "sha256": current["sha256"]})
-    elif (root / REFERENCE_FILE).exists():
+    elif (root / REFERENCE_FILE).exists() or (root / REFERENCE_FILE).is_symlink():
         raise AnnotationError(
             "Reference manifest lacks the reference publication contract"
         )
@@ -128,7 +128,7 @@ def validate(roots: list[Path], fingerprints: list[dict]) -> list[dict]:
             raise AnnotationError("Source fingerprint belongs to a different root")
         if (
             read_json(root / "annotation_results.json").get("pipeline_contract")
-            == REFERENCE_CONTRACT
+            in REFERENCE_CONTRACTS
         ):
             validate_source(root, _content_checked=True)
         else:

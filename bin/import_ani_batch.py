@@ -23,7 +23,7 @@ from annotation_common import (
     validate_accession,
     write_json,
 )
-from publication_references import Publication
+from publication_references import Publication, qc_boundary, require_qc_provider
 
 
 def regular_files(root: Path, *, exclude_annotation: bool = False) -> dict[str, Path]:
@@ -160,6 +160,7 @@ def import_sample(
     view: Publication | None = None,
     mode: str = "self_contained",
     source_fingerprint: dict | None = None,
+    qc_root: Path | None = None,
 ) -> dict:
     """Atomically install one sample, or verify an identical previous installation."""
     accession = meta["accession"]
@@ -174,6 +175,17 @@ def import_sample(
         mode == "reference" and (view is None or source_fingerprint is None)
     ):
         raise AnnotationError("Reference import requires a validated source snapshot")
+    if mode == "reference":
+        if qc_root is None:
+            raise AnnotationError(
+                "Reference publication requires --qc_publication_root"
+            )
+        qc_root = qc_boundary(qc_root, destination)
+        if view.reference and view.version != 2:
+            raise AnnotationError(
+                "New reference outputs require original QC or v2 inputs; legacy absolute views are not migrated"
+            )
+        require_qc_provider(view.native_owner(accession), qc_root)
     source = (
         view.native_root(accession) if view is not None else source.resolve(strict=True)
     )
@@ -244,8 +256,12 @@ def import_sample(
                 "bundle": None,
             }
             if bundle is not None:
-                if metrics["bundle"] == "reused":
+                if (
+                    metrics["bundle"] == "reused"
+                    and not view.bundle_owner(accession).reference
+                ):
                     owner = view.bundle_owner(accession)
+                    require_qc_provider(owner, qc_root)
                     links["annotation/bundle"] = owner.path(
                         f"samples/{accession}/annotation/bundle"
                     )
@@ -256,7 +272,7 @@ def import_sample(
             metrics["logical_bytes_referenced"] = sum(
                 path.stat().st_size
                 for name, path in files.items()
-                if not name.startswith("annotation/") or metrics["bundle"] == "reused"
+                if not name.startswith("annotation/") or "annotation/bundle" in links
             )
             if target.exists() or target.is_symlink():
                 if target.is_symlink() or not target.is_dir():
@@ -272,11 +288,13 @@ def import_sample(
                     )
                 for name, provider in links.items():
                     path = target / name
-                    if not path.is_symlink() or os.readlink(path) != str(provider):
+                    if not path.is_symlink() or os.readlink(path) != os.path.relpath(
+                        provider, path.parent
+                    ):
                         raise AnnotationError(
                             f"Reference publication changed for {accession}: {name}"
                         )
-                if bundle is not None and metrics["bundle"] == "rebuilt":
+                if bundle is not None and reference["bundle"] == {"local": True}:
                     existing = regular_files(target / "annotation/bundle")
                     expected = regular_files(bundle)
                     if set(existing) != set(expected) or any(
@@ -293,14 +311,22 @@ def import_sample(
                 for name, provider in links.items():
                     link = prepared / name
                     link.parent.mkdir(parents=True, exist_ok=True)
-                    link.symlink_to(provider, target_is_directory=provider.is_dir())
+                    link.symlink_to(
+                        os.path.relpath(provider, (target / name).parent),
+                        target_is_directory=provider.is_dir(),
+                    )
                     metrics["links_created"] += 1
-                if bundle is not None and metrics["bundle"] == "rebuilt":
+                if bundle is not None and reference["bundle"] == {"local": True}:
                     (prepared / "annotation").mkdir(exist_ok=True)
                     metrics["local_bundle_bytes"] = sum(
                         path.stat().st_size for path in regular_files(bundle).values()
                     )
-                    bundle.rename(prepared / "annotation/bundle")
+                    if metrics["bundle"] == "rebuilt":
+                        bundle.rename(prepared / "annotation/bundle")
+                    else:
+                        shutil.copytree(bundle, prepared / "annotation/bundle")
+                        metrics["files_copied"] += len(regular_files(bundle))
+                        metrics["logical_bytes_copied"] += metrics["local_bundle_bytes"]
                 prepared.rename(target)
         else:
             if target.exists() or target.is_symlink():
@@ -343,6 +369,7 @@ def run(
     *,
     mode: str = "self_contained",
     fingerprints: list[dict] | None = None,
+    qc_root: Path | None = None,
 ) -> None:
     """Report individual failures and fail the whole batch before ANI can start."""
     if not records or not sources:
@@ -376,6 +403,7 @@ def run(
                 view=contexts[root],
                 mode=mode,
                 source_fingerprint=snapshots.get(str(root)),
+                qc_root=qc_root,
             )
             result.update(status="done", meta=record["meta"], gcode=record["gcode"])
         except (
@@ -412,6 +440,7 @@ def main() -> int:
         "--mode", choices=("self_contained", "reference"), default="self_contained"
     )
     parser.add_argument("--source-validation", type=Path)
+    parser.add_argument("--qc-publication-root", type=Path)
     args = parser.parse_args()
     try:
         run(
@@ -421,6 +450,7 @@ def main() -> int:
             args.channels,
             args.audit,
             mode=args.mode,
+            qc_root=args.qc_publication_root,
             fingerprints=read_json(args.source_validation)["fingerprints"]
             if args.source_validation
             else None,

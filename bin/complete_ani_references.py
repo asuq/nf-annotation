@@ -2,14 +2,23 @@
 """Seal explicit dependency bindings after all reference-import batches finish."""
 
 import argparse
+import os
 from pathlib import Path
 
 from annotation_common import AnnotationError, identity, read_json, read_tsv, write_json
 from annotation_path_lists import read_path_list
-from publication_references import REFERENCE_FILE, Publication
+from publication_references import (
+    REFERENCE_FILE,
+    Publication,
+    qc_boundary,
+    require_qc_provider,
+)
 
 
-def complete(audits: list[Path], samples: Path, destination: Path) -> dict:
+def complete(
+    audits: list[Path], samples: Path, destination: Path, qc_root: Path
+) -> dict:
+    qc_root = qc_boundary(qc_root, destination)
     accessions = [row["accession"] for row in read_tsv(samples, ["accession"])]
     if not accessions or len(accessions) != len(set(accessions)):
         raise AnnotationError("Reference publication requires unique requested samples")
@@ -40,6 +49,8 @@ def complete(audits: list[Path], samples: Path, destination: Path) -> dict:
     if set(observed) != expected:
         raise AnnotationError("Reference import omitted requested samples")
     roots = sorted(snapshots)
+    for root in roots:
+        require_qc_provider(Publication(Path(root)), qc_root)
     indexes = {root: index for index, root in enumerate(roots)}
     records = {}
     for accession in accessions:
@@ -53,9 +64,16 @@ def complete(audits: list[Path], samples: Path, destination: Path) -> dict:
             else {"source": indexes[bundle["root"]]},
         }
     record = {
-        "schema_version": 1,
+        "schema_version": 2,
+        "qc_publication_root": os.path.relpath(qc_root, destination),
         "mode": "reference",
-        "sources": [snapshots[root] for root in roots],
+        "sources": [
+            {
+                "path": Path(root).relative_to(qc_root).as_posix(),
+                "sha256": snapshots[root]["sha256"],
+            }
+            for root in roots
+        ],
         "samples": records,
     }
     record["reference_id"] = identity(record)
@@ -79,12 +97,14 @@ def main() -> int:
     parser.add_argument("--samples", type=Path, required=True)
     parser.add_argument("--destination", type=Path, required=True)
     parser.add_argument("--receipt", type=Path, required=True)
+    parser.add_argument("--qc-publication-root", type=Path, required=True)
     args = parser.parse_args()
     try:
         record = complete(
             read_path_list(args.audits),
             args.samples,
             args.destination.resolve(strict=True),
+            args.qc_publication_root,
         )
         write_json(args.receipt, {"reference_id": record["reference_id"]})
     except (AnnotationError, OSError, ValueError, KeyError) as error:

@@ -4,6 +4,7 @@ process PREPARE_COHORT_UPDATE {
     label 'process_cohort'
     stageInMode 'symlink'
     cache 'deep'
+    publishDir "${params.outdir}/pipeline_info/cohort_validation", mode: 'copy', overwrite: true, pattern: 'cohort_validation_progress.json'
 
     input:
     path validated_samples, name: 'requested_samples.tsv'
@@ -21,6 +22,7 @@ process PREPARE_COHORT_UPDATE {
     path dependencies, stageAs: 'dependencies/root????'
 
     output:
+    path 'cohort_validation_progress.json', emit: progress
     path 'prepared', emit: prepared
     path 'validated_samples.tsv', emit: validated_samples
     path 'accession_map.tsv', emit: accession_map
@@ -34,6 +36,7 @@ process PREPARE_COHORT_UPDATE {
     path 'versions.yml', emit: versions
 
     script:
+    def workers = Math.min(Math.min(task.cpus as int, params.cohort_validation_workers as int), 8)
     def quote = { value -> "'" + value.toString().replace("'", "'\"'\"'") + "'" }
     def lineageArgs = busco_lineages.collect { "--busco-lineage ${quote.call(it)}" }.join(' ')
     def sourceValidationJson = groovy.json.JsonOutput.toJson(source_validation)
@@ -59,7 +62,7 @@ UPDATE_SETTINGS
         --settings update_settings.json --source-validation source_validation.json \
         --gcode-rule ${quote.call(params.gcode_rule)} \
         --destination ${quote.call(destination)} \
-        ${lineageArgs} --outdir prepared
+        ${lineageArgs} --outdir prepared --workers ${workers} --progress cohort_validation_progress.json
     cp source_validation.json prepared/source_validation.json
     cp prepared/* .
     printf '\"%s\":\\n  python: \"%s\"\\n  script: \"bin/prepare_cohort_update.py\"\\n' \

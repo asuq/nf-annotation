@@ -16,6 +16,7 @@ process IMPORT_ANI_BATCH {
     path destination, name: 'destination'
     val destination_root
     val source_validation
+    path qc_root, name: 'qc_publications'
 
     output:
     tuple path('import_audit.json'), path('channels'), val(destination_root), emit: results
@@ -23,6 +24,7 @@ process IMPORT_ANI_BATCH {
     path 'versions.yml', emit: versions
 
     script:
+    def qcArg = qc_root ? "--qc-publication-root qc_publications" : ''
     def validationJson = groovy.json.JsonOutput.toJson(source_validation)
     def recordJson = groovy.json.JsonOutput.toJson(records)
     def sourceJson = groovy.json.JsonOutput.toJson((source_samples instanceof Collection ? source_samples : [source_samples]).collect { it.toString() })
@@ -43,7 +45,7 @@ SOURCE_VALIDATION
     import_status=0
     python3 "\$(command -v import_ani_batch.py)" \
         --records records.json --sources sources.json --destination destination \
-        --mode '${params.ani_publication_mode}' --source-validation source_validation.json \
+        --mode '${params.ani_publication_mode}' ${qcArg} --source-validation source_validation.json \
         --channels channels --audit import_audit.json || import_status=\$?
     mkdir -p destination/pipeline_info/ani_import
     if [[ -f import_audit.json ]]; then

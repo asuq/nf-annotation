@@ -634,7 +634,7 @@ def main() -> int:
         )
         if args.publication_mode == "reference":
             from publication_references import (
-                REFERENCE_CONTRACT,
+                REFERENCE_V2_CONTRACT,
                 REFERENCE_FILE,
                 Publication,
             )
@@ -643,7 +643,7 @@ def main() -> int:
             view = Publication(args.publication, pending=True)
             if set(view.document["samples"]) != set(manifest["accessions"]) or manifest["enabled_tools"]:
                 raise AnnotationError("Reference aggregation requires matching membership and disabled tools")
-            manifest["pipeline_contract"] = REFERENCE_CONTRACT
+            manifest["pipeline_contract"] = REFERENCE_V2_CONTRACT
             manifest["reference_manifest_sha256"] = digest(view.root / REFERENCE_FILE)
             write_json(args.output / "annotation_results.json", manifest)
     except (AnnotationError, OSError, sqlite3.Error) as error:

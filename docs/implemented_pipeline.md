@@ -190,7 +190,9 @@ The most important implementation-level parameters are:
 | `codetta_db` | `main.nf`, `prepare_databases.nf` | Codetta profile directory rooted at `Pfam-A_enone.hmm`. |
 | `busco_db` | `main.nf`, `prepare_databases.nf` | Offline BUSCO lineage root unless datasets are downloaded on demand. |
 | `prepare_busco_datasets` | `main.nf` | Switches BUSCO lineage resolution from reuse to download. |
-| `source_fingerprint_workers` | `main.nf` source reuse | Concurrent content readers: 4 by default, 1-8 allowed, capped by task CPUs; execution-only. |
+| `source_fingerprint_workers` | Initial/final source checks, including reannotation | Concurrent content readers: 4 by default, 1-8 allowed, capped by task CPUs; execution-only. |
+| `cohort_validation_workers` | `main.nf` source reuse | Per-sample validation processes: default 4, range 1-8, capped by task CPUs; execution-only. |
+| `qc_publication_root` | Reference-mode ANI output | Required permanent QC provider tree, disjoint from the output. Recorded relatively in the v2 manifest. |
 | `ani_publication_mode` | `main.nf` ANI-only reuse | `self_contained` (default) or opt-in `reference`; reference views require their declared QC providers. |
 | `ani_import_batches` | `main.nf` ANI-only reuse | Maximum import allocations, default 8; accepts 1-64. |
 | `ani_import_max_forks` | reuse bookkeeping | Concurrent import/source-validation groups, default 2; accepts 1-64. |

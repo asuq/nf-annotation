@@ -21,7 +21,7 @@ from annotation_source import import_source, validate_source
 from benchmark_ani_reuse import make_source
 from complete_ani_references import complete
 from import_ani_batch import run
-from publication_references import REFERENCE_CONTRACT, REFERENCE_FILE, Publication
+from publication_references import REFERENCE_V2_CONTRACT as REFERENCE_CONTRACT, REFERENCE_FILE, Publication
 from fingerprinting.source_fingerprint import fingerprint, fingerprint_sources
 from verify_reference_acceptance import verify
 
@@ -48,12 +48,13 @@ class ReferencePublicationTests(unittest.TestCase):
             self.root / (name + "-channels"),
             audit,
             mode=mode,
+            qc_root=self.source,
             fingerprints=[fingerprint(source)],
         )
         shutil.copytree(source / "tables", output / "tables")
         manifest = copy.deepcopy(read_json(source / "annotation_results.json"))
         if mode == "reference":
-            complete([audit], output / "tables/validated_samples.tsv", output)
+            complete([audit], output / "tables/validated_samples.tsv", output, self.source)
             manifest["pipeline_contract"] = REFERENCE_CONTRACT
             manifest["reference_manifest_sha256"] = digest(output / REFERENCE_FILE)
         else:
@@ -90,10 +91,10 @@ class ReferencePublicationTests(unittest.TestCase):
         second = self.publish(first, "second")
         self.assertEqual(
             [
-                source["root"]
+                source["path"]
                 for source in read_json(second / REFERENCE_FILE)["sources"]
             ],
-            [str(self.source)],
+            ["."],
         )
         shutil.rmtree(first)
         validate_source(second)
@@ -150,7 +151,7 @@ class ReferencePublicationTests(unittest.TestCase):
     def test_circular_reference_is_not_followed(self):
         view = self.publish(self.source, "view")
         record = read_json(view / REFERENCE_FILE)
-        record["sources"][0]["root"] = str(view)
+        record["qc_publication_root"] = "."
         record["reference_id"] = identity(
             {key: value for key, value in record.items() if key != "reference_id"}
         )
@@ -158,9 +159,9 @@ class ReferencePublicationTests(unittest.TestCase):
         manifest = read_json(view / "annotation_results.json")
         manifest["reference_manifest_sha256"] = digest(view / REFERENCE_FILE)
         write_json(view / "annotation_results.json", manifest)
-        with self.assertRaisesRegex(AnnotationError, "circular"):
+        with self.assertRaisesRegex(AnnotationError, "circular|non-overlapping"):
             Publication(view)
-        with self.assertRaisesRegex(AnnotationError, "circular"):
+        with self.assertRaisesRegex(AnnotationError, "circular|non-overlapping"):
             fingerprint_sources([view], workers=4)
 
     def test_final_acceptance_detects_input_metadata_and_source_changes(self):
@@ -196,14 +197,11 @@ class ReferencePublicationTests(unittest.TestCase):
             {"local": True},
         )
         second = self.publish(first, "linked-rebuilt-view")
-        self.assertIn(
-            str(first),
-            [
-                record["root"]
-                for record in read_json(second / REFERENCE_FILE)["sources"]
-            ],
-        )
+        self.assertEqual(read_json(second / REFERENCE_FILE)["samples"][accession]["bundle"], {"local": True})
+        self.assertEqual([row["path"] for row in read_json(second / REFERENCE_FILE)["sources"]], ["."])
         shutil.rmtree(first)
+        validate_source(second)
+        shutil.rmtree(self.source)
         with self.assertRaises((OSError, AnnotationError)):
             validate_source(second)
 

@@ -163,10 +163,11 @@ class CohortUpdateIntegrationTestCase(unittest.TestCase):
         resume: bool = False,
         expected_code: int = 0,
         domain: str | None = "bacteria",
+        output: Path | None = None,
     ) -> Path:
         launch = self.root / f"launch-{name}"
         launch.mkdir(exist_ok=True)
-        output = self.root / f"results-{name}"
+        output = output or self.root / f"results-{name}"
         work = self.root / f"work-{name}"
         command = [
             NEXTFLOW,

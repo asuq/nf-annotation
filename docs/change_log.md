@@ -1,5 +1,21 @@
 # Change Log
 
+## v0.4.7 - 2026-10-30
+
+- Publish relocatable reference views with relative filesystem links and a v2
+  dependency manifest. Require `qc_publication_root` to declare the permanent
+  QC tree; reject provider escapes and dependencies on ANI/work outputs.
+- Flatten successor views to their original QC providers. Own necessary local
+  canonical bundles without copying entire QC trees or rerunning gene prediction.
+  Preserve untouched v0.4.4 QC reuse and read-only v1 reference support.
+- Parallelise per-sample cohort validation with bounded processes and final
+  reference-content checks with bounded readers. Keep deterministic results,
+  mutation checks and execution-only worker controls; report observable progress.
+- Verify relocation, later reuse/materialisation/reannotation and cached ANI
+  resume using controlled fixtures. Keep scientific rules, images and identifiers
+  unchanged. See the [guide](ani_performance.md) and
+  [qualification record](development/v0.4.7_qualification.md).
+
 ## v0.4.6 - 2026-10-29
 
 - Hash source content with a bounded reader pool, defaulting to four workers and

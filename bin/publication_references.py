@@ -16,6 +16,8 @@ from annotation_common import (
 
 REFERENCE_FILE = "ani_references.json"
 REFERENCE_CONTRACT = "nf-annotation-ani-reference-v1"
+REFERENCE_V2_CONTRACT = "nf-annotation-ani-reference-v2"
+REFERENCE_CONTRACTS = (REFERENCE_CONTRACT, REFERENCE_V2_CONTRACT)
 PORTABLE_CONTRACT = "nf-annotation-v0.4"
 
 
@@ -36,6 +38,54 @@ def strict_path(root: Path, name: str) -> Path:
                 f"Published artefact must not be a symlink: {current}"
             )
     return current
+
+
+def relative_location(base: Path, value: str, *, parents: bool = False) -> Path:
+    """Resolve a normalised relative location, rejecting internal aliases/escapes."""
+    if (
+        not isinstance(value, str)
+        or not value
+        or "\0" in value
+        or "\\" in value
+        or Path(value).is_absolute()
+        or os.path.normpath(value) != value
+        or (not parents and ".." in Path(value).parts)
+    ):
+        raise AnnotationError("Invalid relative reference location")
+    path = base
+    for part in Path(value).parts:
+        path = path / part
+        if path.is_symlink():
+            raise AnnotationError("Reference locations must not traverse symlinks")
+    return path.resolve(strict=True)
+
+
+def qc_boundary(root: Path, destination: Path) -> Path:
+    root = root.resolve(strict=True)
+    destination = destination.resolve()
+    if (
+        not root.is_dir()
+        or root == destination
+        or root in destination.parents
+        or destination in root.parents
+    ):
+        raise AnnotationError(
+            "QC publication root and ANI output must be non-overlapping directories"
+        )
+    return root
+
+
+def require_qc_provider(provider, boundary: Path) -> None:
+    if (
+        provider.reference
+        or not provider.root.is_relative_to(boundary)
+        or (provider.root / "cohort/fastani").exists()
+        or (provider.root / "tables/cohort_update_run.json").exists()
+    ):
+        raise AnnotationError(
+            "Reference providers must be permanent original QC publications inside --qc_publication_root"
+        )
+    relative_location(boundary, provider.root.relative_to(boundary).as_posix())
 
 
 class Publication:
@@ -67,21 +117,28 @@ class Publication:
             raise AnnotationError("Invalid publication accession list")
         self.accessions = set(declared)
         contract = self.manifest.get("pipeline_contract")
-        self.reference = pending or contract == REFERENCE_CONTRACT
+        self.reference = pending or contract in REFERENCE_CONTRACTS
+        self.version = None
+        self.qc_root = None
+        self.snapshots = []
         self.document = None
         self.sources: list[Publication] = []
         self.links: dict[str, Path] = {}
         if not self.reference:
-            if contract != PORTABLE_CONTRACT or (self.root / REFERENCE_FILE).exists():
+            if (
+                contract != PORTABLE_CONTRACT
+                or (self.root / REFERENCE_FILE).exists()
+                or (self.root / REFERENCE_FILE).is_symlink()
+            ):
                 raise AnnotationError(
                     f"Annotation reuse requires native v0.4 published results: {self.root}"
                 )
             return
-        if not pending and contract != REFERENCE_CONTRACT:
+        if not pending and contract not in REFERENCE_CONTRACTS:
             raise AnnotationError(
                 "Reference publication requires its explicit contract"
             )
-        if pending and contract not in (None, REFERENCE_CONTRACT):
+        if pending and contract not in (None, *REFERENCE_CONTRACTS):
             raise AnnotationError(
                 "Cannot change an existing publication's storage mode"
             )
@@ -89,7 +146,8 @@ class Publication:
         doc = document if document is not None else read_json(ref_path)
         if (
             not isinstance(doc, dict)
-            or doc.get("schema_version") != 1
+            or type(doc.get("schema_version")) is not int
+            or doc.get("schema_version") not in (1, 2)
             or doc.get("mode") != "reference"
             or doc.get("reference_id")
             != identity(
@@ -114,30 +172,61 @@ class Publication:
                 "Reference membership or functional-result contract differs"
             )
         self.document = doc
+        self.version = doc["schema_version"]
+        if not pending and contract != (
+            REFERENCE_CONTRACT if self.version == 1 else REFERENCE_V2_CONTRACT
+        ):
+            raise AnnotationError("Reference schema and pipeline contract differ")
+        if self.version == 2 and set(doc) != {
+            "schema_version",
+            "mode",
+            "qc_publication_root",
+            "sources",
+            "samples",
+            "reference_id",
+        }:
+            raise AnnotationError("Unknown v2 reference manifest fields")
+        if self.version == 2:
+            self.qc_root = qc_boundary(
+                relative_location(
+                    self.root, doc.get("qc_publication_root"), parents=True
+                ),
+                self.root,
+            )
         seen = set()
         for source in doc["sources"]:
+            location = "root" if self.version == 1 else "path"
             if (
                 not isinstance(source, dict)
-                or set(source) != {"root", "sha256"}
-                or not isinstance(source["root"], str)
-                or not Path(source["root"]).is_absolute()
+                or set(source) != {location, "sha256"}
+                or not isinstance(source[location], str)
                 or not isinstance(source["sha256"], str)
                 or not re.fullmatch(r"[a-f0-9]{64}", source["sha256"])
             ):
                 raise AnnotationError("Invalid reference source snapshot")
-            provider = Path(source["root"]).resolve(strict=True)
-            if (
-                str(provider) != source["root"]
-                or provider in seen
-                or provider in (*active, self.root)
-            ):
+            if self.version == 1:
+                if not Path(source["root"]).is_absolute():
+                    raise AnnotationError(
+                        "Legacy reference sources require absolute paths"
+                    )
+                provider = Path(source["root"]).resolve(strict=True)
+                if str(provider) != source["root"]:
+                    raise AnnotationError("Moved reference source")
+            else:
+                provider = relative_location(self.qc_root, source["path"])
+                if not provider.is_relative_to(self.qc_root):
+                    raise AnnotationError("Reference provider escapes QC root")
+            if provider in seen or provider in (*active, self.root):
                 raise AnnotationError("Duplicate, moved or circular reference source")
             seen.add(provider)
             if provider not in cache:
                 cache[provider] = Publication(
                     provider, cache=cache, active=(*active, self.root)
                 )
+            if self.version == 2:
+                require_qc_provider(cache[provider], self.qc_root)
             self.sources.append(cache[provider])
+            self.snapshots.append({"root": str(provider), "sha256": source["sha256"]})
         used = set()
         for accession, sample in doc["samples"].items():
             validate_accession(accession)
@@ -177,7 +266,11 @@ class Publication:
                 self.links[relative] = provider.path(relative)
             bundle = sample["bundle"]
             if bundle is not None:
-                if bundle == {"local": True}:
+                if (
+                    isinstance(bundle, dict)
+                    and set(bundle) == {"local"}
+                    and bundle["local"] is True
+                ):
                     strict_path(self.root, f"samples/{accession}/annotation/bundle")
                 elif isinstance(bundle, dict) and set(bundle) == {"source"}:
                     owner, index = self.provider(bundle["source"], accession)
@@ -195,6 +288,11 @@ class Publication:
         if used != set(range(len(self.sources))):
             raise AnnotationError("Unused reference source snapshot")
         self.check_links()
+
+    def link_text(self, link: Path, target: Path) -> str:
+        return (
+            os.path.relpath(target, link.parent) if self.version == 2 else str(target)
+        )
 
     def provider(self, index: int, accession: str) -> tuple[Publication, int]:
         if type(index) is not int or not 0 <= index < len(self.sources):
@@ -228,7 +326,7 @@ class Publication:
             link = self.root / relative
             if (
                 not link.is_symlink()
-                or os.readlink(link) != str(target)
+                or os.readlink(link) != self.link_text(link, target)
                 or not target.exists()
             ):
                 raise AnnotationError(
@@ -254,7 +352,9 @@ class Publication:
             if prefix in self.links:
                 link = self.root / prefix
                 target = self.links[prefix]
-                if not link.is_symlink() or os.readlink(link) != str(target):
+                if not link.is_symlink() or os.readlink(link) != self.link_text(
+                    link, target
+                ):
                     raise AnnotationError(f"Changed publication reference: {prefix}")
                 remainder = "/".join(parts[end:])
                 return strict_path(target, remainder) if remainder else target
@@ -283,7 +383,7 @@ class Publication:
             if current.get("root") != str(self.root):
                 raise AnnotationError("Missing current source fingerprint")
             return {"root": str(self.root), "sha256": current["sha256"]}
-        for source in self.document["sources"]:
+        for source in self.snapshots:
             if source["root"] == str(owner.root):
                 return dict(source)
         raise AnnotationError("Missing reference-provider snapshot")

@@ -234,6 +234,8 @@ def run_cohort(
     ]
     if publication_mode is not None:
         command.extend(["--ani_publication_mode", publication_mode])
+        if publication_mode == "reference":
+            command.extend(["--qc_publication_root", str(source)])
     if resume:
         command.append("-resume")
     start = time.monotonic()

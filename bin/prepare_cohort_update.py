@@ -677,6 +677,33 @@ def write_update_tables(
     )
 
 
+def validate_requested_sample(job: dict) -> str:
+    """Pure worker: preserve existing scientific checks without shared mutations."""
+    sample, candidate = job["sample"], job["candidate"]
+    before = candidate.stat()
+    fingerprint = genome_fingerprint(candidate)
+    after = candidate.stat()
+    fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns")
+    if any(getattr(before, field) != getattr(after, field) for field in fields):
+        raise CohortUpdateError(f"Candidate changed during validation: {sample['accession']}")
+    source = job["source"]
+    if source is not None:
+        if job["stage"] == "full" and sample_policy.qc_scope(source) == "qc":
+            raise CohortUpdateError("QC-only publications support ANI-only and annotation-only reuse; full-stage reuse requires CRISPR evidence")
+        for field in sample_policy.DOMAIN_FIELDS:
+            if sample.get(field) != source.get(field):
+                raise CohortUpdateError(f"Domain/BUSCO policy changed or is unrecorded for {sample['accession']!r}: {field}; regenerate QC")
+        staged = job["native"] / f"staged/{source['internal_id']}.fasta"
+        before = staged.stat()
+        source_fingerprint = validate_sample_outputs(job["native"], source, job["status"], job["master"], job["lineages"], job["gcode_rule"])
+        after = staged.stat()
+        if any(getattr(before, field) != getattr(after, field) for field in fields):
+            raise CohortUpdateError(f"Published genome changed during validation: {sample['accession']}")
+        if source_fingerprint != fingerprint:
+            raise CohortUpdateError(f"Genome content changed for retained accession {sample['accession']!r}; run a full analysis or assign a new accession.")
+    return fingerprint
+
+
 def run_prepare(args: argparse.Namespace) -> None:
     """Preflight every retained sample before exposing additions to the workflow."""
     try:
@@ -767,32 +794,24 @@ def run_prepare(args: argparse.Namespace) -> None:
     audit = []
     reused = []
     added = []
-    for sample, candidate in zip(samples, candidates, strict=True):
+    from cohort_validation_pool import ordered_validation
+    jobs = (
+        {"sample": dict(sample), "candidate": candidate, "source": source_index.get(sample["accession"]),
+         "status": statuses.get(sample["accession"]), "master": masters.get(sample["accession"]),
+         "native": publications[origins[sample["accession"]]].native_root(sample["accession"]) if sample["accession"] in origins else None,
+         "stage": stage, "lineages": args.busco_lineage, "gcode_rule": args.gcode_rule}
+        for sample, candidate in zip(samples, candidates, strict=True)
+    )
+    checked_samples = ordered_validation(validate_requested_sample, jobs,
+        workers=getattr(args, "workers", 1), total=len(samples), progress=getattr(args, "progress", None))
+    for sample, fingerprint in zip(samples, checked_samples, strict=True):
         accession = sample["accession"]
-        fingerprint = genome_fingerprint(candidate)
         origin = origins.get(accession)
         provenance = source_identities[origin] if origin is not None else (
             source_identities[0] if len(sources) == 1 else
             {key: "NA" for key in source_identities[0]}
         )
         if accession in source_index:
-            if stage == "full" and sample_policy.qc_scope(source_index[accession]) == "qc":
-                raise CohortUpdateError("QC-only publications support ANI-only and annotation-only reuse; full-stage reuse requires CRISPR evidence")
-            for field in sample_policy.DOMAIN_FIELDS:
-                if sample.get(field) != source_index[accession].get(field):
-                    raise CohortUpdateError(f"Domain/BUSCO policy changed or is unrecorded for {accession!r}: {field}; regenerate QC")
-            source_fingerprint = validate_sample_outputs(
-                publications[origin].native_root(accession),
-                source_index[accession],
-                statuses[accession],
-                masters[accession],
-                args.busco_lineage,
-                args.gcode_rule,
-            )
-            if source_fingerprint != fingerprint:
-                raise CohortUpdateError(
-                    f"Genome content changed for retained accession {accession!r}; run a full analysis or assign a new accession."
-                )
             reused.append(
                 {
                     **sample,
@@ -906,6 +925,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--previous-update", type=Path)
     parser.add_argument("--source-validation", type=Path)
+    parser.add_argument("--workers", type=int, default=1)
+    parser.add_argument("--progress", type=Path)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     try:

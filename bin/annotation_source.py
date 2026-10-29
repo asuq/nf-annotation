@@ -22,7 +22,7 @@ from annotation_common import (
 )
 from annotation_result import NativeBatch, native_batch_index, validate_raw_evidence
 from annotation_summary import ANNOTATION_COLUMNS, MATRICES
-from publication_references import REFERENCE_CONTRACT, Publication, strict_path
+from publication_references import REFERENCE_CONTRACTS, Publication, strict_path
 from validate_inputs import detect_metadata_key_column
 
 
@@ -164,7 +164,7 @@ def validate_source(root: Path, *, _content_checked: bool = False, _validated: d
     manifest = read_json(root / "annotation_results.json")
     if (
         manifest.get("schema_version") != SCHEMA_VERSION
-        or manifest.get("pipeline_contract") not in ("nf-annotation-v0.4", REFERENCE_CONTRACT)
+        or manifest.get("pipeline_contract") not in ("nf-annotation-v0.4", *REFERENCE_CONTRACTS)
     ):
         raise AnnotationError("Annotation reuse requires native v0.4 published results")
     accessions = manifest.get("accessions", [])

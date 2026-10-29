@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from pathlib import Path
 
 from annotation_common import AnnotationError, identity, read_json, write_json
-from publication_references import REFERENCE_CONTRACT, REFERENCE_FILE, Publication
+from publication_references import REFERENCE_CONTRACTS, REFERENCE_FILE, Publication
 
 MAX_WORKERS = 8
 
@@ -159,13 +159,13 @@ class FingerprintScanner:
         if manifest.is_symlink() or not manifest.is_file():
             raise AnnotationError(f"Invalid publication manifest: {manifest}")
         paths = [(manifest, manifest.stat())]
-        reference = read_json(manifest).get("pipeline_contract") == REFERENCE_CONTRACT
+        reference = read_json(manifest).get("pipeline_contract") in REFERENCE_CONTRACTS
         publication = Publication(root) if reference else None
         dependencies = []
         if publication:
             ref_path = root / REFERENCE_FILE
             paths.append((ref_path, ref_path.stat()))
-            for source in publication.document["sources"]:
+            for source in publication.snapshots:
                 current = self.fingerprint(Path(source["root"]), active=(*active, root))
                 if current["sha256"] != source["sha256"]:
                     raise AnnotationError(
@@ -174,7 +174,7 @@ class FingerprintScanner:
                 dependencies.append(
                     {"root": current["root"], "sha256": current["sha256"]}
                 )
-        elif (root / REFERENCE_FILE).exists():
+        elif (root / REFERENCE_FILE).exists() or (root / REFERENCE_FILE).is_symlink():
             raise AnnotationError(
                 "Reference manifest lacks the reference publication contract"
             )

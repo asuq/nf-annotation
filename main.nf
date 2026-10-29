@@ -21,6 +21,18 @@ workflow {
     if (params.ani_publication_mode == 'reference' && pipelineStage != 'ani') {
         error '--ani_publication_mode reference requires --pipeline_stage ani'
     }
+    if (params.ani_publication_mode == 'reference') {
+        if (!params.qc_publication_root) { error '--qc_publication_root is required for reference outputs' }
+        def qcRoot = file(params.qc_publication_root, checkIfExists: true).toFile().canonicalFile.toPath()
+        def outputRoot = file(params.outdir).toFile().canonicalFile.toPath()
+        if (!qcRoot.toFile().isDirectory() || outputRoot.startsWith(qcRoot) || qcRoot.startsWith(outputRoot)) {
+            error '--qc_publication_root and --outdir must be non-overlapping directories'
+        }
+    }
+    def validationWorkers = params.cohort_validation_workers.toString()
+    if (!validationWorkers.isInteger() || (validationWorkers as int) < 1 || (validationWorkers as int) > 8) {
+        error '--cohort_validation_workers must be an integer from 1 to 8'
+    }
     def fingerprintWorkers = params.source_fingerprint_workers.toString()
     if (!fingerprintWorkers.isInteger() || (fingerprintWorkers as int) < 1 || (fingerprintWorkers as int) > 8) {
         error '--source_fingerprint_workers must be an integer from 1 to 8'

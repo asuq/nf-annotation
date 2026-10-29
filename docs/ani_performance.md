@@ -60,39 +60,57 @@ removes unnecessary copies and repeated processing; it does not make integrity
 checks or independent publications free. Copy audits distinguish logical bytes
 cloned from logical bytes copied; they do not measure physical storage traffic.
 
-## Optional reference publications
+## Relocatable reference publications
 
-`--ani_publication_mode self_contained` is the default described above. Choose
-`--ani_publication_mode reference` explicitly for ANI-only views that retain
-links to validated QC payloads instead of independent payload copies. The mode
-is rejected for other main-workflow stages. Reannotation always produces
-self-contained outputs.
+`--ani_publication_mode self_contained` remains the default. From v0.4.7, creating
+an ANI-only reference view requires `--ani_publication_mode reference` and an
+explicit `--qc_publication_root`. The latter declares the permanent QC tree;
+all external providers must be original self-contained QC publications within
+it, and the ANI output must be outside it. A reference view or an ANI/update
+publication cannot itself be an external payload provider. Permanence is an
+operator declaration, not something inferred from a directory name.
 
-Reference publications contain their own cohort reports and an
-`ani_references.json` dependency manifest. The manifest binds each permitted
-link to a declared sample in an immutable source snapshot. Missing sources,
-changed contents, retargeted/undeclared links and circular dependencies fail.
-Reference inputs are checked at the start, and dependencies are checked again
-before reference output or reannotation acceptance.
+For example, keep `02-qc/batch-a` and `03-ani/view` inside one collection. Supply
+the current `02-qc` path as `--qc_publication_root`, its QC publication(s) through
+`--update_from`, and a fresh `03-ani/view` as `--outdir`. The v2
+`ani_references.json` records the QC root relative to the view and each provider
+relative to that QC root. External filesystem links are relative too. They are
+created for their final installed location before atomic publication; no
+post-publication path repair is performed.
 
-Both `--update_from` and `reannotate.nf` accept reference publications. A later
-ANI run can create another reference view or choose the default self-contained
-mode to materialise independent data. Links are flattened to their physical
-providers, so normal chains of views do not require the intermediate views.
-If a source view owns a rebuilt bundle, that view remains a declared dependency
-for that bundle. Up to 64 dependency levels are accepted; circular graphs are
-always rejected.
+Moving the whole collection to a different parent preserves validation and
+content digests when its internal layout is retained. New invocations use their
+current input paths. Historical absolute command/input paths in untouched QC
+provenance remain text and are not used as fallback locations. Removing the
+original parent and old work directories is safe; removing a referenced QC
+provider is not. Moving only one side of the relationship is not supported.
 
-Keep every declared provider at its recorded path and unchanged while a reference
-view is needed. Treat references and their sources as read-only: editing through
-a link edits its source. This option does not change source permissions. Removing
-an old work directory is safe; removing a referenced QC publication is not.
-Older pipeline versions reject the explicit reference publication contract;
-self-contained outputs retain the existing native v0.4 contract.
+`--update_from` can consume a v2 view and produce another v2 view or a default
+self-contained materialisation. `reannotate.nf` accepts relocated views and
+always produces self-contained output. Successor views link directly to the
+permanent QC publications. If an earlier view owns a necessary canonical bundle,
+the successor owns a validated local copy/reconstruction of that bundle; it
+never retains an external link to the earlier ANI view. This exception does not
+copy whole QC payload trees or rerun gene prediction.
 
-Reference mode saves persistent payload storage, but still writes reports,
-small channel files and any necessary rebuilt bundle. Runtime ANI inputs and
-integrity reads also remain. It is not a promise of zero I/O or faster validation.
+Both the relative manifest and exact link targets are checked. Missing/changed
+providers, absolute dependency declarations, boundary escapes, retargeted or
+undeclared links, duplicate identities and cycles fail. Providers are immutable
+throughout a run. Final acceptance freshly checks permanent providers and the
+original input snapshots, including transient input views that need not remain
+after completion. Reading or editing through a reference link still accesses its
+provider; the workflow does not change source permissions.
+
+Original v0.4.4 QC publications remain supported without editing them. Existing
+v1 absolute references remain readable at their original locations, including
+for materialisation, but new v2 reference creation accepts original QC or v2
+inputs only. There is no automatic v1 migration or legacy-path compatibility
+link. Older releases reject the v2 contract. Self-contained outputs retain the
+native v0.4 contract.
+
+Reference mode still writes reports, small channel files and any necessary local
+bundle. Materialisation explicitly creates independent files. Runtime inputs and
+integrity reads remain; this is not a promise of zero I/O.
 
 ## Parallel fingerprinting and progress
 
@@ -105,7 +123,9 @@ remain ordered. Only a bounded window of twice the worker count is submitted;
 file payloads are streamed, with at most one open payload per reader. The sorted
 path inventory is retained for one source at a time.
 
-The fingerprint format and source order are unchanged from v0.4.5. Every run
+Original self-contained QC fingerprints and source order remain unchanged. V2
+reference digests include relative manifest/link text and remain stable when the
+collection moves; resolved absolute roots in runtime receipts are location context. Every run
 reads the complete scientific content and checks file identity/timestamps before
 and after hashing. Directory membership changes, leaf replacements, undeclared
 links and reference cycles fail. Sources must remain immutable throughout the
@@ -126,11 +146,39 @@ The defaults use four readers per controller, not all CPUs in a large allocation
 See the [local qualification](development/v0.4.6_qualification.md); its timings
 are not a shared-filesystem speed guarantee.
 
+## Parallel cohort validation and final checks
+
+From v0.4.7, `PREPARE_COHORT_UPDATE` uses `--cohort_validation_workers` (default 4,
+range 1-8, capped by allocated task CPUs). Global membership, collisions and ID
+allocation are resolved first. One process pool validates samples independently;
+results, failure reporting and publication are ordered by the requested cohort.
+There are at most twice as many pending jobs as workers, no nested reader pools
+and no per-genome scheduler jobs. Candidate/source genome mutations are rejected.
+
+`REFERENCE_ACCEPTANCE` uses `--source_fingerprint_workers` for one shared reader
+pool, including final reannotation checks. Providers shared by multiple views
+are hashed once within that invocation. These are fresh reads, not a cross-run
+trust cache. Worker changes are execution-only and do not alter scientific
+identity. Both tasks request the corresponding CPUs within global/site limits.
+
+Live work-directory progress is `cohort_validation_progress.json` or
+`reference_progress.json`, with periodic `.command.err` messages. Final records
+are copied to `pipeline_info/cohort_validation/` and
+`pipeline_info/reference_acceptance/`. Counts, elapsed time and effective workers
+are recorded; fingerprint phases also report file/byte counts. Progress is not
+part of scientific identities.
+
+This parallelises per-sample cohort checks and final dependency content reads.
+Global reductions, directory inventories and some other semantic-validation
+loops remain serial or use their existing task batching. Independent controllers
+still repeat content reads, and FastANI's pairwise cost is unchanged. See the
+[v0.4.7 qualification](development/v0.4.7_qualification.md) for measured limits.
+
 ## Retaining completed ANI on resume
 
 Keep the original launch directory, Nextflow cache, work directory and publication
-when using `-resume`. Fingerprint worker counts are execution settings and do not
-change cohort identity or scientific validator code. Fresh content checks still
+when using `-resume`. Fingerprint and cohort-validation worker counts are execution settings and do
+not change cohort identity. A code upgrade can revalidate source evidence. Fresh content checks still
 run, while matching validation receipts remain reusable.
 
 v0.4.5 collectors can reorder summary rows when import task paths change. For a
@@ -142,7 +190,10 @@ Nextflow cache keys without reading an unchecked result or modifying the cache.
 Quoted/multiline tables require unchanged row order. Missing retained tasks or
 nonmatching summaries fail explicitly instead of silently repeating completed
 ANI. Native tool settings and inputs must still match for normal Nextflow reuse.
-These controls were checked through an actual v0.4.5-to-v0.4.6 fixture upgrade.
+These controls were checked through controlled release-upgrade and worker-change
+fixtures. Publication relocation does not make Nextflow work/cache relocatable;
+use relocated publications as inputs to a fresh invocation rather than restoring
+retired work/cache.
 
 ## Resource settings
 
@@ -151,6 +202,7 @@ The optional defaults are:
 ```groovy
 params {
     source_fingerprint_workers = 4
+    cohort_validation_workers = 4
     ani_import_batches = 8
     ani_import_max_forks = 2
     cohort_time = 8.h

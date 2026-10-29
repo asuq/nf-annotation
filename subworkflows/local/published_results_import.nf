@@ -17,7 +17,9 @@ workflow PUBLISHED_RESULTS_IMPORT {
     busco_lineages
 
     main:
+    qcRoot = Channel.value(params.ani_publication_mode == 'reference' ? file(params.qc_publication_root) : [])
     sourceRoots = PublishedSources.paths(params.update_from)
+    if (params.ani_publication_mode == 'reference') { ReferenceInputs.requireQcProviders(sourceRoots, params.qc_publication_root) }
     dependencyRoots = ReferenceInputs.paths(sourceRoots).findAll { !(it in sourceRoots) }
     candidateGenomes = validated_samples
         .splitCsv(header: true, sep: '\t')
@@ -37,6 +39,9 @@ workflow PUBLISHED_RESULTS_IMPORT {
     ]
     if (SamplePolicy.stage(params) == 'ani') { settingsNames.addAll(['ani_import_batches', 'ani_publication_mode']) }
     updateSettings = settingsNames.collectEntries { name -> [(name): params[name]] }
+    if (params.ani_publication_mode == 'reference') {
+        updateSettings.qc_publication_root = file(params.qc_publication_root).toFile().canonicalPath
+    }
 
     FINGERPRINT_REUSE_SOURCES(validated_samples.map { sourceRoots }, Channel.value(dependencyRoots))
     sourceFingerprints = FINGERPRINT_REUSE_SOURCES.out.fingerprints.map { path ->
@@ -88,10 +93,10 @@ workflow PUBLISHED_RESULTS_IMPORT {
                 tuple(index, group.collect { [meta: it[0], gcode: it[2].toString(), source_index: sourceRoots.indexOf(it[1].parent.parent)] })
             }
         }
-        IMPORT_ANI_BATCH(batches, Channel.value(sourceRoots), Channel.value(dependencyRoots), Channel.value(destination), Channel.value(destination.toString()), checkedSources)
+        IMPORT_ANI_BATCH(batches, Channel.value(sourceRoots), Channel.value(dependencyRoots), Channel.value(destination), Channel.value(destination.toString()), checkedSources, qcRoot)
         if (params.ani_publication_mode == 'reference') {
             COMPLETE_ANI_REFERENCES(IMPORT_ANI_BATCH.out.audit.toList(), CHECK_COHORT_UPDATE.out.validated_samples,
-                Channel.value(destination), Channel.value(ReferenceInputs.paths(sourceRoots)))
+                Channel.value(destination), Channel.value(ReferenceInputs.paths(sourceRoots)), qcRoot)
             readyImports = IMPORT_ANI_BATCH.out.results.combine(COMPLETE_ANI_REFERENCES.out.complete).map { item -> item.take(3) }
         } else {
             readyImports = IMPORT_ANI_BATCH.out.results

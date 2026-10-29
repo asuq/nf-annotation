@@ -16,6 +16,7 @@ class FingerprintResumeIntegrationTests(unittest.TestCase):
         paths = (
             "bin/reuse_source_validation.py",
             "modules/local/reuse_source_validation.nf",
+            "modules/local/prepare_cohort_update.nf",
             "subworkflows/local/cohort_ani.nf",
             "conf/base.config",
             "main.nf",

@@ -10,13 +10,17 @@ include { AGGREGATE_ANNOTATIONS; ANNOTATION_ACCEPTANCE } from './modules/local/f
 
 workflow {
     SamplePolicy.rejectRemovedOptions(params)
+    def fingerprintWorkers = params.source_fingerprint_workers.toString()
+    if (!fingerprintWorkers.isInteger() || (fingerprintWorkers as int) < 1 || (fingerprintWorkers as int) > 8) {
+        error '--source_fingerprint_workers must be an integer from 1 to 8'
+    }
     if (SamplePolicy.stage(params) != 'full') { error '--pipeline_stage applies to main.nf, not reannotate.nf' }
     if (params.ani_publication_mode != 'self_contained') { error 'reannotate.nf produces self-contained outputs; --ani_publication_mode applies to ANI-only main.nf runs' }
     if (!params.annotation_from) { error '--annotation_from requires native v0.4 published results' }
     def source = file(params.annotation_from, checkIfExists: true).toFile().canonicalFile.toPath()
     def destination = file(params.outdir).toFile().canonicalFile.toPath()
     def roots = ReferenceInputs.paths([source])
-    def referenceSource = new groovy.json.JsonSlurper().parse(source.resolve('annotation_results.json').toFile()).pipeline_contract == 'nf-annotation-ani-reference-v1'
+    def referenceSource = new groovy.json.JsonSlurper().parse(source.resolve('annotation_results.json').toFile()).pipeline_contract in ['nf-annotation-ani-reference-v1', 'nf-annotation-ani-reference-v2']
     if (roots.any { it.startsWith(destination) || destination.startsWith(it) }) {
         error '--annotation_from and --outdir must be separate, non-overlapping directories'
     }

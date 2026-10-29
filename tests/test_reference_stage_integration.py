@@ -38,6 +38,8 @@ class ReferenceStageIntegrationTests(unittest.TestCase):
                 "ignore",
                 "--ani_publication_mode",
                 mode,
+                "--qc_publication_root",
+                str(self.root / "results-ref-source"),
             ],
         )
 
@@ -49,7 +51,7 @@ class ReferenceStageIntegrationTests(unittest.TestCase):
         reference = self.ani("reference-view", source, "reference")
         self.assertEqual(
             read_json(reference / "annotation_results.json")["pipeline_contract"],
-            "nf-annotation-ani-reference-v1",
+            "nf-annotation-ani-reference-v2",
         )
         validate_source(reference)
         matched = 0
@@ -76,7 +78,7 @@ class ReferenceStageIntegrationTests(unittest.TestCase):
         )
         chained = self.ani("chained-view", reference, "reference")
         providers = read_json(chained / "ani_references.json")["sources"]
-        self.assertEqual([row["root"] for row in providers], [str(source.resolve())])
+        self.assertEqual([row["path"] for row in providers], ["."])
         shutil.rmtree(reference)
         validate_source(chained)
         materialised = self.ani("materialised-view", chained, "self_contained")
