@@ -21,6 +21,9 @@ workflow COHORT_ANI {
     ani_16s_policy
 
     main:
+    cachedInputs = CachedAniInputs.find(workflow.launchDir, workflow.workDir,
+        SamplePolicy.stage(params) == 'ani' && workflow.resume,
+        file("${params.outdir}/cohort/fastani/fastani.matrix").exists())
     SUMMARISE_BUSCO(busco_summaries)
 
     unpackTuple = { item, channelName, expectedSize ->
@@ -119,9 +122,9 @@ workflow COHORT_ANI {
             metadata,
             staged_manifest,
             staged_fasta_files,
-            combined_checkm2,
-            combined_16s,
-            busco_tables,
+            combined_checkm2.map { CachedAniInputs.table(it, cachedInputs, 'checkm2_summaries.tsv') },
+            combined_16s.map { CachedAniInputs.table(it, cachedInputs, '16s_statuses.tsv') },
+            busco_tables.map { CachedAniInputs.busco(it as List, cachedInputs) },
             CALCULATE_ASSEMBLY_STATS.out.stats,
             primary_busco_column,
             ani_16s_policy,

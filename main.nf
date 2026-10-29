@@ -21,6 +21,10 @@ workflow {
     if (params.ani_publication_mode == 'reference' && pipelineStage != 'ani') {
         error '--ani_publication_mode reference requires --pipeline_stage ani'
     }
+    def fingerprintWorkers = params.source_fingerprint_workers.toString()
+    if (!fingerprintWorkers.isInteger() || (fingerprintWorkers as int) < 1 || (fingerprintWorkers as int) > 8) {
+        error '--source_fingerprint_workers must be an integer from 1 to 8'
+    }
     ['ani_import_batches', 'ani_import_max_forks'].each { name ->
         def value = params[name].toString()
         if (!value.isInteger() || (value as int) < 1 || (value as int) > 64) {

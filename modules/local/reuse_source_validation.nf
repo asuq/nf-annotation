@@ -4,6 +4,7 @@ process FINGERPRINT_REUSE_SOURCES {
     stageInMode 'symlink'
     container params.python_container
     cache false
+    publishDir "${params.outdir}/pipeline_info/source_fingerprinting", mode: 'copy', overwrite: true, pattern: 'fingerprint_*.json'
     errorStrategy 'finish'
     maxRetries 0
 
@@ -14,15 +15,18 @@ process FINGERPRINT_REUSE_SOURCES {
     output:
     path 'source_fingerprints.json', emit: fingerprints
     path 'fingerprint_metrics.json', emit: metrics
+    path 'fingerprint_progress.json', emit: progress
 
     script:
+    def workers = Math.min(Math.min(task.cpus as int, params.source_fingerprint_workers as int), 8)
     def roots = groovy.json.JsonOutput.toJson((sources instanceof Collection ? sources : [sources]).collect { it.toString() })
     """
     cat > sources.json <<'SOURCE_ROOTS'
 ${roots}
 SOURCE_ROOTS
-    python3 "\$(command -v reuse_source_validation.py)" fingerprint \
-        --sources sources.json --output source_fingerprints.json --metrics fingerprint_metrics.json
+    python3 "\$(command -v fingerprint_sources)" \
+        --sources sources.json --output source_fingerprints.json --metrics fingerprint_metrics.json \
+        --workers ${workers} --progress fingerprint_progress.json
     """
 }
 

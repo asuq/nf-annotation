@@ -94,12 +94,63 @@ Reference mode saves persistent payload storage, but still writes reports,
 small channel files and any necessary rebuilt bundle. Runtime ANI inputs and
 integrity reads also remain. It is not a promise of zero I/O or faster validation.
 
+## Parallel fingerprinting and progress
+
+From v0.4.6, the initial source-content scan uses one bounded pool of file readers.
+`--source_fingerprint_workers` defaults to 4 and accepts 1 through 8. The process
+requests that many CPUs, subject to `max_cpus` and site resource limits; the reader
+count cannot exceed the actual task CPUs. There are no nested pools or additional
+per-file/per-genome scheduler jobs. Directory inventories and final hash assembly
+remain ordered. Only a bounded window of twice the worker count is submitted;
+file payloads are streamed, with at most one open payload per reader. The sorted
+path inventory is retained for one source at a time.
+
+The fingerprint format and source order are unchanged from v0.4.5. Every run
+reads the complete scientific content and checks file identity/timestamps before
+and after hashing. Directory membership changes, leaf replacements, undeclared
+links and reference cycles fail. Sources must remain immutable throughout the
+run; this is not a transactional filesystem snapshot. Shared reference providers
+are read once within one invocation. Separate controllers still perform fresh
+reads; there is no persistent cache that trusts old file metadata.
+
+While a task runs, its work directory contains atomically updated
+`fingerprint_progress.json` and periodic messages in `.command.err`. Progress
+includes completed/requested sources, files and bytes hashed, the current source,
+its discovered totals, elapsed time and scan/hash durations. Totals for sources
+not yet scanned are not guessed. Completed metrics and the final progress record
+are published under `pipeline_info/source_fingerprinting/`. Progress and timings
+are separate from scientific fingerprints and resume identities.
+
+More readers can overlap storage waits, but can also saturate shared storage.
+The defaults use four readers per controller, not all CPUs in a large allocation.
+See the [local qualification](development/v0.4.6_qualification.md); its timings
+are not a shared-filesystem speed guarantee.
+
+## Retaining completed ANI on resume
+
+Keep the original launch directory, Nextflow cache, work directory and publication
+when using `-resume`. Fingerprint worker counts are execution settings and do not
+change cohort identity or scientific validator code. Fresh content checks still
+run, while matching validation receipts remain reusable.
+
+v0.4.5 collectors can reorder summary rows when import task paths change. For a
+resumed ANI publication with an existing matrix, v0.4.6 locates retained ANI
+preparation tasks through up to nine rotated Nextflow launch logs. It retains
+prior summary-table bytes only after comparing the fresh headers and complete
+row multiplicities; BUSCO tables must match one-to-one. This preserves existing
+Nextflow cache keys without reading an unchecked result or modifying the cache.
+Quoted/multiline tables require unchanged row order. Missing retained tasks or
+nonmatching summaries fail explicitly instead of silently repeating completed
+ANI. Native tool settings and inputs must still match for normal Nextflow reuse.
+These controls were checked through an actual v0.4.5-to-v0.4.6 fixture upgrade.
+
 ## Resource settings
 
 The optional defaults are:
 
 ```groovy
 params {
+    source_fingerprint_workers = 4
     ani_import_batches = 8
     ani_import_max_forks = 2
     cohort_time = 8.h

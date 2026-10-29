@@ -1,5 +1,20 @@
 # Change Log
 
+## v0.4.6 - 2026-10-29
+
+- Hash source content with a bounded reader pool, defaulting to four workers and
+  capped at eight and allocated task CPUs. Preserve v0.4.5 fingerprints, source
+  order, fresh full-content reads and reference/mutation checks.
+- Report source/file/byte progress and scan/hash timings, with completed records
+  under `pipeline_info/source_fingerprinting/`. Deduplicate shared providers only
+  within a fresh scan; introduce no cross-run trust cache.
+- Preserve completed ANI cache entries when equivalent summary rows change order
+  after an execution-only restart. Require retained launch logs/work and matched
+  fresh rows; fail explicitly when reuse cannot be verified.
+- Keep scientific settings, native outputs, images and existing release tags
+  unchanged. See the [performance guide](ani_performance.md) and
+  [qualification record](development/v0.4.6_qualification.md).
+
 ## v0.4.5 - 2026-10-28
 
 - Batch ANI-only imports into at most eight allocations by default, with bounded

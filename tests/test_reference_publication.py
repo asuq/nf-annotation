@@ -22,7 +22,7 @@ from benchmark_ani_reuse import make_source
 from complete_ani_references import complete
 from import_ani_batch import run
 from publication_references import REFERENCE_CONTRACT, REFERENCE_FILE, Publication
-from reuse_source_validation import fingerprint
+from fingerprinting.source_fingerprint import fingerprint, fingerprint_sources
 from verify_reference_acceptance import verify
 
 
@@ -64,6 +64,18 @@ class ReferencePublicationTests(unittest.TestCase):
         write_json(output / "annotation_results.json", manifest)
         validate_source(output)
         return output
+
+    def test_parallel_shared_dependencies_are_read_once_with_stable_records(self):
+        first = self.publish(self.source, "first")
+        second = self.publish(self.source, "second")
+        roots = [second, self.source, first, second]
+        expected = [fingerprint(root) for root in roots]
+        records, metrics = fingerprint_sources(roots, workers=4)
+        self.assertEqual(records, expected)
+        self.assertEqual(metrics["unique_roots_completed"], 3)
+        self.assertEqual(metrics["shared_root_hits"], 3)
+        self.assertEqual(metrics["files_hashed"], sum(item["files"] for item in expected[:3]))
+        self.assertLessEqual(metrics["peak_pending_reads"], 8)
 
     def test_reference_chain_is_flattened_and_can_be_materialised(self):
         first = self.publish(self.source, "first")
@@ -115,7 +127,7 @@ class ReferencePublicationTests(unittest.TestCase):
         path.write_text(content.replace("ATGTGA", "ATGAGA", 1))
         os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns))
         with self.assertRaisesRegex(AnnotationError, "Referenced source changed"):
-            fingerprint(view)
+            fingerprint(view, workers=4)
         with self.assertRaisesRegex(AnnotationError, "Referenced source changed"):
             validate_source(view)
 
@@ -148,6 +160,8 @@ class ReferencePublicationTests(unittest.TestCase):
         write_json(view / "annotation_results.json", manifest)
         with self.assertRaisesRegex(AnnotationError, "circular"):
             Publication(view)
+        with self.assertRaisesRegex(AnnotationError, "circular"):
+            fingerprint_sources([view], workers=4)
 
     def test_final_acceptance_detects_input_metadata_and_source_changes(self):
         view = self.publish(self.source, "view")
