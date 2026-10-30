@@ -40,7 +40,7 @@ class ReuseSourceValidationTests(unittest.TestCase):
         records = [fingerprint(self.root)]
         with patch("reuse_source_validation.validate_source") as checker:
             receipts = validate([self.root], records)
-        checker.assert_called_once_with(self.root)
+        checker.assert_called_once_with(self.root, _content_checked=True, _validated={})
         self.assertEqual(checked_roots(receipts, records), {self.root})
         bad = copy.deepcopy(receipts)
         bad[0]["validator"] = "old-validator"

@@ -9,8 +9,14 @@ class SamplePolicy {
 
     static String reuseCodeHash(Object projectDir) {
         def digest = java.security.MessageDigest.getInstance('SHA-256')
-        new File(projectDir.toString(), 'bin').listFiles().findAll { it.name.endsWith('.py') }.sort { it.name }.each { source ->
-            digest.update((source.name + '\u0000').getBytes('UTF-8'))
+        def root = new File(projectDir.toString(), 'bin')
+        def sources = []
+        root.eachFileRecurse(groovy.io.FileType.FILES) { source ->
+            if (source.name.endsWith('.py')) { sources.add(source) }
+        }
+        sources.sort { root.toPath().relativize(it.toPath()).toString() }.each { source ->
+            def relative = root.toPath().relativize(source.toPath()).toString()
+            digest.update((relative + '\u0000').getBytes('UTF-8'))
             digest.update(source.bytes)
             digest.update((byte) 0)
         }

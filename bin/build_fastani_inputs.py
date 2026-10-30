@@ -6,10 +6,9 @@ from __future__ import annotations
 import argparse
 import csv
 import logging
-import shutil
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 import sample_policy
 from ani_common import ANI_16S_POLICIES, derive_sixteen_s_ani_exclusion_reason
@@ -23,7 +22,7 @@ from build_master_table import (
     read_table,
     resolve_assembly_metric_value,
 )
-
+from independent_copy import copy_independent
 
 LOGGER = logging.getLogger(__name__)
 ANI_METADATA_COLUMNS = (
@@ -260,10 +259,7 @@ def ensure_fastani_input(
         target.unlink()
 
     source_real = source.resolve()
-    try:
-        target.hardlink_to(source_real)
-    except OSError:
-        shutil.copy2(source_real, target)
+    copy_independent(source_real, target)
 
     relative_path = str(Path(output_dir.name) / target_name)
     return relative_path, str(target)
@@ -309,7 +305,7 @@ def run_build_fastani_inputs(
             "validated_samples.tsv is missing accession/internal_id columns."
         )
 
-    metadata_header, metadata_index = load_metadata_index(metadata)
+    _metadata_header, metadata_index = load_metadata_index(metadata)
     checkm2_index = load_index(checkm2, ("accession",))
     sixteen_s_index = load_index(sixteen_s_status, ("accession",))
     busco_index = load_busco_index(busco)

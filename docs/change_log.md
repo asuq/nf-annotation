@@ -2,6 +2,16 @@
 
 ## v0.4.7 - 2026-10-30
 
+Republished with independent FastANI staging and streamlined validation.
+
+- Stage FastANI FASTAs as independent filesystem clones or copies. Concurrent
+  staging/cleanup no longer changes QC inode link counts and triggers false
+  fingerprint failures. Eligibility, paths, identifiers and scientific rules are
+  unchanged; existing production hard links are not modified by this fix.
+- Use one fingerprint implementation and validate shared QC providers once per
+  fresh validation pass. Retain real-mutation checks and include nested Python
+  helpers in validator code identities. Add no workflow stages or CLI flags.
+
 - Publish relocatable reference views with relative filesystem links and a v2
   dependency manifest. Require `qc_publication_root` to declare the permanent
   QC tree; reject provider escapes and dependencies on ANI/work outputs.

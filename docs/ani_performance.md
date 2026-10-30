@@ -60,6 +60,21 @@ removes unnecessary copies and repeated processing; it does not make integrity
 checks or independent publications free. Copy audits distinguish logical bytes
 cloned from logical bytes copied; they do not measure physical storage traffic.
 
+## Independent FastANI staging
+
+The republished v0.4.7 uses the same independent clone/copy helper for
+FastANI FASTAs and sample publication. FastANI input creation and cleanup no
+longer create/remove hard links to QC files, so they do not change QC inode
+link counts or ctime. Only the required FASTAs are staged; this does not copy
+whole QC payload trees. This change does not migrate or clean up existing v0.4.7 work directories.
+
+Source validation now shares one fingerprint implementation with final checks
+and reuses semantic provider validation within each fresh source-group pass.
+Each view's own tables and bindings are still checked. Start and end scans
+remain separate because they observe different moments; no cross-run trust
+cache or validation-disable option is introduced. Ctime remains part of the
+mutation guard, including for same-size edits with restored mtime.
+
 ## Relocatable reference publications
 
 `--ani_publication_mode self_contained` remains the default. From v0.4.7, creating

@@ -197,8 +197,10 @@ class BuildFastAniInputsTestCase(unittest.TestCase):
             self.assertEqual(metadata_rows[0]["checkm2_completeness"], "95")
             self.assertEqual(metadata_rows[1]["assembly_level"], "Scaffold")
             self.assertTrue((outdir / "fastani_inputs" / "ACC1.fasta").exists())
-            self.assertTrue((outdir / "fastani_inputs" / "ACC1.fasta").samefile(staged_a))
-            self.assertTrue((outdir / "fastani_inputs" / "ACC2.fasta").samefile(staged_b))
+            self.assertFalse((outdir / "fastani_inputs" / "ACC1.fasta").samefile(staged_a))
+            self.assertEqual((outdir / "fastani_inputs" / "ACC1.fasta").read_bytes(), staged_a.read_bytes())
+            self.assertFalse((outdir / "fastani_inputs" / "ACC2.fasta").samefile(staged_b))
+            self.assertEqual((outdir / "fastani_inputs" / "ACC2.fasta").read_bytes(), staged_b.read_bytes())
             self.assertFalse((outdir / "fastani_inputs" / "ACC1.fasta").is_symlink())
             self.assertFalse((outdir / "fastani_inputs" / "ACC2.fasta").is_symlink())
             self.assertEqual(
@@ -446,11 +448,9 @@ class BuildFastAniInputsTestCase(unittest.TestCase):
                     expected,
                 )
                 for accession in expected:
-                    self.assertTrue(
-                        (output / "fastani_inputs" / f"{accession}.fasta").samefile(
-                            staged[accession]
-                        )
-                    )
+                    target = output / "fastani_inputs" / f"{accession}.fasta"
+                    self.assertFalse(target.samefile(staged[accession]))
+                    self.assertEqual(target.read_bytes(), staged[accession].read_bytes())
                 decisions = {
                     row["accession"]: row
                     for row in read_tsv(output / "ani_exclusions.tsv")
@@ -602,14 +602,14 @@ class BuildFastAniInputsTestCase(unittest.TestCase):
             )
             self.assertEqual(list((outdir / "fastani_inputs").iterdir()), [])
 
-    def test_falls_back_to_copy_when_hardlinks_are_unavailable(self) -> None:
-        """Copy the staged FASTA when the filesystem rejects hard links."""
+    def test_falls_back_to_copy_when_cloning_is_unavailable(self) -> None:
+        """Copy the staged FASTA when no clone primitive is available."""
         with tempfile.TemporaryDirectory() as tmpdir_name:
             tmpdir = Path(tmpdir_name)
             source = self.write_text_file(tmpdir / "ACC5.fasta", ">a\nACGT\n")
             output_dir = tmpdir / "out" / "fastani_inputs"
 
-            with mock.patch.object(Path, "hardlink_to", side_effect=OSError("no hardlinks")):
+            with mock.patch("independent_copy.sys.platform", "no_clone_primitive"):
                 relative_path, absolute_path = build_fastani_inputs.ensure_fastani_input(
                     staged_filename="ACC5.fasta",
                     manifest_dir=tmpdir,
