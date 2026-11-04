@@ -1,5 +1,29 @@
 # Change Log
 
+## v0.4.8 - 2026-11-04
+
+### Changes
+
+- Publish genome reports when functional searches are disabled; retain reusable
+  sample bundles without rebuilding cohort protein tables.
+- Stream full annotation reports without SQLite. Reuse QC assembly statistics
+  and share fingerprint checksums with source validation.
+- Load the ANI matrix once for clustering and representative selection. Remove
+  intermediate individual-reuse copies and the old-cache upgrade adapter.
+- Keep scientific rules and independent FastANI staging unchanged. Add no options.
+
+### Validation
+
+- Compare exact report tables, clusters, representative scores and source reuse
+  in controlled tests. See the [qualification record](development/v0.4.8_qualification.md).
+- Local synthetic benchmarks show about 2x faster full reporting, over 99.8% less
+  genome-report time, and 2.9-4.2x faster ANI post-processing; these are not whole-run
+  HPC speedups. Production was not rerun.
+
+Use a fresh invocation when upgrading. Disabled-search publications intentionally
+omit cohort protein/detail/matrix tables; existing reference views must be recreated
+from their original QC providers.
+
 ## v0.4.7 - 2026-10-30
 
 Republished with independent FastANI staging and streamlined validation.

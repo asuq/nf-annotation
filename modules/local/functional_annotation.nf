@@ -146,9 +146,7 @@ process MERGE_ANNOTATION_PLANS {
     path samples
     path receipt
     path fragments, stageAs: 'fragments/plan??.json'
-    path source_results, stageAs: 'source_results/source????'
     path resource_manifests, stageAs: 'resource_manifests/manifest??.json'
-    path source_dependencies, stageAs: 'source_dependencies/root????'
 
     output:
     path 'annotation_plan.json', emit: plan
@@ -159,14 +157,13 @@ process MERGE_ANNOTATION_PLANS {
         AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
     }
     def fragmentList = groovy.json.JsonOutput.toJson((fragments instanceof Collection ? fragments : [fragments]).collect { it.toString() })
-    def sourceArgs = PublishedSources.arguments(source_results)
     """
     cat > fragment_list.json <<'ANNOTATION_FRAGMENTS'
 ${fragmentList}
 ANNOTATION_FRAGMENTS
     python3 "\$(command -v prepare_annotation_tasks.py)" merge-plans \
         --samples '${samples}' --preflight '${receipt}' --fragment-list fragment_list.json \
-        ${sourceArgs} --output merged
+        --output merged
     cp merged/annotation_plan.json annotation_plan.json
     cp merged/annotation_plan.tsv annotation_plan.tsv
     """
@@ -266,7 +263,7 @@ process REUSE_ANNOTATION {
         saveAs: { name -> name == 'result' ? meta.tool : null }
 
     input:
-    tuple val(meta), path(task_directory, name: 'task')
+    tuple val(meta), path(task_directory, name: 'task'), path(previous, name: 'previous')
 
     output:
     tuple val(meta), path('result'), emit: result
@@ -276,7 +273,7 @@ process REUSE_ANNOTATION {
         AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
     }
     """
-    python3 "\$(command -v prepare_annotation_tasks.py)" reuse --task task --output result
+    python3 "\$(command -v prepare_annotation_tasks.py)" reuse --task task --previous previous --output result
     """
 }
 

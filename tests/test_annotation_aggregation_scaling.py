@@ -280,6 +280,19 @@ class AnnotationAggregationScalingTests(unittest.TestCase):
             aggregate_annotations.aggregate(*args, self.root / "raw")
         self.assertFalse(list(self.root.glob(".annotation-aggregation-*")))
 
+    def test_streamed_detail_rows_cannot_move_to_another_accession(self):
+        args = self.cohort(["A", "B"])
+        directory = args[4][0]
+        path = directory / "normalized/evidence.tsv"
+        rows = read_tsv(path)
+        rows[0]["accession"] = "B"
+        write_tsv(path, rows[0].keys(), rows)
+        self.reidentify(directory)
+        output = self.root / "foreign-report"
+        with self.assertRaisesRegex(AnnotationError, "different accession"):
+            aggregate_annotations.aggregate(*args, output)
+        self.assertFalse(output.exists())
+
     def test_evidence_memory_does_not_grow_with_cohort_rows(self):
         # The 250 kB malformed field mirrors a real large-field failure case; it
         # must be preserved verbatim while only one sample's evidence is retained.

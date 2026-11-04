@@ -64,7 +64,10 @@ class ReferenceStageIntegrationTests(unittest.TestCase):
                 path.name,
             )
             matched += 1
-        self.assertGreaterEqual(matched, 20)
+        self.assertEqual(set(read_json(reference / "annotation_results.json")["tables"]), {
+            "tables/master_table.tsv", "tables/sample_status.tsv",
+            "tables/annotation_status.tsv", "tables/annotation_provenance.tsv"})
+        self.assertFalse((reference / "tables/protein_manifest.tsv").exists())
         audits = [
             read_json(path)
             for path in (reference / "pipeline_info/ani_import").glob("*.json")

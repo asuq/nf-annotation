@@ -5,7 +5,8 @@ import argparse
 from pathlib import Path
 
 from annotation_common import AnnotationError, read_json, write_json
-from fingerprinting.source_fingerprint import fingerprint_sources
+from fingerprinting.source_fingerprint import FingerprintScanner
+from reuse_source_validation import validate_or_reuse
 
 
 def main():
@@ -15,13 +16,22 @@ def main():
     parser.add_argument("--metrics", type=Path, required=True)
     parser.add_argument("--progress", type=Path, required=True)
     parser.add_argument("--workers", type=int, required=True)
+    parser.add_argument("--receipts", type=Path, required=True)
+    parser.add_argument("--previous", type=Path)
     args = parser.parse_args()
     try:
-        records, metrics = fingerprint_sources(
-            [Path(value) for value in read_json(args.sources)],
-            workers=args.workers,
-            progress=args.progress,
-        )
+        roots = [Path(value) for value in read_json(args.sources)]
+        with FingerprintScanner(args.workers, progress=args.progress, requested_roots=len(roots)) as scanner:
+            records = []
+            for root in roots:
+                records.append(scanner.fingerprint(root))
+                scanner.metrics["completed_roots"] += 1
+            scanner.metrics["phase"] = "validating"
+            scanner.report(force=True)
+            receipts, reused = validate_or_reuse(roots, records, args.previous, checksum=scanner.checksum)
+            scanner.metrics["semantic_validation_reused"] = reused
+        metrics = scanner.metrics
+        write_json(args.receipts, receipts)
         write_json(args.output, records)
         write_json(args.metrics, metrics)
     except (AnnotationError, OSError, ValueError, KeyError) as error:

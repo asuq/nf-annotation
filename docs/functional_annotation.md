@@ -229,11 +229,13 @@ Original protein names may repeat across samples; native joins use canonical
 query IDs exclusively.
 
 Planning and aggregation use JSON path-list files so their command arguments
-stay bounded with cohort size. Aggregation spools detailed rows, exact global
-gene-ID checks and sparse feature counts to a temporary SQLite database, retaining
-one sample's detailed evidence at a time. The ANI reader validates the native
-matrix in two streaming passes; ANI clustering still requires its dense matrix
-and retains quadratic memory and pairwise-work limits.
+stay bounded with cohort size. Full aggregation streams sample-ordered tables and sequential sparse counts,
+retaining one sample's detailed evidence. Canonical accession/protein keys provide
+global gene identity without a SQLite spool. Runs with functional searches disabled
+publish genome reports and retain their sample bundles, without reconstructing
+cohort protein/detail/matrix tables. The ANI reader makes one pass, shared by
+clustering and representative selection; complete linkage retains its dense
+storage and pairwise-work limits.
 
 ## Entrypoints and reuse
 
@@ -335,7 +337,7 @@ values remain visible as field errors and are excluded from category reporting.
 Independent valid fields remain usable; categories are never inferred from
 another caller or substituted for the malformed native value.
 
-`tables/protein_manifest.tsv`, `gene_coordinates.tsv` and
+When functional searches are enabled, `tables/protein_manifest.tsv`, `gene_coordinates.tsv` and
 `protein_function_summary.tsv` retain every valid input protein, including
 unannotated proteins. `tables/annotation_status.tsv` is authoritative for all
 five tools per genome; the master table and sample status are derived from it.

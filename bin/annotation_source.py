@@ -147,7 +147,7 @@ def source_batches(
     return batches
 
 
-def validate_source(root: Path, *, _content_checked: bool = False, _validated: dict | None = None) -> tuple[dict[str, Any], dict[str, NativeBatch]]:
+def validate_source(root: Path, *, _content_checked: bool = False, _validated: dict | None = None, checksum=digest) -> tuple[dict[str, Any], dict[str, NativeBatch]]:
     """Verify source artefacts and return its once-validated native batch index."""
     cache_key = root.resolve(strict=True)
     validated = {} if _validated is None else _validated
@@ -159,7 +159,7 @@ def validate_source(root: Path, *, _content_checked: bool = False, _validated: d
             from reuse_source_validation import fingerprint
             fingerprint(root)
         for provider in publication.sources:
-            validate_source(provider.root, _content_checked=True, _validated=validated)
+            validate_source(provider.root, _content_checked=True, _validated=validated, checksum=checksum)
     path_for = publication.path if publication.reference else lambda name: source_path(root, name)
     manifest = read_json(root / "annotation_results.json")
     if (
@@ -194,6 +194,11 @@ def validate_source(root: Path, *, _content_checked: bool = False, _validated: d
         "tables/functional_matrices/feature_catalogue.tsv",
         *[f"tables/functional_matrices/{name}.tsv" for name in MATRICES],
     }
+    if manifest.get("report_scope") == "genome":
+        if manifest.get("enabled_tools") or manifest.get("results"):
+            raise AnnotationError("Genome-only ANI report cannot contain functional results")
+        required = {"tables/master_table.tsv", "tables/sample_status.tsv",
+                    "tables/annotation_status.tsv", "tables/annotation_provenance.tsv"}
     if not required <= set(manifest.get("tables", {})):
         raise AnnotationError("Published annotation manifest omits required tables")
     for name, expected in manifest["tables"].items():
@@ -201,7 +206,7 @@ def validate_source(root: Path, *, _content_checked: bool = False, _validated: d
         if (
             not name.startswith("tables/")
             or not path.is_file()
-            or digest(path) != expected
+            or checksum(path) != expected
         ):
             raise AnnotationError(f"Published annotation table changed: {name}")
     tool_statuses = [f"{tool}_status" for tool in TOOLS]
@@ -263,7 +268,7 @@ def validate_source(root: Path, *, _content_checked: bool = False, _validated: d
                 raise AnnotationError("Unexpected published bundle path")
             bundle = path_for(expected_path)
             bundle_json = path_for(expected_path + "/bundle.json")
-            if digest(bundle_json) != bundle_record.get("manifest_sha256"):
+            if checksum(bundle_json) != bundle_record.get("manifest_sha256"):
                 raise AnnotationError("Published bundle manifest changed")
             data = read_json(bundle_json)
             if (
@@ -274,7 +279,7 @@ def validate_source(root: Path, *, _content_checked: bool = False, _validated: d
             ):
                 raise AnnotationError("Invalid published bundle record")
             if data.get("status") == "success":
-                metadata, _ = bundle_proteins(bundle)
+                metadata, _ = bundle_proteins(bundle, checksum=checksum)
                 if (
                     str(metadata["genetic_code"]) != master["Gcode"]
                     or metadata["accession"] != accession

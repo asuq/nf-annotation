@@ -17,23 +17,26 @@ process CLUSTER_ANI {
 
     output:
     path 'cluster.tsv', emit: clusters
+    path 'ani_summary.tsv', emit: summary
+    path 'ani_representatives.tsv', emit: representatives
     path 'versions.yml', emit: versions
 
     script:
     def aniThreshold = params.ani_threshold
     """
-    cluster_ani.py \
+    python3 "\$(command -v analyse_ani.py)" \
         --ani-matrix "${ani_matrix}" \
         --ani-metadata "${ani_metadata}" \
         --matrix-name-column matrix_name \
         --threshold ${aniThreshold} \
+        --ani-score-profile "${params.ani_score_profile}" \
         --threads ${task.cpus} \
         --outdir .
 
     cat <<EOF > versions.yml
     "${task.process}":
       python: "\$(python3 --version 2>&1 | sed 's/^Python //')"
-      script: "bin/cluster_ani.py"
+      script: "bin/analyse_ani.py"
     EOF
     """
 

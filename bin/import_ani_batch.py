@@ -67,7 +67,6 @@ def reusable_bundle(
         or str(record.get("genetic_code")) != gcode
         or record.get("producer_sha256")
         != digest(code / "prepare_annotation_bundle.py")
-        or record.get("common_contract_sha256") != digest(code / "annotation_common.py")
         or record.get("prokka_log_sha256") != digest(sample / "prokka/prokka.log")
     ):
         return None

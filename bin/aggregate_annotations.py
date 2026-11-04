@@ -8,10 +8,9 @@ import csv
 import importlib
 import json
 import logging
-import sqlite3
 import sys
 import tempfile
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +22,7 @@ from annotation_common import (
     TOOLS,
     AnnotationError,
     bundle_proteins,
+    canonical_gene_id,
     digest,
     identity,
     read_json,
@@ -78,97 +78,75 @@ def header(path: Path) -> list[str]:
         return next(csv.reader(handle, delimiter="\t"))
 
 
-class TableSpool:
-    """Keep exact cohort ordering and gene uniqueness on disk with a bounded cache."""
+class TableWriter:
+    """Stream sample-ordered tables with bounded sparse feature counts."""
 
     def __init__(self, path: Path):
-        self.connection = sqlite3.connect(path)
-        self.connection.execute("PRAGMA cache_size = -8192")
-        self.connection.execute("PRAGMA temp_store = FILE")
-        self.connection.executescript(
-            """
-            CREATE TABLE genes (gene_id TEXT PRIMARY KEY) WITHOUT ROWID;
-            CREATE TABLE rows (
-                name TEXT, accession_order INTEGER, gene_id TEXT, segment INTEGER,
-                source_order INTEGER, row_order INTEGER, payload TEXT NOT NULL,
-                PRIMARY KEY (
-                    name, accession_order, gene_id, segment, source_order, row_order
-                )
-            ) WITHOUT ROWID;
-            CREATE TABLE counts (
-                matrix TEXT, accession_order INTEGER, payload TEXT NOT NULL,
-                PRIMARY KEY (matrix, accession_order)
-            ) WITHOUT ROWID;
-            """
-        )
+        self.count_handles = {}
+        self.directory = path
+        self.directory.mkdir()
+        self.pending = {}
+        self.accession = None
+        self.schemas = {
+            "proteins": PROTEIN_COLUMNS, "coordinates": COORDINATE_COLUMNS,
+            "summaries": PROTEIN_SUMMARY_COLUMNS, "status": STATUS_COLUMNS,
+            "provenance": PROVENANCE_COLUMNS,
+        }
+        self.handles = {}
+        self.writers = {}
 
-    def add_genes(self, proteins: list[dict[str, str]]) -> None:
-        """Reject collisions across samples without retaining a cohort gene set."""
-        try:
-            self.connection.executemany(
-                "INSERT INTO genes VALUES (?)",
-                ((row["gene_id"],) for row in proteins),
-            )
-        except sqlite3.IntegrityError as error:
-            raise AnnotationError(
-                "Canonical protein IDs collide across genomes"
-            ) from error
+    def add_genes(self, proteins):
+        # A canonical key encodes accession and protein ID. Bundle-local ID
+        # uniqueness and cohort accession uniqueness therefore imply global uniqueness.
+        if any(row["gene_id"] != canonical_gene_id(row["accession"], row["protein_id"]) for row in proteins):
+            raise AnnotationError("Noncanonical protein IDs could collide across genomes")
 
-    def add_rows(
-        self,
-        name: str,
-        rows: Iterable[dict[str, Any]],
-        order: dict[str, int],
-        *,
-        gene_key: str = "",
-        coordinate: bool = False,
-        source_order: int = 0,
-    ) -> None:
-        """Preserve Python's stable sort, including ties across source files."""
-        self.connection.executemany(
-            "INSERT INTO rows VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (
-                (
-                    name,
-                    order[row["accession"]],
-                    row.get(gene_key, ""),
-                    int(row["segment"]) if coordinate else 0,
-                    source_order,
-                    index,
-                    json.dumps(row, ensure_ascii=True),
-                )
-                for index, row in enumerate(rows)
-            ),
-        )
+    def add_counts(self, matrix, index, counts):
+        if matrix not in self.count_handles:
+            self.count_handles[matrix] = (self.directory.parent / (matrix + ".jsonl")).open("w+")
+        self.count_handles[matrix].write(json.dumps([index, counts]) + "\n")
 
-    def rows(self, name: str) -> Iterator[dict[str, Any]]:
-        """Read the covering primary-key order without materialising a table."""
-        cursor = self.connection.execute(
-            "SELECT payload FROM rows WHERE name = ? "
-            "ORDER BY accession_order, gene_id, segment, source_order, row_order",
-            (name,),
-        )
-        for (payload,) in cursor:
-            yield json.loads(payload)
+    def add_rows(self, name, rows, order, *, gene_key="", coordinate=False, source_order=0):
+        pending = self.pending.setdefault(name, [])
+        for index, row in enumerate(rows):
+            if row["accession"] != self.accession:
+                raise AnnotationError("Report row belongs to a different accession")
+            pending.append(((row.get(gene_key, ""), int(row["segment"]) if coordinate else 0,
+                             source_order, index), row))
 
-    def matrix_rows(
-        self, matrix: str, features: list[str], accessions: list[str]
-    ) -> Iterator[dict[str, Any]]:
-        """Expand sparse sample counts into only one dense output row at a time."""
-        cursor = self.connection.execute(
-            "SELECT accession_order, payload FROM counts WHERE matrix = ? "
-            "ORDER BY accession_order",
-            (matrix,),
-        )
-        for index, payload in cursor:
-            counts = json.loads(payload)
-            yield dict(
-                accession=accessions[index],
-                **{
-                    feature: counts.get(feature, 0) if counts is not None else None
-                    for feature in features
-                },
-            )
+    def finish_sample(self):
+        for name, rows in self.pending.items():
+            writer = self.writer(name)
+            for _, row in sorted(rows, key=lambda item: item[0]):
+                writer.writerow({key: "NA" if value is None else value for key, value in row.items()})
+        self.pending.clear()
+
+    def writer(self, name):
+        if name not in self.writers:
+            filename = {
+                "proteins": "protein_manifest.tsv", "coordinates": "gene_coordinates.tsv",
+                "summaries": "protein_function_summary.tsv", "status": "annotation_status.tsv",
+                "provenance": "annotation_provenance.tsv",
+            }.get(name, name.removeprefix("detail:"))
+            handle = (self.directory / filename).open("w", newline="")
+            writer = csv.DictWriter(handle, fieldnames=self.schemas[name], delimiter="\t", lineterminator="\n")
+            writer.writeheader()
+            self.handles[name], self.writers[name] = handle, writer
+        return self.writers[name]
+
+    def close(self):
+        for handle in self.handles.values():
+            handle.close()
+        for handle in self.count_handles.values():
+            handle.close()
+
+    def matrix_rows(self, matrix, features, accessions):
+        handle = self.count_handles[matrix]
+        handle.seek(0)
+        for line in handle:
+            index, counts = json.loads(line)
+            yield dict(accession=accessions[index], **{
+                feature: counts.get(feature, 0) if counts is not None else None for feature in features})
 
 
 def result_record(
@@ -294,7 +272,7 @@ def aggregate(
         prefix=".annotation-aggregation-", dir=output.parent
     ) as temporary:
         work = Path(temporary)
-        spool = TableSpool(work / "cohort.sqlite")
+        spool = TableWriter(work / "tables")
         try:
             return aggregate_samples(
                 plan_path,
@@ -308,7 +286,7 @@ def aggregate(
                 native_batch_index(list(batch_dirs)),
             )
         finally:
-            spool.connection.close()
+            spool.close()
 
 
 def aggregate_samples(
@@ -319,7 +297,7 @@ def aggregate_samples(
     result_dirs: list[Path],
     output: Path,
     work: Path,
-    spool: TableSpool,
+    spool: TableWriter,
     batches: dict[str, NativeBatch],
 ) -> dict[str, Any]:
     """Validate and spool every sample before publishing the complete report."""
@@ -392,6 +370,7 @@ def aggregate_samples(
     failures, result_manifest = [], {}
     for master_row in master_rows:
         accession = master_row[master_key]
+        spool.accession = accession
         proteins, metadata = [], None
         if accession in bundle_index:
             source_order, bundle = bundle_index[accession]
@@ -437,6 +416,7 @@ def aggregate_samples(
                             raise AnnotationError(
                                 f"Mixed normalized table schemas: {path.name}"
                             )
+                        spool.schemas["detail:" + path.name] = columns
                         spool.add_rows(
                             "detail:" + path.name,
                             read_tsv(path),
@@ -496,11 +476,8 @@ def aggregate_samples(
                     state["definitions"][feature] = definition
                 state["method_ids"].add(record["method_id"])
                 state["resource_ids"].add(record["search"]["method"]["resource_id"])
-            spool.connection.execute(
-                "INSERT INTO counts VALUES (?, ?, ?)",
-                (matrix, order[accession], json.dumps(feature_counts(record, field))),
-            )
-        spool.connection.commit()
+            spool.add_counts(matrix, order[accession], feature_counts(record, field))
+        spool.finish_sample()
         # Do not retain the last tool's evidence while loading the next sample.
         del group, proteins, record
         evidence = None
@@ -512,15 +489,15 @@ def aggregate_samples(
                 f"Missing result references for native eggNOG batch members: {batch_id}"
             )
     tables = work / "tables"
-    tables.mkdir()
     matrix_root = tables / "functional_matrices"
     matrix_root.mkdir()
-    write_tsv(tables / "annotation_status.tsv", STATUS_COLUMNS, spool.rows("status"))
-    write_tsv(
-        tables / "annotation_provenance.tsv",
-        PROVENANCE_COLUMNS,
-        spool.rows("provenance"),
-    )
+    for name in ("status", "provenance", "proteins", "coordinates", "summaries"):
+        spool.writer(name)
+    for name, columns in details.items():
+        spool.schemas["detail:" + name] = columns
+        spool.writer("detail:" + name)
+    for handle in spool.handles.values():
+        handle.flush()
     master_columns = header(master)
     master_columns.extend(
         name for name in ANNOTATION_COLUMNS if name not in master_columns
@@ -537,17 +514,6 @@ def aggregate_samples(
         status_columns,
         (status_index[acc] for acc in accessions),
     )
-    write_tsv(tables / "protein_manifest.tsv", PROTEIN_COLUMNS, spool.rows("proteins"))
-    write_tsv(
-        tables / "gene_coordinates.tsv", COORDINATE_COLUMNS, spool.rows("coordinates")
-    )
-    write_tsv(
-        tables / "protein_function_summary.tsv",
-        PROTEIN_SUMMARY_COLUMNS,
-        spool.rows("summaries"),
-    )
-    for name, columns in details.items():
-        write_tsv(tables / name, columns, spool.rows("detail:" + name))
     catalogue = []
     for matrix, (tool, field) in MATRICES.items():
         state = matrices[matrix]
@@ -646,7 +612,7 @@ def main() -> int:
             manifest["pipeline_contract"] = REFERENCE_V2_CONTRACT
             manifest["reference_manifest_sha256"] = digest(view.root / REFERENCE_FILE)
             write_json(args.output / "annotation_results.json", manifest)
-    except (AnnotationError, OSError, sqlite3.Error) as error:
+    except (AnnotationError, OSError) as error:
         logging.error("%s", error)
         return 1
     return 0

@@ -11,18 +11,17 @@ import os
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, NoReturn, Sequence
+from typing import TYPE_CHECKING, Any, NoReturn, Sequence
+
+if TYPE_CHECKING:
+    import numpy as np
 
 from ani_common import (
     AniInputError,
-    build_genome_from_row,
     is_empty_ani_cohort,
-    load_ani_metadata,
     load_cluster_metadata,
     load_matrix,
-    normalize_header,
     subset_matrix,
-    try_parse_busco,
 )
 
 
@@ -74,6 +73,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default=8,
         help="Upper bound on concurrency for numeric libraries. Default: 8.",
     )
+    parser.add_argument("--ani-score-profile", choices=("default", "isolate", "mag"), default="default")
     log_group = parser.add_mutually_exclusive_group()
     log_group.add_argument(
         "-q",
@@ -233,21 +233,15 @@ def cluster_complete_linkage(
         clusters[int(label)].append(index)
 
     for label, idxs in clusters.items():
-        for left_offset, left_index in enumerate(idxs):
-            for right_index in idxs[left_offset + 1 :]:
-                value = ani[left_index, right_index]
-                if np.isnan(value) or value < (threshold * 100.0):
-                    raise AniInputError(
-                        "Post-check failed for complete-linkage cluster %s: pair "
-                        "(%s, %s) has ANI=%s below %.2f."
-                        % (
-                            label,
-                            names[left_index],
-                            names[right_index],
-                            value,
-                            threshold * 100.0,
-                        )
-                    )
+        for offset, left in enumerate(idxs):
+            others = idxs[offset + 1:]
+            values = ani[left, others]
+            invalid = np.flatnonzero(np.isnan(values) | (values < threshold * 100.0))
+            if len(invalid):
+                right = others[int(invalid[0])]
+                raise AniInputError(
+                    "Post-check failed for complete-linkage cluster %s: pair (%s, %s) has ANI=%s below %.2f."
+                    % (label, names[left], names[right], ani[left, right], threshold * 100.0))
     return dict(clusters)
 
 
@@ -305,7 +299,7 @@ def write_clusters(path: Path, rows: Sequence[dict[str, str]]) -> None:
             writer.writerow(row)
 
 
-def run_pipeline(args: argparse.Namespace) -> None:
+def run_pipeline(args: argparse.Namespace) -> tuple[list[str], "np.ndarray", dict[str, int]] | None:
     """Run ANI complete-linkage clustering and write cluster memberships."""
     if not (0.0 < float(args.threshold) < 1.0):
         raise AniInputError(f"--threshold must be a fraction in (0,1). Got: {args.threshold}")
@@ -324,13 +318,13 @@ def run_pipeline(args: argparse.Namespace) -> None:
         matrix_name_column=args.matrix_name_column,
     )
     names, ani, name_to_idx = subset_matrix(names, ani, eligible_names, name_to_idx)
-    del name_to_idx
 
     clusters = cluster_complete_linkage(ani, names, float(args.threshold))
     stable_clusters = assign_cluster_ids(clusters, names, accession_by_matrix_name)
     rows = build_cluster_rows(stable_clusters, names, accession_by_matrix_name)
     write_clusters(args.outdir / "cluster.tsv", rows)
     logging.info("Wrote ANI cluster memberships for %d sample(s).", len(rows))
+    return names, ani, name_to_idx
 
 
 def main(argv: Sequence[str] | None = None) -> int:

@@ -18,6 +18,7 @@ BIN_DIR = ROOT / "bin"
 if str(BIN_DIR) not in sys.path:
     sys.path.insert(0, str(BIN_DIR))
 
+import ani_common
 import cluster_ani  # noqa: E402
 
 SCIPY_AVAILABLE = importlib.util.find_spec("scipy") is not None
@@ -34,16 +35,16 @@ class ClusterAniHelperTestCase(unittest.TestCase):
 
     def test_normalize_header_matches_nextflow_style(self) -> None:
         """Normalize mixed punctuation and case into lowercase underscore tokens."""
-        self.assertEqual(cluster_ani.normalize_header(" Assembly Level "), "assembly_level")
-        self.assertEqual(cluster_ani.normalize_header("BUSCO-bacillota_odb12"), "busco_bacillota_odb12")
+        self.assertEqual(ani_common.normalize_header(" Assembly Level "), "assembly_level")
+        self.assertEqual(ani_common.normalize_header("BUSCO-bacillota_odb12"), "busco_bacillota_odb12")
 
     def test_try_parse_busco_extracts_complete_and_missing(self) -> None:
         """Read the compact BUSCO string format emitted by the BUSCO summariser."""
-        parsed = cluster_ani.try_parse_busco(
+        parsed = ani_common.try_parse_busco(
             "C:96.5%[S:95.0%,D:1.5%],F:2.0%,M:1.5%,n:220"
         )
         self.assertEqual(parsed, (96.5, 1.5))
-        self.assertIsNone(cluster_ani.try_parse_busco("NA"))
+        self.assertIsNone(ani_common.try_parse_busco("NA"))
 
     def test_build_genome_from_row_accepts_valid_metadata(self) -> None:
         """Produce a Genome record when all ANI-scoring metadata are present."""
@@ -51,7 +52,7 @@ class ClusterAniHelperTestCase(unittest.TestCase):
             tmpdir = Path(tmpdir_name)
             genome_path = tmpdir / "genome.fna"
             genome_path.write_text(">a\nACGT\n", encoding="utf-8")
-            genome, reasons = cluster_ani.build_genome_from_row(
+            genome, reasons = ani_common.build_genome_from_row(
                 {
                     "path": str(genome_path),
                     "assembly_level": "Scaffolds",
@@ -78,7 +79,7 @@ class ClusterAniHelperTestCase(unittest.TestCase):
 
     def test_build_genome_from_row_accumulates_exclusion_reasons(self) -> None:
         """Collect all missing or invalid ANI-scoring fields before exclusion."""
-        genome, reasons = cluster_ani.build_genome_from_row(
+        genome, reasons = ani_common.build_genome_from_row(
             {
                 "path": "missing.fna",
                 "assembly_level": "unknown",
@@ -128,7 +129,7 @@ class ClusterAniHelperTestCase(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            metadata, eligible_names = cluster_ani.load_ani_metadata(
+            metadata, eligible_names = ani_common.load_ani_metadata(
                 ani_metadata=metadata_tsv,
                 matrix_names=["fastani_inputs/ACC1.fasta"],
                 busco_column="BUSCO_bacillota_odb12",

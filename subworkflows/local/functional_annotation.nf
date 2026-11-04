@@ -154,7 +154,7 @@ workflow FUNCTIONAL_ANNOTATION {
         }
         PLAN_ANNOTATION_PART(partInputs, sharedPreflight, resourceManifests, sourceDependencies)
         fragments = PLAN_ANNOTATION_PART.out.plan.toList().map { paths -> paths.sort(false) { it.toString() } }
-        MERGE_ANNOTATION_PLANS(samples, sharedPreflight, fragments, source_results, resourceManifests, sourceDependencies)
+        MERGE_ANNOTATION_PLANS(samples, sharedPreflight, fragments, resourceManifests)
         // Batch members share one task directory. Collapse only inside a ready
         // fragment, so an unrelated unfinished fragment cannot hold up execution.
         seenExecutionKeys = [] as Set
@@ -226,13 +226,17 @@ workflow FUNCTIONAL_ANNOTATION {
             }
         nativeResults = successfulNativeResults.mix(failedRawResults)
         individualTasks = plannedTasks.filter { item -> item[0].batch_id == 'NA' }
+        def previousResult = { item ->
+            def task = new groovy.json.JsonSlurper().parse(item[1].resolve('task.json').toFile())
+            file(task.previous_result, checkIfExists: true)
+        }
         normalizationInputs = nativeResults
             .filter { item -> item[0].batch_id == 'NA' }.mix(
             individualTasks.filter { item -> item[0].action == 'renormalize' }
-                .map { item -> tuple(item[0], item[1], item[2], item[3], item[1].resolve('previous/raw')) }
+                .map { item -> tuple(item[0], item[1], item[2], item[3], previousResult.call(item).resolve('raw')) }
         )
         NORMALIZE_ANNOTATION(normalizationInputs)
-        REUSE_ANNOTATION(individualTasks.filter { item -> item[0].action == 'reuse' }.map { item -> tuple(item[0], item[1]) })
+        REUSE_ANNOTATION(individualTasks.filter { item -> item[0].action == 'reuse' }.map { item -> tuple(item[0], item[1], previousResult.call(item)) })
         batchInputs = nativeResults
             .filter { item -> item[0].batch_id != 'NA' }.mix(
             plannedTasks.filter { item -> item[0].batch_id != 'NA' && item[0].action in ['reuse', 'renormalize'] }

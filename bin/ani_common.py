@@ -4,13 +4,16 @@
 from __future__ import annotations
 
 import csv
-import hashlib
+import os
 import logging
 import re
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Sequence, TextIO
+from typing import TYPE_CHECKING, Any, Sequence
+
+if TYPE_CHECKING:
+    import numpy as np
 
 
 REQUIRED_SCORING_METADATA_COLS: set[str] = {
@@ -197,15 +200,6 @@ def try_parse_busco(busco_str: Any) -> tuple[float, float] | None:
     return float(match.group("C")), float(match.group("M"))
 
 
-def _hashed_matrix_lines(
-    handle: TextIO, update: Callable[[bytes], None]
-) -> Iterator[str]:
-    """Hash every input line while exposing only the current line to parsing."""
-    for line in handle:
-        update(line.encode("utf-8"))
-        yield line
-
-
 def _matrix_sample_count(lines: Iterator[str]) -> int:
     """Read the first nonblank line without retaining matrix text."""
     for line in lines:
@@ -271,39 +265,32 @@ def _matrix_rows(
 
 
 def load_matrix(path: Path) -> tuple[list[str], "np.ndarray", dict[str, int]]:
-    """Validate, then stream a PHYLIP ANI file into one symmetric float64 array."""
+    """Read a PHYLIP matrix once, with bounded allocation and file-mutation checks."""
     import numpy as np
 
     if not path.is_file():
         raise AniInputError(f"ANI matrix file not found: {path}")
-    names: list[str] = []
-    name_to_idx: dict[str, int] = {}
+    names, name_to_idx = [], {}
     with path.open("rt", encoding="utf-8", newline="") as handle:
-        first_hash = hashlib.sha256()
-        lines = _hashed_matrix_lines(handle, first_hash.update)
-        sample_count = _matrix_sample_count(lines)
-        # Validate the complete structure before allocating from an untrusted
-        # sample count. Keep only names and the current row in memory.
-        for name, _ in _matrix_rows(lines, sample_count):
-            if name in name_to_idx:
-                raise AniInputError(f"Duplicate name in ANI matrix: {name!r}")
-            name_to_idx[name] = len(names)
-            names.append(name)
-
+        before = os.fstat(handle.fileno())
+        sample_count = _matrix_sample_count(handle)
+        # Each lower-triangular value needs at least one byte. Reject impossible
+        # dimensions before allocating; malformed rows still fail while streaming.
+        if sample_count * (sample_count - 1) // 2 + sample_count > before.st_size:
+            raise AniInputError("ANI matrix dimensions exceed the input file size")
         ani = np.full((sample_count, sample_count), np.nan, dtype=np.float64)
         np.fill_diagonal(ani, 100.0)
-        handle.seek(0)
-        second_hash = hashlib.sha256()
-        lines = _hashed_matrix_lines(handle, second_hash.update)
-        if _matrix_sample_count(lines) != sample_count:
-            raise AniInputError("ANI matrix sample count changed while reading.")
-        for row_index, (name, values) in enumerate(_matrix_rows(lines, sample_count)):
-            if name != names[row_index]:
-                raise AniInputError("ANI matrix row names changed while reading.")
-            ani[row_index, :row_index] = values
-            ani[:row_index, row_index] = values
-        if first_hash.digest() != second_hash.digest():
-            raise AniInputError("ANI matrix content changed while reading.")
+        for index, (name, values) in enumerate(_matrix_rows(handle, sample_count)):
+            if name in name_to_idx:
+                raise AniInputError(f"Duplicate name in ANI matrix: {name!r}")
+            name_to_idx[name] = index
+            names.append(name)
+            ani[index, :index] = values
+            ani[:index, index] = values
+        fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns")
+        for after in (os.fstat(handle.fileno()), path.stat()):
+            if any(getattr(before, field) != getattr(after, field) for field in fields):
+                raise AniInputError("ANI matrix changed while reading")
     return names, ani, name_to_idx
 
 

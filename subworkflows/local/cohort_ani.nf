@@ -17,13 +17,11 @@ workflow COHORT_ANI {
     sixteen_s_summaries
     busco_summaries
     reused_busco_tables
+    reused_assembly_stats
     primary_busco_column
     ani_16s_policy
 
     main:
-    cachedInputs = CachedAniInputs.find(workflow.launchDir, workflow.workDir,
-        SamplePolicy.stage(params) == 'ani' && workflow.resume,
-        file("${params.outdir}/cohort/fastani/fastani.matrix").exists())
     SUMMARISE_BUSCO(busco_summaries)
 
     unpackTuple = { item, channelName, expectedSize ->
@@ -43,10 +41,11 @@ workflow COHORT_ANI {
         return item
     }
 
+    orderedGenomes = staged_genomes.toSortedList { a, b -> a[0].accession <=> b[0].accession }.flatMap { it }
     staged_manifest = Channel
         .of('accession\tinternal_id\tstaged_filename')
         .concat(
-            staged_genomes.map { item ->
+            orderedGenomes.map { item ->
                 def values = unpackTuple.call(item, 'staged_genomes', 2)
                 def meta = values[0]
                 def genome = values[1]
@@ -55,7 +54,7 @@ workflow COHORT_ANI {
         )
         .collectFile(name: 'staged_genomes.tsv', newLine: true, sort: false)
 
-    staged_fasta_files = staged_genomes
+    staged_fasta_files = orderedGenomes
         .map { item ->
             def values = unpackTuple.call(item, 'staged_genomes', 2)
             values[1]
@@ -63,30 +62,35 @@ workflow COHORT_ANI {
         .collect()
 
     combined_checkm2 = gcode_qc
+        .toSortedList { a, b -> a[0].accession <=> b[0].accession }.flatMap { it }
         .map { item ->
             def values = unpackTuple.call(item, 'gcode_qc', 2)
             values[1]
         }
         .collectFile(
             name: 'checkm2_summaries.tsv',
+            sort: false,
             keepHeader: true,
             skip: 1,
             newLine: true,
         )
 
     combined_16s = sixteen_s_summaries
+        .toSortedList { a, b -> a[0].accession <=> b[0].accession }.flatMap { it }
         .map { item ->
             def values = unpackTuple.call(item, 'sixteen_s_summaries', 3)
             values[2]
         }
         .collectFile(
             name: '16s_statuses.tsv',
+            sort: false,
             keepHeader: true,
             skip: 1,
             newLine: true,
         )
 
     busco_tables = SUMMARISE_BUSCO.out.summary.mix(reused_busco_tables)
+        .toSortedList { a, b -> (a[0].accession <=> b[0].accession) ?: (a[1] <=> b[1]) }.flatMap { it }
         .map { item ->
             def values = unpackTuple.call(item, 'busco_summary', 3)
             def lineage = values[1]
@@ -94,6 +98,7 @@ workflow COHORT_ANI {
             tuple("busco_summary_${lineage}.tsv", summary)
         }
         .collectFile(
+            sort: false,
             keepHeader: true,
             skip: 1,
         ) { item ->
@@ -104,7 +109,14 @@ workflow COHORT_ANI {
         }
         .collect()
 
-    CALCULATE_ASSEMBLY_STATS(staged_manifest, staged_fasta_files)
+    if (SamplePolicy.stage(params) == 'ani') {
+        assemblyStats = reused_assembly_stats
+        assemblyVersions = Channel.empty()
+    } else {
+        CALCULATE_ASSEMBLY_STATS(staged_manifest, staged_fasta_files)
+        assemblyStats = CALCULATE_ASSEMBLY_STATS.out.stats
+        assemblyVersions = CALCULATE_ASSEMBLY_STATS.out.versions
+    }
 
     if (SamplePolicy.stage(params) == 'qc') {
         preparedInputs = Channel.empty()
@@ -115,6 +127,8 @@ workflow COHORT_ANI {
         raw = Channel.empty()
         aniLog = Channel.empty()
         clusters = Channel.empty()
+        summary = Channel.value(file("${projectDir}/assets/tables/headers/ani_not_requested.tsv"))
+        representatives = Channel.value(file("${projectDir}/assets/tables/headers/ani_representatives_not_requested.tsv"))
         aniVersions = Channel.empty()
     } else {
         BUILD_FASTANI_INPUTS(
@@ -122,10 +136,10 @@ workflow COHORT_ANI {
             metadata,
             staged_manifest,
             staged_fasta_files,
-            combined_checkm2.map { CachedAniInputs.table(it, cachedInputs, 'checkm2_summaries.tsv') },
-            combined_16s.map { CachedAniInputs.table(it, cachedInputs, '16s_statuses.tsv') },
-            busco_tables.map { CachedAniInputs.busco(it as List, cachedInputs) },
-            CALCULATE_ASSEMBLY_STATS.out.stats,
+            combined_checkm2,
+            combined_16s,
+            busco_tables,
+            assemblyStats,
             primary_busco_column,
             ani_16s_policy,
             Channel.value(SamplePolicy.codeHash(projectDir)),
@@ -141,9 +155,11 @@ workflow COHORT_ANI {
         raw = FASTANI.out.raw_output
         aniLog = FASTANI.out.log
         clusters = CLUSTER_ANI.out.clusters
+        summary = CLUSTER_ANI.out.summary
+        representatives = CLUSTER_ANI.out.representatives
         aniVersions = BUILD_FASTANI_INPUTS.out.versions.mix(FASTANI.out.versions).mix(CLUSTER_ANI.out.versions)
     }
-    versions = SUMMARISE_BUSCO.out.versions.mix(CALCULATE_ASSEMBLY_STATS.out.versions).mix(aniVersions)
+    versions = SUMMARISE_BUSCO.out.versions.mix(assemblyVersions).mix(aniVersions)
 
     emit:
     parsed_busco = busco_tables
@@ -151,10 +167,12 @@ workflow COHORT_ANI {
     fastani_paths = preparedPaths
     ani_metadata = preparedMetadata
     ani_exclusions = preparedExclusions
-    assembly_stats = CALCULATE_ASSEMBLY_STATS.out.stats
+    assembly_stats = assemblyStats
     fastani_matrix = matrix
     fastani_raw = raw
     fastani_log = aniLog
     clusters = clusters
+    summary = summary
+    representatives = representatives
     versions = versions
 }

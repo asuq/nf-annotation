@@ -682,11 +682,12 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
 
     def test_select_ani_representatives_publishes_ani_summary(self) -> None:
         """Require the final ANI summary table to be published for master-table joins."""
-        module_text = (MODULES_DIR / "select_ani_representatives.nf").read_text(
+        module_text = (MODULES_DIR / "cluster_ani.nf").read_text(
             encoding="utf-8"
         )
 
-        self.assertIn("filename in ['ani_representatives.tsv', 'ani_summary.tsv']", module_text)
+        self.assertIn("path 'ani_summary.tsv', emit: summary", module_text)
+        self.assertIn("path 'ani_representatives.tsv', emit: representatives", module_text)
 
     def test_ccfinder_extracts_a_numeric_version_from_verbose_output(self) -> None:
         """Require CRISPRCasFinder provenance to store a clean version token."""

@@ -29,6 +29,7 @@ workflow INPUT_VALIDATION_AND_STAGING {
         accession_mapping = PUBLISHED_RESULTS_IMPORT.out.accession_map
         warnings = PUBLISHED_RESULTS_IMPORT.out.validation_warnings
         initial_status = PUBLISHED_RESULTS_IMPORT.out.sample_status
+        reused_assembly = PUBLISHED_RESULTS_IMPORT.out.assembly_stats
         reused_genomes = PUBLISHED_RESULTS_IMPORT.out.staged_genomes
         reused_qc = PUBLISHED_RESULTS_IMPORT.out.gcode_qc
         reused_cohort_qc = PUBLISHED_RESULTS_IMPORT.out.gcode_qc_for_cohort_16s
@@ -53,6 +54,7 @@ workflow INPUT_VALIDATION_AND_STAGING {
         accession_mapping = VALIDATE_INPUTS.out.accession_map
         warnings = VALIDATE_INPUTS.out.validation_warnings
         initial_status = VALIDATE_INPUTS.out.sample_status
+        reused_assembly = Channel.empty()
         reused_genomes = Channel.empty()
         reused_qc = Channel.empty()
         reused_cohort_qc = Channel.empty()
@@ -78,6 +80,7 @@ workflow INPUT_VALIDATION_AND_STAGING {
     sample_status = initial_status
     staged_genomes = STAGE_INPUTS.out.staged_fasta.mix(reused_genomes)
     new_staged_genomes = STAGE_INPUTS.out.staged_fasta
+    reused_assembly_stats = reused_assembly
     reused_gcode_qc = reused_qc
     reused_gcode_qc_for_cohort_16s = reused_cohort_qc
     reused_sixteen_s = reused_16s

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import io
+import os
 import sys
 import tempfile
 import tracemalloc
@@ -15,6 +15,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "bin"))
 
+import ani_common
 from ani_common import AniInputError, load_matrix
 from cluster_ani import (
     assign_cluster_ids,
@@ -65,7 +66,7 @@ class AniMatrixTests(unittest.TestCase):
         self.assertEqual(indices, {"first sample.fa": 0})
         np.testing.assert_array_equal(matrix, [[100.0]])
 
-    def test_invalid_matrix_fails_before_dense_allocation(self):
+    def test_invalid_matrix_is_rejected(self):
         for text in (
             "", "\n\t\n", "not-an-integer\n", "1.0\n", "0\n", "-1\n",
             "1000000000\nfirst\n", "3\nA\nB 95\n", "1\nA\nB 95\n",
@@ -77,47 +78,37 @@ class AniMatrixTests(unittest.TestCase):
         ):
             with self.subTest(text=text):
                 self.path.write_text(text)
-                with mock.patch.object(
-                    np, "full", side_effect=AssertionError("allocated")
-                ):
-                    with self.assertRaises(AniInputError):
-                        load_matrix(self.path)
+                with self.assertRaises(AniInputError):
+                    load_matrix(self.path)
         with self.assertRaisesRegex(AniInputError, "not found"):
             load_matrix(self.root / "missing")
 
-    def test_second_pass_rejects_changed_or_truncated_input(self):
+    def test_impossible_dimensions_fail_before_allocation(self):
+        self.path.write_text("1000000000\nfirst\n")
+        with mock.patch.object(np, "full", side_effect=AssertionError("allocated")):
+            with self.assertRaises(AniInputError):
+                load_matrix(self.path)
+
+    def test_mutation_during_single_pass_is_rejected(self):
         original = "3\nA\nB 96\nC NA 97\n"
-
-        class ChangingInput(io.StringIO):
-            def __init__(self, replacement):
-                super().__init__(original)
-                self.replacement = replacement
-
-            def seek(self, offset, whence=0):
-                position = super().seek(offset, whence)
-                if offset == 0 and whence == 0:
-                    self.truncate()
-                    self.write(self.replacement)
-                    super().seek(0)
-                return position
-
-        self.path.write_text(original)
-        for replacement in (
-            "2\nA\nB 96\n",                  # changed declared count
-            "3\nB\nA 96\nC NA 97\n",       # changed name order
-            "3\nA\nB 96\n",                # truncated rows
-            "3\nA\nB 96\nC 97\n",          # truncated row width
-            "3\nA\nB 96\nC NA inf\n",      # invalid numeric value
-            "3\nA\nB 96\nC NA 97\nD\n",   # extra row
-            "3\nA\nB 95\nC NA 97\n",       # valid but changed value
-            original.replace("\n", "\r\n"),  # changed source bytes
-        ):
-            with self.subTest(replacement=replacement):
-                with mock.patch.object(
-                    Path, "open", return_value=ChangingInput(replacement)
-                ):
-                    with self.assertRaises(AniInputError):
-                        load_matrix(self.path)
+        rows = ani_common._matrix_rows
+        for replace in (False, True):
+            self.path.write_text(original)
+            def mutate(lines, count):
+                for index, item in enumerate(rows(lines, count)):
+                    if index == 0:
+                        info = self.path.stat()
+                        if replace:
+                            other = self.path.with_suffix(".new")
+                            other.write_text(original)
+                            other.replace(self.path)
+                        else:
+                            self.path.write_text(original.replace("96", "95"))
+                            os.utime(self.path, ns=(info.st_atime_ns, info.st_mtime_ns))
+                    yield item
+            with mock.patch.object(ani_common, "_matrix_rows", side_effect=mutate):
+                with self.assertRaisesRegex(AniInputError, "changed while reading"):
+                    load_matrix(self.path)
 
     def test_threshold_adjacent_values_keep_complete_linkage_membership(self):
         self.path.write_text(

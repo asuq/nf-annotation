@@ -16,6 +16,8 @@ process CHECK_COHORT_UPDATE {
         },
     )
 
+    publishDir "${params.outdir}/cohort/assembly_stats", mode: 'copy', overwrite: true, pattern: 'assembly_stats.tsv'
+
     input:
     path prepared
     path previous_update, name: 'previous_update.json'
@@ -31,6 +33,7 @@ process CHECK_COHORT_UPDATE {
     path 'cohort_update_run.json', emit: identity
     path 'inherited_versions.tsv', emit: inherited_versions
     path 'source_validation.json', emit: source_validation
+    path 'assembly_stats.tsv', optional: true, emit: assembly_stats
 
     script:
     def previousArg = previous_update ? '--previous-update previous_update.json' : ''

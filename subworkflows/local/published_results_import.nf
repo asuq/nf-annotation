@@ -1,5 +1,5 @@
 include { COMPLETE_ANI_REFERENCES } from '../../modules/local/complete_ani_references'
-include { FINGERPRINT_REUSE_SOURCES; VALIDATE_REUSE_SOURCES } from '../../modules/local/reuse_source_validation'
+include { FINGERPRINT_REUSE_SOURCES } from '../../modules/local/reuse_source_validation'
 include { CHECK_COHORT_UPDATE } from '../../modules/local/check_cohort_update'
 include { IMPORT_ANI_BATCH } from '../../modules/local/import_ani_batch'
 include { PREPARE_COHORT_UPDATE } from '../../modules/local/prepare_cohort_update'
@@ -43,21 +43,15 @@ workflow PUBLISHED_RESULTS_IMPORT {
         updateSettings.qc_publication_root = file(params.qc_publication_root).toFile().canonicalPath
     }
 
-    FINGERPRINT_REUSE_SOURCES(validated_samples.map { sourceRoots }, Channel.value(dependencyRoots))
+    previousValidation = file("${params.outdir}/tables/source_validation.json")
+    FINGERPRINT_REUSE_SOURCES(validated_samples.map { sourceRoots }, Channel.value(dependencyRoots),
+        Channel.value(previousValidation.exists() ? [previousValidation] : []))
     sourceFingerprints = FINGERPRINT_REUSE_SOURCES.out.fingerprints.map { path ->
         new groovy.json.JsonSlurper().parse(path.toFile()).sort(false) { it.root }
     }.first()
-    sourceGroups = sourceFingerprints.flatMap { records ->
-        def size = Math.max(1, Math.ceil(records.size() / 8.0) as int)
-        records.collate(size).collect { group ->
-            def roots = group.collect { file(it.root) }
-            tuple(group, roots, ReferenceInputs.paths(roots).findAll { !(it in roots) })
-        }
-    }
-    VALIDATE_REUSE_SOURCES(sourceGroups, Channel.value(SamplePolicy.reuseCodeHash(projectDir)))
-    sourceReceipts = VALIDATE_REUSE_SOURCES.out.receipts.toList().map { paths ->
-        paths.collectMany { new groovy.json.JsonSlurper().parse(it.toFile()) }.sort(false) { it.source.root }
-    }
+    sourceReceipts = FINGERPRINT_REUSE_SOURCES.out.receipts.map { path ->
+        new groovy.json.JsonSlurper().parse(path.toFile()).sort(false) { it.source.root }
+    }.first()
     checkedSources = sourceFingerprints.map { [it] }.combine(sourceReceipts.map { [it] }).map { item ->
         // Keep nested lists intact when combining value channels.
         [fingerprints: item[0], receipts: item[1]]
@@ -172,5 +166,6 @@ workflow PUBLISHED_RESULTS_IMPORT {
     prokka = annotated.map { item -> tuple(item[0], item[1].resolve('prokka'), item[1].resolve('prokka/prokka.gff'), item[1].resolve('prokka/prokka.faa'), item[1].resolve('prokka/prokka.gbk'), item[1].resolve('prokka/prokka.log')) }
     bundles = reusedBundles
     inherited_versions = CHECK_COHORT_UPDATE.out.inherited_versions.map { report -> [report] }
+    assembly_stats = CHECK_COHORT_UPDATE.out.assembly_stats
     versions = PREPARE_COHORT_UPDATE.out.versions.mix(importVersions)
 }

@@ -164,6 +164,12 @@ class DomainStageIntegrationTests(unittest.TestCase):
             ),
             1,
         )
+        self.assertNotIn("CALCULATE_ASSEMBLY_STATS", names)
+        self.assertNotIn("AGGREGATE_ANNOTATIONS", names)
+        expected_stats = {row["accession"]: row for root in (a, b)
+                          for row in fixture.read_rows(root / "cohort/assembly_stats/assembly_stats.tsv")}
+        observed_stats = {row["accession"]: row for row in fixture.read_rows(output / "cohort/assembly_stats/assembly_stats.tsv")}
+        self.assertEqual(observed_stats, expected_stats)
         self.assertIn("FASTANI", names)
         master = {
             r["accession"]: r
@@ -274,7 +280,7 @@ class DomainStageIntegrationTests(unittest.TestCase):
             validation = [
                 row
                 for row in failed_trace
-                if row["name"].split(" (")[0].endswith(":VALIDATE_REUSE_SOURCES")
+                if row["name"].split(" (")[0].endswith(":FINGERPRINT_REUSE_SOURCES")
             ]
             self.assertTrue(any(row["status"] == "FAILED" for row in validation))
             self.assertIn(

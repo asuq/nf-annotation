@@ -11,7 +11,10 @@ from __future__ import annotations
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
+
+if TYPE_CHECKING:
+    import numpy as np
 
 from ani_common import Genome
 
@@ -83,8 +86,8 @@ def select_representative_for_indices(
 
         means: list[float] = []
         for index in cluster_indices:
-            others = [ani[index, other] for other in cluster_indices if other != index]
-            means.append(float(np.mean(others)) if others else 100.0)
+            others = ani[index, [other for other in cluster_indices if other != index]]
+            means.append(float(np.mean(others)) if len(others) else 100.0)
 
         values = np.asarray(means, dtype=float)
         spread = float(values.max() - values.min())

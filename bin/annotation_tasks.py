@@ -292,12 +292,7 @@ def plan_task(
             )
         (outdir / "run.sh").write_text(shell_script(entry["search_method"]["command"]))
     else:
-        shutil.copytree(previous / "raw", outdir / "previous" / "raw")
-        if task["action"] == "reuse":
-            shutil.copytree(previous / "normalized", outdir / "previous" / "normalized")
-            shutil.copyfile(
-                previous / "result.json", outdir / "previous" / "result.json"
-            )
+        task["previous_result"] = str(previous.resolve(strict=True))
     write_json(outdir / "task.json", task)
     return task
 
@@ -317,6 +312,7 @@ def normalize_task(
         raise AnnotationError("Task/bundle identity mismatch")
     if task["interpretation"]["code"] != code_identity(task["tool"]):
         raise AnnotationError("Normalizer changed after task planning")
+    task.pop("previous_result", None)
     outdir.mkdir()
     shutil.copytree(raw, outdir / "raw")
     record = dict(

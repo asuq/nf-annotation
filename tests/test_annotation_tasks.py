@@ -59,7 +59,7 @@ class AnnotationTaskTests(unittest.TestCase):
         write_json(receipt, {"enabled_tools": [], "preflight_id": "fixture", "tools": {}})
         with patch("prepare_annotation_tasks.validate_preflight"):
             plan_part(members, [self.bundle], receipt, self.root / "fragment", None, "individual")
-            expected = merge_plans(samples, receipt, [self.root / "fragment/annotation_plan.json"], self.root / "merged", None)
+            expected = merge_plans(samples, receipt, [self.root / "fragment/annotation_plan.json"], self.root / "merged")
             with patch("prepare_annotation_tasks.bundle_proteins", side_effect=AssertionError("unexpected payload reread")):
                 actual = plan_disabled(samples, [self.bundle], receipt, self.root / "disabled")
         self.assertEqual(actual, expected)
@@ -326,7 +326,7 @@ with tempfile.NamedTemporaryFile() as temporary:
         with patch('prepare_annotation_tasks.validate_preflight'):
             plan_part(members, [self.bundle], receipt, self.root / 'part', None, 'individual')
             fragment = self.root / 'part/annotation_plan.json'
-            merged = merge_plans(samples, receipt, [fragment], self.root / 'merged', None)
+            merged = merge_plans(samples, receipt, [fragment], self.root / 'merged')
             by_key = {(row['accession'], row['tool']): row for row in merged['tasks']}
             self.assertEqual(len(by_key), 2 * len(TOOLS))
             self.assertEqual(by_key['A', 'kofam']['action'], 'run')
@@ -334,7 +334,7 @@ with tempfile.NamedTemporaryFile() as temporary:
             self.assertEqual(by_key['B', 'kofam']['reason'], 'no_valid_protein_bundle')
             self.assertEqual(by_key['B', 'eggnog']['status'], 'skipped_disabled')
             with self.assertRaisesRegex(AnnotationError, 'Duplicate or foreign'):
-                merge_plans(samples, receipt, [fragment, fragment], self.root / 'duplicate', None)
+                merge_plans(samples, receipt, [fragment, fragment], self.root / 'duplicate')
 
     def test_individual_plan_reuses_result_from_second_source(self):
         first = self.root / 'first-source'

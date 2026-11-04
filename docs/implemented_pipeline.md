@@ -136,7 +136,6 @@ main.nf
      -> FASTANI
      -> CLUSTER_ANI
   -> FINAL_OUTPUTS
-     -> SELECT_ANI_REPRESENTATIVES
      -> BUILD_MASTER_TABLE
      -> WRITE_SAMPLE_STATUS
      -> COLLECT_VERSIONS
@@ -164,10 +163,11 @@ path and the individual normalized result paths directly. Portable reannotation
 requires those shared packets as part of the published source.
 
 Planning and aggregation read JSON path lists rather than cohort-sized command
-arguments. Aggregation uses a temporary SQLite database to spool detailed rows
-and sparse counts while retaining one sample's evidence at a time. The ANI reader
-uses two streaming validation passes, but clustering still requires a dense
-matrix and quadratic pairwise work. The shared-search workflow and larger-cohort performance
+arguments. Full aggregation streams tables in accession order, retaining one sample's
+evidence and sequential sparse feature counts. Disabled functional searches use
+`REPORT_GENOMES`: no protein-table rebuild or SQLite spool. ANI clustering and
+representative selection share a single-pass matrix load; complete linkage still
+requires dense numeric storage and quadratic pairwise work. The shared-search workflow and larger-cohort performance
 remain under [qualification](development/v0.4_qualification.md).
 
 Importers publish to destinations separate from rebuilt annotation outputs.
@@ -311,6 +311,9 @@ results/
 ```
 
 Notes on that layout:
+
+- With functional searches disabled, cohort protein, coordinate, function-summary
+  and functional-matrix tables are omitted. Sample bundles remain reusable.
 
 - `samples/<accession>/...` uses the original accession as the published folder
   name, not the internal sanitized ID
@@ -507,10 +510,8 @@ changes to that code invalidate the corresponding Nextflow cache entries.
 
 ## Bounded ANI reuse
 
-The [v0.4.5 performance contract](ani_performance.md) adds content-bound source
-validation receipts, a separate resume guard and bounded import allocations.
-Source validation is cached across sequential cumulative views when the same
-Nextflow cache/work context is retained. Scientific inputs are fingerprinted
-again before a cached receipt is accepted. Matched bundles retain their original
-bytes; disabled planning and 16S cohort reporting are consolidated. Native
-prediction, genomic classification and ANI methodology are not added or changed.
+The [ANI performance guide](ani_performance.md) describes v0.4.8's genome-level
+reports, reuse of published assembly statistics, shared fingerprint checksums,
+and deterministic current-release resume. Old-cache upgrades are not supported.
+Genetic-code, eligibility, complete-linkage and representative-scoring rules are
+unchanged. Reference publications still receive a fresh final content check.

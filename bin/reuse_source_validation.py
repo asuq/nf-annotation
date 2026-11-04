@@ -26,7 +26,7 @@ def code_id() -> str:
     return result.hexdigest()
 
 
-def validate(roots: list[Path], fingerprints: list[dict]) -> list[dict]:
+def validate(roots: list[Path], fingerprints: list[dict], *, checksum=None) -> list[dict]:
     """Validate one bounded source group after fresh content fingerprinting."""
     if len(roots) != len(fingerprints) or not roots:
         raise AnnotationError("Source validation roots and fingerprints must match")
@@ -36,11 +36,25 @@ def validate(roots: list[Path], fingerprints: list[dict]) -> list[dict]:
     for root, record in zip(roots, fingerprints, strict=True):
         if str(root.resolve(strict=True)) != record["root"]:
             raise AnnotationError("Source fingerprint belongs to a different root")
-        validate_source(root, _content_checked=True, _validated=validated)
+        options = {} if checksum is None else {"checksum": checksum}
+        validate_source(root, _content_checked=True, _validated=validated, **options)
         receipt = {"source": record, "validator": validator}
         receipt["receipt_id"] = identity(receipt)
         receipts.append(receipt)
     return receipts
+
+
+def validate_or_reuse(roots: list[Path], fingerprints: list[dict], previous: Path | None, *, checksum) -> tuple[list[dict], bool]:
+    """Reuse semantic work only after a fresh complete content-and-code match."""
+    if previous is not None:
+        receipts = read_json(previous)["receipts"]
+        try:
+            checked_roots(receipts, fingerprints)
+        except AnnotationError:
+            pass  # Changed content/code requires fresh semantic validation.
+        else:
+            return receipts, True
+    return validate(roots, fingerprints, checksum=checksum), False
 
 
 def checked_roots(receipts: list[dict], expected: list[dict]) -> set[Path]:

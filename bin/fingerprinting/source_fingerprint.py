@@ -7,8 +7,7 @@ import os
 import stat
 import sys
 import time
-from collections import deque
-from concurrent.futures import ThreadPoolExecutor, TimeoutError
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from pathlib import Path
 
 from annotation_common import AnnotationError, identity, read_json, write_json
@@ -55,6 +54,7 @@ class FingerprintScanner:
         self.cache = {} if cache is None else cache
         self.progress = progress
         self.pool = None
+        self.file_digests = {}
         self.start = time.monotonic()
         self.last_report = 0.0
         self.metrics = {
@@ -112,39 +112,44 @@ class FingerprintScanner:
 
     def hashes(self, paths):
         """Submit a bounded window and consume in sorted order, regardless of I/O order."""
-        pending = deque()
-        items = iter(sorted(paths, key=lambda item: item[0]))
+        ordered = sorted(paths, key=lambda item: item[0])
+        items = iter(enumerate(ordered))
+        pending, completed = {}, {}
         exhausted = False
         while pending or not exhausted:
             while not exhausted and len(pending) < 2 * self.workers:
                 try:
-                    path, before = next(items)
+                    index, (path, before) = next(items)
                 except StopIteration:
                     exhausted = True
                     break
-                pending.append(
-                    (path, before, self.pool.submit(checked_digest, path, before))
-                )
-                self.metrics["peak_pending_reads"] = max(
-                    self.metrics["peak_pending_reads"], len(pending)
-                )
+                pending[self.pool.submit(checked_digest, path, before)] = (index, path, before)
+                self.metrics["peak_pending_reads"] = max(self.metrics["peak_pending_reads"], len(pending))
             if not pending:
                 break
-            path, before, future = pending.popleft()
-            while True:
-                try:
-                    checksum = future.result(timeout=1)
-                    break
-                except TimeoutError:
-                    if future.done():
-                        raise
-                    self.report()
-            self.metrics["files_hashed"] += 1
-            self.metrics["bytes_hashed"] += before.st_size
-            self.metrics["current_files_hashed"] += 1
-            self.metrics["current_bytes_hashed"] += before.st_size
+            done, _ = wait(pending, timeout=1, return_when=FIRST_COMPLETED)
+            for future in done:
+                index, path, before = pending.pop(future)
+                completed[index] = future.result()
+                self.metrics["files_hashed"] += 1
+                self.metrics["bytes_hashed"] += before.st_size
+                self.metrics["current_files_hashed"] += 1
+                self.metrics["current_bytes_hashed"] += before.st_size
             self.report()
-            yield path, before, checksum
+        for index, (path, before) in enumerate(ordered):
+            self.file_digests[path.resolve()] = (signature(before), completed[index])
+            yield path, before, completed[index]
+
+    def checksum(self, path: Path) -> str:
+        """Reuse a digest only within this scan and while its file identity matches."""
+        resolved = path.resolve(strict=True)
+        before = path.stat()
+        record = self.file_digests.get(resolved)
+        if record is None:
+            return checked_digest(path, before)
+        if record[0] != signature(before):
+            raise AnnotationError(f"Publication changed after fingerprinting: {path}")
+        return record[1]
 
     def fingerprint(self, root: Path, *, active=()) -> dict:
         root = root.resolve(strict=True)
@@ -189,9 +194,9 @@ class FingerprintScanner:
         self.report(force=True)
         start = time.monotonic()
         links, directories, pending = [], [], []
-        for name in ("tables", "samples", "annotation_batches"):
+        for name in ("tables", "samples", "annotation_batches", "cohort/assembly_stats"):
             directory = root / name
-            if name == "annotation_batches" and not directory.exists():
+            if name in ("annotation_batches", "cohort/assembly_stats") and not directory.exists():
                 continue
             if directory.is_symlink() or not directory.is_dir():
                 raise AnnotationError(f"Invalid publication directory: {directory}")

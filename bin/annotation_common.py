@@ -200,7 +200,7 @@ def selected_tools(value: str) -> tuple[str, ...]:
     return selected
 
 
-def bundle_proteins(bundle: Path) -> tuple[dict[str, Any], list[dict[str, str]]]:
+def bundle_proteins(bundle: Path, *, checksum=digest) -> tuple[dict[str, Any], list[dict[str, str]]]:
     """Verify all bundle file checksums and identities before exposing proteins."""
     manifest = read_json(bundle / "bundle.json")
     if (
@@ -227,7 +227,7 @@ def bundle_proteins(bundle: Path) -> tuple[dict[str, Any], list[dict[str, str]]]
         )
     for name, expected in files.items():
         path = bundle / name
-        if Path(name).name != name or not path.is_file() or digest(path) != expected:
+        if Path(name).name != name or not path.is_file() or checksum(path) != expected:
             raise AnnotationError(f"Bundle content mismatch: {name}")
     rows = read_tsv(bundle / "protein_manifest.tsv", PROTEIN_COLUMNS)
     if not rows or len(rows) != manifest.get("protein_count"):

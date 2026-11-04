@@ -179,6 +179,7 @@ workflow {
         allSixteenS,
         allBusco,
         INPUT_VALIDATION_AND_STAGING.out.reused_parsed_busco,
+        INPUT_VALIDATION_AND_STAGING.out.reused_assembly_stats,
         Channel.value(primaryBuscoColumn),
         Channel.value(params.ani_16s_policy),
     )
@@ -197,7 +198,8 @@ workflow {
         FUNCTIONAL_ANNOTATION.out.plan,
         FUNCTIONAL_ANNOTATION.out.bundle_files,
         FUNCTIONAL_ANNOTATION.out.native_batches,
-        COHORT_ANI.out.clusters,
+        COHORT_ANI.out.summary,
+        COHORT_ANI.out.representatives,
         COHORT_ANI.out.ani_metadata,
         COHORT_ANI.out.assembly_stats,
         COHORT_ANI.out.fastani_matrix,

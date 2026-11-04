@@ -1,7 +1,7 @@
+include { REPORT_GENOMES } from '../../modules/local/report_genomes'
 include { REFERENCE_ACCEPTANCE } from '../../modules/local/reference_acceptance'
 include { BUILD_MASTER_TABLE } from '../../modules/local/build_master_table'
 include { COLLECT_VERSIONS } from '../../modules/local/collect_versions'
-include { SELECT_ANI_REPRESENTATIVES } from '../../modules/local/select_ani_representatives'
 include { WRITE_SAMPLE_STATUS } from '../../modules/local/write_sample_status'
 include { AGGREGATE_ANNOTATIONS; ANNOTATION_ACCEPTANCE } from '../../modules/local/functional_annotation'
 
@@ -25,7 +25,8 @@ workflow FINAL_OUTPUTS {
     annotation_plan
     annotation_bundles
     annotation_batches
-    ani_clusters
+    aniSummary
+    aniRepresentatives
     ani_metadata
     assembly_stats
     ani_matrix
@@ -141,17 +142,6 @@ workflow FINAL_OUTPUTS {
             storeDir: finalOutputsCollectDir,
         )
 
-    if (SamplePolicy.stage(params) == 'qc') {
-        aniSummary = Channel.value(file("${projectDir}/assets/tables/headers/ani_not_requested.tsv"))
-        aniRepresentatives = Channel.value(file("${projectDir}/assets/tables/headers/ani_representatives_not_requested.tsv"))
-        aniVersions = Channel.empty()
-    } else {
-        SELECT_ANI_REPRESENTATIVES(ani_clusters, ani_metadata, ani_matrix)
-        aniSummary = SELECT_ANI_REPRESENTATIVES.out.ani_summary
-        aniRepresentatives = SELECT_ANI_REPRESENTATIVES.out.ani_representatives
-        aniVersions = SELECT_ANI_REPRESENTATIVES.out.versions
-    }
-
     BUILD_MASTER_TABLE(
         validated_samples,
         metadata,
@@ -187,22 +177,24 @@ workflow FINAL_OUTPUTS {
     )
 
     def isAni = SamplePolicy.stage(params) == 'ani'
-    aggregateBundles = isAni ? annotation_bundles.map { [file(params.outdir)] } : annotation_bundles
-    aggregateBundlePaths = isAni ? annotation_bundles.map { items -> items.collect { it.toString() } } : Channel.value([])
     publicationDependencies = isAni && params.ani_publication_mode == 'reference' ? Channel.value(ReferenceInputs.paths(PublishedSources.paths(params.update_from))) : Channel.value([])
-    AGGREGATE_ANNOTATIONS(
-        annotation_plan,
-        BUILD_MASTER_TABLE.out.master_table,
-        WRITE_SAMPLE_STATUS.out.sample_status,
-        aggregateBundles,
-        annotation_results.map { item -> item[1] }.toList(),
-        annotation_batches.toList(),
-        aggregateBundlePaths,
-        publicationDependencies,
-    )
+    if (!SamplePolicy.annotationTools(params)) {
+        manifests = annotation_bundles.map { items -> items.collect { it.resolve('bundle.json') } }
+        references = annotation_bundles.map { params.ani_publication_mode == 'reference' ? file("${params.outdir}/ani_references.json") : [] }
+        REPORT_GENOMES(annotation_plan, BUILD_MASTER_TABLE.out.master_table, WRITE_SAMPLE_STATUS.out.sample_status, manifests, references)
+        reportTables = REPORT_GENOMES.out.tables
+        reportManifest = REPORT_GENOMES.out.manifest
+        reportAcceptance = REPORT_GENOMES.out.acceptance
+    } else {
+        AGGREGATE_ANNOTATIONS(annotation_plan, BUILD_MASTER_TABLE.out.master_table, WRITE_SAMPLE_STATUS.out.sample_status,
+            annotation_bundles, annotation_results.map { item -> item[1] }.toList(), annotation_batches.toList(),
+            Channel.value([]), Channel.value([]))
+        reportTables = AGGREGATE_ANNOTATIONS.out.tables
+        reportManifest = AGGREGATE_ANNOTATIONS.out.manifest
+        reportAcceptance = AGGREGATE_ANNOTATIONS.out.acceptance
+    }
 
-    final_versions = aniVersions
-        .mix(BUILD_MASTER_TABLE.out.versions)
+    final_versions = BUILD_MASTER_TABLE.out.versions
         .mix(WRITE_SAMPLE_STATUS.out.versions)
 
     collected_versions = version_files
@@ -223,16 +215,16 @@ workflow FINAL_OUTPUTS {
     )
 
     if (isAni && params.ani_publication_mode == 'reference') {
-        REFERENCE_ACCEPTANCE(AGGREGATE_ANNOTATIONS.out.acceptance, COLLECT_VERSIONS.out.versions_table,
+        REFERENCE_ACCEPTANCE(reportAcceptance, COLLECT_VERSIONS.out.versions_table,
             Channel.value(file(params.outdir)), publicationDependencies, Channel.value([]))
     } else {
-        ANNOTATION_ACCEPTANCE(AGGREGATE_ANNOTATIONS.out.acceptance, COLLECT_VERSIONS.out.versions_table)
+        ANNOTATION_ACCEPTANCE(reportAcceptance, COLLECT_VERSIONS.out.versions_table)
     }
 
     emit:
-    master_table = AGGREGATE_ANNOTATIONS.out.tables.map { files -> files.find { it.name == 'master_table.tsv' } }
-    sample_status = AGGREGATE_ANNOTATIONS.out.tables.map { files -> files.find { it.name == 'sample_status.tsv' } }
-    annotation_manifest = AGGREGATE_ANNOTATIONS.out.manifest
+    master_table = reportTables.map { files -> files.find { it.name == 'master_table.tsv' } }
+    sample_status = reportTables.map { files -> files.find { it.name == 'sample_status.tsv' } }
+    annotation_manifest = reportManifest
     ani_representatives = aniRepresentatives
     versions_table = COLLECT_VERSIONS.out.versions_table
     versions = final_versions

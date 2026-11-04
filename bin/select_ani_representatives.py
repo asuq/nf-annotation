@@ -194,6 +194,7 @@ def build_ani_outputs(
     ani_metadata: Path,
     ani_matrix: Path,
     score_profile: str,
+    matrix_data=None,
 ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
     """Build ANI summary and representative tables from raw ANI artifacts."""
     cluster_members_by_accession = load_cluster_members(ani_clusters)
@@ -205,7 +206,7 @@ def build_ani_outputs(
                     "ANI clusters contain samples but eligibility metadata is empty."
                 )
             return [], []
-        names, ani, name_to_idx = load_matrix(ani_matrix)
+        names, ani, name_to_idx = load_matrix(ani_matrix) if matrix_data is None else matrix_data
         metadata_by_matrix_name, eligible_names = load_ani_metadata(
             ani_metadata=ani_metadata,
             matrix_names=names,

@@ -739,6 +739,8 @@ def run_prepare(args: argparse.Namespace) -> None:
         checked = checked_roots(receipt["receipts"], receipt["fingerprints"])
         if checked != set(sources):
             raise CohortUpdateError("Validated source receipts do not match the requested sources")
+    stage = json.loads(args.settings.read_text()).get("pipeline_stage", "full")
+    assembly_rows = {}
     publications = [Publication(source) for source in sources]
     pending = list(publications)
     dependency_roots = set()
@@ -761,6 +763,13 @@ def run_prepare(args: argparse.Namespace) -> None:
             raise CohortUpdateError(
                 f"Duplicate accessions across published sources: {sorted(overlap)}"
             )
+        if stage == "ani":
+            stats_path = source / "cohort/assembly_stats/assembly_stats.tsv"
+            _, stats = read_table(stats_path, ("accession", "n50", "scaffolds", "genome_size", "gc_content"))
+            stats_index = index_rows(stats, "accession", stats_path)
+            if set(stats_index) != set(source_samples):
+                raise CohortUpdateError("Published assembly statistics differ from source membership")
+            assembly_rows.update(stats_index)
         source_index.update(source_samples)
         statuses.update(source_statuses)
         masters.update(source_masters)
@@ -894,6 +903,10 @@ def run_prepare(args: argparse.Namespace) -> None:
         versions=versions,
         identity=identity,
     )
+    if stage == "ani":
+        write_table(args.outdir / "assembly_stats.tsv",
+                    ("accession", "n50", "scaffolds", "genome_size", "gc_content"),
+                    [assembly_rows[sample["accession"]] for sample in samples])
     LOGGER.info(
         "Cohort update validated: %d reused, %d added, %d removed.",
         len(reused),

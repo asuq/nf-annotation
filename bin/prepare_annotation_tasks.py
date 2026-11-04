@@ -266,10 +266,10 @@ def plan_disabled(samples: Path, bundles: list[Path], receipt: Path, output: Pat
     return record
 
 
-def reuse(taskdir: Path, outdir: Path) -> None:
+def reuse(taskdir: Path, previous: Path, outdir: Path) -> None:
     """Republish a checksummed normalized result while recording this run's action."""
     task = read_json(taskdir / "task.json")
-    record = validate_result(taskdir / "previous")
+    record = validate_result(previous)
     if any(
         record[key] != task[key]
         for key in (
@@ -280,7 +280,7 @@ def reuse(taskdir: Path, outdir: Path) -> None:
         )
     ):
         raise AnnotationError("Reused result differs from the current task")
-    shutil.copytree(taskdir / "previous", outdir)
+    shutil.copytree(previous, outdir)
     record["action"] = "reuse"
     record["result_id"] = identity(
         {key: value for key, value in record.items() if key != "result_id"}
@@ -334,13 +334,10 @@ def plan_part(members: Path, bundles: list[Path], receipt: Path, output: Path,
                 previous_batch_ids=group.get("previous_batch_ids", []))
 
 
-def merge_plans(samples: Path, receipt: Path, fragments: list[Path], output: Path,
-                source: Path | list[Path] | None) -> dict:
+def merge_plans(samples: Path, receipt: Path, fragments: list[Path], output: Path) -> dict:
     """Build the complete cohort accounting after independently scheduled work."""
     checked = read_json(receipt)
     validate_preflight(checked)
-    if source is not None:
-        validate_sources(source)
     accessions = [row["accession"] for row in read_tsv(samples, ["accession"])]
     if not accessions or len(set(accessions)) != len(accessions):
         raise AnnotationError("Invalid cohort planning manifest")
@@ -411,7 +408,6 @@ def main() -> int:
     merger.add_argument("--samples", type=Path, required=True)
     merger.add_argument("--preflight", type=Path, required=True)
     merger.add_argument("--fragment-list", type=Path, required=True)
-    merger.add_argument("--source", type=Path, action="append")
     merger.add_argument("--output", type=Path, required=True)
     normalizer = sub.add_parser("normalize")
     for name in ("task", "raw", "bundle", "output"):
@@ -419,6 +415,7 @@ def main() -> int:
     normalizer.add_argument("--resource", type=Path)
     reuser = sub.add_parser("reuse")
     reuser.add_argument("--task", type=Path, required=True)
+    reuser.add_argument("--previous", type=Path, required=True)
     reuser.add_argument("--output", type=Path, required=True)
     batcher = sub.add_parser("complete-batch", allow_abbrev=False)
     for name in ("task", "raw", "batch", "resource", "output"):
@@ -439,7 +436,7 @@ def main() -> int:
             plan_part(args.members, read_path_list(args.bundle_list), args.preflight,
                       args.output, args.source, args.scope)
         elif args.command == "merge-plans":
-            merge_plans(args.samples, args.preflight, read_path_list(args.fragment_list), args.output, args.source)
+            merge_plans(args.samples, args.preflight, read_path_list(args.fragment_list), args.output)
         elif args.command == "plan":
             plan(
                 args.samples,
@@ -451,7 +448,7 @@ def main() -> int:
         elif args.command == "normalize":
             normalize_task(args.task, args.raw, args.bundle, args.resource, args.output)
         elif args.command == "reuse":
-            reuse(args.task, args.output)
+            reuse(args.task, args.previous, args.output)
         elif args.command == "complete-batch":
             complete_batch(args.task, args.raw, args.batch, args.resource, args.output)
         else:
