@@ -80,6 +80,26 @@ def canonical_gene_id(accession: str, protein_id: str) -> str:
     return f"{quote(accession, safe='')}::{quote(protein_id, safe='')}"
 
 
+def protein_query_id(accession: str, ordinal: int) -> str:
+    """Readable, period-free IDs; escape reserved text without truncation or hashes."""
+    if ordinal < 1:
+        raise AnnotationError("Protein ordinals start at one")
+    prefix = quote(accession, safe="").replace(".", "_")
+    return f"{prefix}__p{ordinal:06d}"
+
+
+def require_unique_protein_prefixes(accessions: Iterable[str]) -> None:
+    """Reject ambiguous readable namespaces instead of appending opaque suffixes."""
+    seen = {}
+    for accession in accessions:
+        prefix = protein_query_id(accession, 1)
+        if prefix in seen and seen[prefix] != accession:
+            raise AnnotationError(
+                f"Accessions {seen[prefix]!r} and {accession!r} produce the same protein ID prefix"
+            )
+        seen[prefix] = accession
+
+
 def validate_accession(value: Any) -> None:
     """Require an accession that can identify one published sample directory."""
     if (
@@ -200,7 +220,9 @@ def selected_tools(value: str) -> tuple[str, ...]:
     return selected
 
 
-def bundle_proteins(bundle: Path, *, checksum=digest) -> tuple[dict[str, Any], list[dict[str, str]]]:
+def bundle_proteins(
+    bundle: Path, *, checksum=digest
+) -> tuple[dict[str, Any], list[dict[str, str]]]:
     """Verify all bundle file checksums and identities before exposing proteins."""
     manifest = read_json(bundle / "bundle.json")
     if (
@@ -261,7 +283,7 @@ def bundle_proteins(bundle: Path, *, checksum=digest) -> tuple[dict[str, Any], l
 
 
 def protein_lookup(rows: list[dict[str, str]]) -> dict[str, dict[str, str]]:
-    """Index original and compact IDs while rejecting cross-namespace ambiguity."""
+    """Index original and readable query IDs while rejecting cross-namespace ambiguity."""
     result = {}
     for row in rows:
         for key in (row["tool_id"], row["protein_id"]):

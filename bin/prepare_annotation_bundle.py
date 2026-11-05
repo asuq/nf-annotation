@@ -20,6 +20,7 @@ from annotation_common import (
     SCHEMA_VERSION,
     AnnotationError,
     canonical_gene_id,
+    protein_query_id,
     digest,
     identity,
     integer,
@@ -343,10 +344,20 @@ def build_bundle(
 
     output.mkdir(parents=True, exist_ok=True)
     rows, coordinate_rows, tool_ids = [], [], set()
+    contig_order = {record.id: index for index, record in enumerate(source_contigs)}
+    proteins.sort(
+        key=lambda protein: (
+            contig_order[cds_by_protein[protein.id][0]["source_contig_id"]],
+            min(segment["start"] for segment in cds_by_protein[protein.id]),
+            min(segment["end"] for segment in cds_by_protein[protein.id]),
+            cds_by_protein[protein.id][0]["strand"],
+            protein.id,
+        )
+    )
     with (output / "proteins.faa").open("w") as handle:
-        for protein in proteins:
+        for ordinal, protein in enumerate(proteins, 1):
             gene_id = canonical_gene_id(accession, protein.id)
-            tool_id = "p" + hashlib.sha256(gene_id.encode()).hexdigest()[:24]
+            tool_id = protein_query_id(accession, ordinal)
             if tool_id in tool_ids:
                 raise AnnotationError("Canonical tool-ID collision")
             tool_ids.add(tool_id)

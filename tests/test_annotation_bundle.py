@@ -13,7 +13,12 @@ from Bio.SeqFeature import BeforePosition, CompoundLocation, SeqFeature, SimpleL
 from Bio.SeqRecord import SeqRecord
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
-from annotation_common import AnnotationError, bundle_proteins, read_tsv
+from annotation_common import (
+    AnnotationError,
+    bundle_proteins,
+    read_tsv,
+    protein_query_id,
+)
 from prepare_annotation_bundle import build_bundle
 
 
@@ -79,6 +84,77 @@ class AnnotationBundleTests(unittest.TestCase):
             (self.gbk, "source.gbk"),
         ):
             self.assertEqual(path.read_bytes(), (output / name).read_bytes())
+
+    def test_readable_query_ids_have_no_periods_and_preserve_sources(self):
+        accession = "GCF_000005845.2"
+        output = self.build(accession)
+        row = read_tsv(output / "protein_manifest.tsv")[0]
+        self.assertEqual(row["tool_id"], "GCF_000005845_2__p000001")
+        self.assertEqual(row["protein_id"], "gene_1")
+        self.assertEqual(row["accession"], accession)
+        self.assertEqual(
+            (output / "proteins.faa").read_text(), ">GCF_000005845_2__p000001\nMWA\n"
+        )
+        values = [
+            protein_query_id(a, 1) for a in ("A.1", "A_v1", "A%5Fv1", "A 1", "A+1")
+        ]
+        self.assertEqual(len(values), len(set(values)))
+        self.assertTrue(
+            all(
+                "." not in value and not any(c.isspace() for c in value)
+                for value in values
+            )
+        )
+
+    def test_ambiguous_period_and_underscore_prefixes_are_rejected(self):
+        from annotation_common import require_unique_protein_prefixes
+
+        with self.assertRaisesRegex(AnnotationError, "same protein ID prefix"):
+            require_unique_protein_prefixes(["A.1", "A_1"])
+
+    def test_protein_numbers_follow_coordinates_not_fasta_order(self):
+        sequence = "ATGTGAGCTTAA" * 2
+        self.genome.write_text(">original_contig\n" + sequence + "\n")
+        self.faa.write_text(">a_second\nMWA\n>z_first\nMWA\n")
+        self.gff.write_text(
+            "##gff-version 3\n"
+            + "renamed\tProkka\tCDS\t13\t24\t.\t+\t0\tID=a_second;locus_tag=a_second\n"
+            + "renamed\tProkka\tCDS\t1\t12\t.\t+\t0\tID=z_first;locus_tag=z_first\n"
+            + "##FASTA\n>renamed\n"
+            + sequence
+            + "\n"
+        )
+        record = SeqRecord(
+            Seq(sequence), id="renamed", name="renamed", description="fixture"
+        )
+        record.annotations["molecule_type"] = "DNA"
+        record.features = [
+            SeqFeature(
+                SimpleLocation(start, start + 12, strand=1),
+                type="CDS",
+                qualifiers={
+                    "locus_tag": [name],
+                    "translation": ["MWA"],
+                    "transl_table": ["4"],
+                    "codon_start": ["1"],
+                },
+            )
+            for start, name in ((0, "z_first"), (12, "a_second"))
+        ]
+        SeqIO.write(record, self.gbk, "genbank")
+        first = self.build("GCF_000005845.2", "ordered")
+        rows = read_tsv(first / "protein_manifest.tsv")
+        self.assertEqual([r["protein_id"] for r in rows], ["z_first", "a_second"])
+        self.assertEqual(
+            [r["tool_id"] for r in rows],
+            ["GCF_000005845_2__p000001", "GCF_000005845_2__p000002"],
+        )
+        self.faa.write_text(">z_first\nMWA\n>a_second\nMWA\n")
+        second = self.build("GCF_000005845.2", "reordered")
+        self.assertEqual(
+            (first / "proteins.faa").read_bytes(),
+            (second / "proteins.faa").read_bytes(),
+        )
 
     def test_repeated_locus_tag_in_different_samples_has_distinct_identity(self):
         a = bundle_proteins(self.build())[1][0]

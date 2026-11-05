@@ -578,6 +578,11 @@ def run_validation(
         defer_genome_fasta_check=defer_genome_fasta_check,
         genome_base_dir=genome_base_dir,
     )
+    from annotation_common import require_unique_protein_prefixes
+    try:
+        require_unique_protein_prefixes(record.values["accession"] for record in validated_records)
+    except ValueError as error:
+        raise ValidationError(str(error)) from error
     if policy_settings is not None:
         policies = []
         for record in validated_records:

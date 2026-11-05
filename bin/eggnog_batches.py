@@ -18,6 +18,7 @@ from annotation_common import (
     AnnotationError,
     bundle_proteins,
     canonical_gene_id,
+    protein_query_id,
     digest,
     identity,
     read_json,
@@ -75,7 +76,10 @@ def fasta_records(path: Path) -> Iterator[tuple[str, str]]:
 def validate_proteins(path: Path, proteins: list[dict[str, str]]) -> None:
     """Require exact identity, order, sequence lengths and sequence SHA-256 values."""
     records = fasta_records(path)
+    ordinals = {}
     for protein in proteins:
+        accession = protein["accession"]
+        ordinals[accession] = ordinals.get(accession, 0) + 1
         if set(protein) != set(PROTEIN_COLUMNS):
             raise AnnotationError("Unsupported batch protein-manifest schema")
         record = next(records, None)
@@ -87,8 +91,7 @@ def validate_proteins(path: Path, proteins: list[dict[str, str]]) -> None:
         gene = canonical_gene_id(protein["accession"], protein["protein_id"])
         if (
             protein["gene_id"] != gene
-            or protein["tool_id"]
-            != "p" + hashlib.sha256(gene.encode()).hexdigest()[:24]
+            or protein["tool_id"] != protein_query_id(accession, ordinals[accession])
             or identifier != protein["tool_id"]
             or protein["length"] != str(len(sequence))
             or protein["sha256"] != hashlib.sha256(sequence.encode("ascii")).hexdigest()
