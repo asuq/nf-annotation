@@ -16,6 +16,8 @@ from aai_common import (
     jaccard_cutoff,
 )
 from ani_common import build_genome_from_row
+from build_fastani_inputs import load_busco_index, load_index, load_metadata_index
+from build_master_table import resolve_assembly_metric_value
 from ani_representatives import select_representative_for_indices
 from annotation_common import AnnotationError, read_json, write_json, write_tsv
 from annotation_path_lists import read_path_list
@@ -162,6 +164,9 @@ def run(args):
     members = []
     traces = []
     domains = []
+    _, metadata = load_metadata_index(args.metadata)
+    stats = load_index(args.stats, ("accession",))
+    busco = load_busco_index(read_path_list(args.busco))
     for path in read_path_list(args.domains):
         data = read_json(path / "records.json")
         domain = data["domain"]
@@ -170,6 +175,11 @@ def run(args):
         domains.append(domain)
         if any(r["domain"] != domain for r in data["samples"]):
             raise AnnotationError("Mixed AAI domains")
+        for row in data["samples"]:
+            accession = row["accession"]
+            for key, column in (("n50", "N50"), ("scaffolds", "Scaffolds"), ("genome_size", "Genome_Size")):
+                row["quality"][key] = resolve_assembly_metric_value(metadata.get(accession, {}), stats.get(accession), column)
+            row["quality"]["busco"] = busco.get(accession, {}).get(row["primary_busco_column"], "NA")
         rows, reps, group, trace = cluster_domain(
             data["samples"],
             path,
@@ -218,7 +228,7 @@ def run(args):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    for name in ("domains", "samples", "output"):
+    for name in ("domains", "samples", "metadata", "stats", "busco", "output"):
         p.add_argument("--" + name, type=Path, required=True)
     p.add_argument("--threshold", type=float, default=0.65)
     p.add_argument(

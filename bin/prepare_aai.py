@@ -18,11 +18,9 @@ from atypical_warnings import classify_atypical_warnings
 from build_fastani_inputs import (
     choose_checkm2_fields,
     detect_metadata_value,
-    load_busco_index,
-    load_index,
     load_metadata_index,
 )
-from build_master_table import choose_assembly_level, resolve_assembly_metric_value
+from build_master_table import choose_assembly_level
 from independent_copy import copy_independent
 
 RUNTIME = Path("/opt/nf-annotation/provenance/fastaai.json")
@@ -125,9 +123,6 @@ def prepare(args):
     )
     selected = read_json(args.records)
     _, metadata = load_metadata_index(args.metadata)
-    qc = load_index(args.checkm2, ("accession",))
-    busco = load_busco_index(read_path_list(args.busco))
-    stats = load_index(args.stats, ("accession",))
     bundles = {}
     for path in read_path_list(args.bundles):
         record = read_json(path / "bundle.json")
@@ -149,9 +144,9 @@ def prepare(args):
         temp = Path(temp)
         for sample in selected:
             acc = sample["accession"]
-            q = qc.get(acc, {})
+            q = sample["qc"]
             gcode, completeness, contamination = choose_checkm2_fields(q)
-            m, stat = metadata.get(acc, {}), stats.get(acc)
+            m = metadata.get(acc, {})
             bundle_path, bundle = bundles.get(acc, (None, {}))
             reasons = []
             if gcode not in ("4", "11"):
@@ -174,11 +169,11 @@ def prepare(args):
                 checkm2_completeness=completeness,
                 checkm2_contamination=contamination,
                 assembly_level=choose_assembly_level(sample, m),
-                n50=resolve_assembly_metric_value(m, stat, "N50"),
-                scaffolds=resolve_assembly_metric_value(m, stat, "Scaffolds"),
-                genome_size=resolve_assembly_metric_value(m, stat, "Genome_Size"),
+                n50="NA",
+                scaffolds="NA",
+                genome_size="NA",
                 organism_name=detect_metadata_value(m, "Organism_Name"),
-                busco=busco.get(acc, {}).get(primary, "NA"),
+                busco="NA",
             )
             row = dict(
                 accession=acc,
@@ -269,9 +264,6 @@ def main():
     for name in (
         "records",
         "metadata",
-        "checkm2",
-        "busco",
-        "stats",
         "bundles",
         "sources",
         "destination",

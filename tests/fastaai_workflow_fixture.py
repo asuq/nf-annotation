@@ -48,7 +48,7 @@ def prepare(request):
             return map(extract, jobs)
 
     prepare_aai.concurrent.futures.ProcessPoolExecutor = Pool
-    for key in ("records", "bundles", "busco", "sources"):
+    for key in ("records", "bundles", "sources"):
         path = Path(key + ".json")
         write_json(path, request[key])
         request[key] = str(path)

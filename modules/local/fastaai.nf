@@ -12,9 +12,6 @@ process PREPARE_AAI_BATCH {
     input:
     tuple val(batch_id), val(records), path(bundles, stageAs: 'bundles/bundle????')
     path metadata, name: 'metadata.tsv'
-    path checkm2, name: 'checkm2.tsv'
-    path busco, stageAs: 'busco/lineage????.tsv'
-    path stats, name: 'assembly_stats.tsv'
     path sources, stageAs: 'sources/source????'
     path dependencies, stageAs: 'dependencies/root????'
     path destination, name: 'destination'
@@ -32,14 +29,11 @@ RECORDS
     cat > bundles.json <<'BUNDLES'
 ${values.call(bundles)}
 BUNDLES
-    cat > busco.json <<'BUSCO'
-${values.call(busco)}
-BUSCO
     cat > sources.json <<'SOURCES'
 ${values.call(sources)}
 SOURCES
-    prepare_aai.py --records records.json --metadata metadata.tsv --checkm2 checkm2.tsv \
-        --busco busco.json --stats assembly_stats.tsv --bundles bundles.json --sources sources.json \
+    prepare_aai.py --records records.json --metadata metadata.tsv \
+        --bundles bundles.json --sources sources.json \
         --destination destination --domain '${params.domain}' --primary-busco-column '${primary_busco_column}' --threads ${task.cpus} --output batch.json
     python3 - <<'PY'
 import json
@@ -50,8 +44,8 @@ PY
     """
     stub:
     def paths = { value -> (value instanceof Collection ? value : [value]).collect { it.toString() } }
-    def request = [records:records, bundles:paths.call(bundles), busco:paths.call(busco), sources:paths.call(sources),
-        metadata:metadata.toString(), checkm2:checkm2.toString(), stats:stats.toString(), destination:destination.toString(),
+    def request = [records:records, bundles:paths.call(bundles), sources:paths.call(sources),
+        metadata:metadata.toString(), destination:destination.toString(),
         primary_busco_column:primary_busco_column, domain:params.domain, threads:task.cpus, output:'batch.json']
     """
     cat > request.json <<'REQUEST'
@@ -118,6 +112,9 @@ process CLUSTER_AAI {
     input:
     path domains, stageAs: 'domains/domain??'
     path samples
+    path metadata, name: 'metadata.tsv'
+    path stats, name: 'assembly_stats.tsv'
+    path busco, stageAs: 'busco/lineage????.tsv'
     output:
     path 'aai/aai_summary.tsv', emit: summary
     path 'aai/aai_representatives.tsv', emit: representatives
@@ -129,12 +126,16 @@ process CLUSTER_AAI {
     path 'versions.yml', emit: versions
     script:
     def paths = groovy.json.JsonOutput.toJson((domains instanceof Collection ? domains : [domains]).collect { it.toString() })
+    def buscoPaths = groovy.json.JsonOutput.toJson((busco instanceof Collection ? busco : [busco]).collect { it.toString() })
     """
+    cat > busco.json <<'BUSCO'
+${buscoPaths}
+BUSCO
     cat > domains.json <<'DOMAINS'
 ${paths}
 DOMAINS
     cluster_aai.py --domains domains.json --samples '${samples}' --threshold ${params.aai_threshold} \
-        --score-profile '${params.score_profile}' --output aai
+        --score-profile '${params.score_profile}' --metadata metadata.tsv --stats assembly_stats.tsv --busco busco.json --output aai
     cat > versions.yml <<'VERSIONS'
 "${task.process}":
   script: "bin/cluster_aai.py"

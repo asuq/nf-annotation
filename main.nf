@@ -173,9 +173,10 @@ workflow {
         PER_SAMPLE_QC.out.gcode_qc,
         codettaDb,
     )
+    allBundles = PER_SAMPLE_ANNOTATION.out.bundles.mix(INPUT_VALIDATION_AND_STAGING.out.reused_bundles)
     FUNCTIONAL_ANNOTATION(
         INPUT_VALIDATION_AND_STAGING.out.validated_samples,
-        PER_SAMPLE_ANNOTATION.out.bundles.mix(INPUT_VALIDATION_AND_STAGING.out.reused_bundles),
+        allBundles,
         ANNOTATION_RESOURCES.out.receipt,
         Channel.value(params.update_from ? PublishedSources.paths(params.update_from) : []),
     )
@@ -193,8 +194,8 @@ workflow {
     )
     COHORT_AAI(
         INPUT_VALIDATION_AND_STAGING.out.validated_samples, metadata,
-        COHORT_ANI.out.checkm2_table, COHORT_ANI.out.parsed_busco, COHORT_ANI.out.assembly_stats,
-        FUNCTIONAL_ANNOTATION.out.bundle_files, Channel.value(primaryBuscoColumn),
+        allGcodeQc, COHORT_ANI.out.parsed_busco, COHORT_ANI.out.assembly_stats,
+        allBundles, Channel.value(primaryBuscoColumn),
     )
     FINAL_OUTPUTS(
         INPUT_VALIDATION_AND_STAGING.out.validated_samples,

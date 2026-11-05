@@ -12,6 +12,32 @@ from annotation_common import read_json, digest
 
 @unittest.skipUnless(fixture.NEXTFLOW, "Nextflow required")
 class AaiStageIntegrationTests(unittest.TestCase):
+    def test_marker_preparation_starts_before_the_busco_cohort_finishes(self):
+        fixture.CohortUpdateIntegrationTestCase.setUpClass()
+        self.addCleanup(fixture.CohortUpdateIntegrationTestCase.tearDownClass)
+        case = fixture.CohortUpdateIntegrationTestCase(methodName="runTest")
+        marker = case.root / "aai-started"
+        caller = case.project / "tests/cohort_update_fixture.py"
+        source = caller.read_text()
+        gate = (
+            "    if args.tool == 'busco' and args.accession == 'B':\n"
+            "        import time\n"
+            "        deadline = time.monotonic() + 45\n"
+            f"        while not Path({str(marker)!r}).exists():\n"
+            "            if time.monotonic() > deadline: raise AssertionError('AAI waited for BUSCO')\n"
+            "            time.sleep(0.05)\n"
+        )
+        caller.write_text(source.replace("def make_stub(args: argparse.Namespace) -> None:\n",
+                                         "def make_stub(args: argparse.Namespace) -> None:\n" + gate))
+        driver = case.project / "tests/fastaai_workflow_fixture.py"
+        driver.write_text(driver.read_text().replace("    prepare_aai.prepare(args)",
+                          "    prepare_aai.prepare(args)\n    Path(" + repr(str(marker)) + ").write_text('ready')"))
+        result = case.run_pipeline("ready-aai", ["A", "B"])
+        self.assertTrue(marker.is_file())
+        trace = fixture.read_rows(result / "pipeline_info/trace.tsv")
+        self.assertEqual(sum(":PREPARE_AAI_BATCH" in row["name"] for row in trace), 2)
+        self.assertTrue((result / "cohort/aai_clusters/aai_summary.tsv").is_file())
+
     def test_16s_independence_and_threshold_score_changes_reuse_native_work(self):
         fixture.CohortUpdateIntegrationTestCase.setUpClass()
         self.addCleanup(fixture.CohortUpdateIntegrationTestCase.tearDownClass)

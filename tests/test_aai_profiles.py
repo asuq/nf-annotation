@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
 import prepare_aai
-from annotation_common import AnnotationError, digest, read_json, write_json, write_tsv
+from annotation_common import AnnotationError, digest, read_json, write_json, write_tsv, read_tsv
 
 
 class AaiProfileTests(unittest.TestCase):
@@ -120,6 +120,13 @@ class AaiProfileTests(unittest.TestCase):
         write_json(self.args.busco, [str(busco)])
         write_json(self.args.bundles, [str(self.bundle)])
         write_json(self.args.sources, [])
+        records = read_json(self.args.records)
+        records[0]["qc"] = read_tsv(self.args.checkm2)[0]
+        write_json(self.args.records, records)
+        # Extraction must not depend on the cohort scoring tables.
+        self.args.checkm2.unlink()
+        self.args.busco.unlink()
+        self.args.stats.unlink()
         self.calls = 0
         owner = self
 

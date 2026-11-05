@@ -65,6 +65,8 @@ The representative's self-similarity is 100 by identity.
 
 Protein prediction is never repeated. At most eight preprocessing batches run,
 with at most two concurrent batches and native workers bounded by task CPUs.
+A batch starts as soon as its QC and protein bundles are ready. BUSCO and assembly
+statistics join at representative scoring, so they do not delay marker searches.
 Profiles are installed atomically as independent files in the current publication.
 Later cohorts can copy matching profiles from their declared source publications.
 

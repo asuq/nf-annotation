@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
-from annotation_common import digest, read_json, write_json, write_tsv
+from annotation_common import digest, read_json, write_json, write_tsv, read_tsv
 
 
 def rss_bytes(usage):
@@ -103,6 +103,9 @@ def native_cache(fixtures, output):
     write_json(args.busco, [str(busco)])
     write_json(args.bundles, [str(bundle)])
     write_json(args.sources, [])
+    records = read_json(args.records)
+    records[0]["qc"] = read_tsv(args.checkm2)[0]
+    write_json(args.records, records)
     runs = []
     for name in ("first", "reuse"):
         prepare_aai.prepare(args)
