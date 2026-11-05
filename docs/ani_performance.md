@@ -90,3 +90,17 @@ The [v0.4.8 qualification](development/v0.4.8_qualification.md) records local
 before/after measurements, regression results and their limits. Reporting speedups
 must not be presented as whole-pipeline or shared-filesystem speedups. No production
 rerun was used to qualify this release.
+
+## Controller capacity
+
+Development targets a controller with 32 CPUs and at least 100 GB RAM. This is a capacity expectation, not a profile default or a per-task
+request. The operator's allocation and local-executor settings remain authoritative.
+Viper retains its existing login-node launcher limits. Slurm worker resource
+classes are scoped to Slurm profiles and do not override workstation defaults.
+
+Clustering requests are separate from native comparison requests. AAI complete
+linkage requests one CPU; ANI requests up to four for independent representative
+scoring. Memory estimates use the actual cohort size, capped by `max_memory`:
+2 GiB plus 32 bytes per dense ANI cell, or 2 GiB plus four times the largest
+condensed AAI Jaccard file. These estimates are conservative scheduling requests,
+not measured guarantees for every cohort size.

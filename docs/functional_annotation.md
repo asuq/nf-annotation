@@ -160,8 +160,8 @@ DIAMOND's block size and index chunks are explicit and derived from that
 allocation, with reserved memory for annotation. They do not use host RAM.
 The example uses the native qualification allocation. Pipeline defaults remain
 four CPUs and 32 GB per search, with a ceiling of 32 concurrent searches; the full-resource eggNOG runtime
-has not been qualified at those defaults. The `local` profile also caps task
-memory at 16 GB unless explicitly increased. Supply matching CPU/memory limits
+has not been qualified at those defaults. Local profiles inherit the common
+per-task limits; the local executor also enforces its total CPU/memory budget. Supply matching CPU/memory limits
 for the selected profile and resources actually available to the runtime.
 
 Use this overlay in the same configuration file to reproduce the per-process

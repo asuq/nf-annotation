@@ -354,11 +354,12 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
         self.assertIn("params.slurm_cluster_options ?: null", slurm_text)
         self.assertNotIn("errorStrategy", slurm_text)
 
-    def test_local_profile_caps_memory_for_workstation_runs(self) -> None:
-        """Keep local acceptance runs within a typical workstation memory budget."""
+    def test_local_profile_uses_common_task_limits(self) -> None:
+        """Leave controller budgets to the allocation and avoid a hidden per-task cap."""
         config_text = LOCAL_CONFIG.read_text(encoding="utf-8")
 
-        self.assertIn("params.max_memory = 16.GB", config_text)
+        self.assertNotIn("params.max_memory =", config_text)
+        self.assertNotIn("executor.cpus", config_text)
         self.assertNotIn("withName: EGGNOG", config_text)
 
     def test_reporting_assets_overwrite_on_resumed_runs(self) -> None:
