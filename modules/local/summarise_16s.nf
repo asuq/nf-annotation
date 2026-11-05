@@ -31,7 +31,7 @@ process SUMMARISE_16S {
     script:
     """
     summarise_16s.py \
-        --accession "${meta.accession}" \
+        --accession=${Shell.quote(meta.accession)} \
         --rrna-gff "${rrna_gff}" \
         --rrna-fasta "${rrna_fasta}" \
         --outdir .

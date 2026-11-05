@@ -22,7 +22,7 @@ process SUMMARISE_CODETTA {
     """
     script_path="\$(command -v summarise_codetta.py)"
     python3 "\${script_path}" \
-        --accession "${meta.accession}" \
+        --accession=${Shell.quote(meta.accession)} \
         --codetta-dir "${codetta_dir}" \
         --output codetta_summary.tsv
 

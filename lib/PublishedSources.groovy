@@ -18,6 +18,6 @@ class PublishedSources {
     }
 
     static String arguments(raw, String option = '--source') {
-        return items(raw).collect { option + " '" + it.toString().replace("'", "'\"'\"'") + "'" }.join(' ')
+        return items(raw).collect { option + " " + Shell.quote(it) }.join(' ')
     }
 }

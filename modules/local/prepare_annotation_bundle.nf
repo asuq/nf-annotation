@@ -18,7 +18,7 @@ process PREPARE_ANNOTATION_BUNDLE {
     script:
     """
     python3 "\$(command -v prepare_annotation_bundle.py)" \
-        --accession '${meta.accession}' --gcode '${gcode}' \
+        --accession=${Shell.quote(meta.accession)} --gcode '${gcode}' \
         --genome '${genome}' --faa '${faa}' --gff '${gff}' --gbk '${gbk}' \
         --prokka-log '${prokka_log}' --outdir bundle
     python_version="\$(python3 --version 2>&1 | sed 's/^Python //')"

@@ -39,13 +39,13 @@ process VALIDATE_INPUTS {
     # sample_policy_sha256=${policy_code}
 
 validate_inputs.py \
-    --sample-csv "${sample_csv}" \
-    --metadata "${metadata}" \
+    --sample-csv=${Shell.quote(sample_csv)} \
+    --metadata=${Shell.quote(metadata)} \
     --sample-policy-base64 "${policyEncoded}" \
     ${qcArg} \
     ${lineageArgs} \
     --defer-genome-fasta-check \
-    --genome-base-dir "${workflow.launchDir}" \
+    --genome-base-dir=${Shell.quote(workflow.launchDir)} \
     --outdir .
 
 cat <<EOF > versions.yml

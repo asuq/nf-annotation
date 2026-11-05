@@ -78,7 +78,7 @@ class CohortUpdateIntegrationTestCase(unittest.TestCase):
             tool = path.stem
             if tool in TOOLS - {"fastani"}:
                 arguments = "--process-name '${task.process}'"
-                arguments += ' --accession "${meta.accession}" --internal-id "${meta.internal_id}"'
+                arguments += ' --accession=${Shell.quote(meta.accession)} --internal-id "${meta.internal_id}"'
                 if tool in {
                     "barrnap",
                     "checkm2",

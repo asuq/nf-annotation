@@ -20,7 +20,7 @@ process SUMMARISE_BUSCO {
 
     script:
     """summarise_busco.py \
-    --accession "${meta.accession}" \
+    --accession=${Shell.quote(meta.accession)} \
     --summary "${busco_summary_json}" \
     --lineage "${lineage}" \
     --output "busco_summary_${lineage}.tsv"

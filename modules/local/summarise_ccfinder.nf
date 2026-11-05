@@ -23,7 +23,7 @@ process SUMMARISE_CCFINDER {
     script:
     """
     summarise_ccfinder.py \
-        --accession "${meta.accession}" \
+        --accession=${Shell.quote(meta.accession)} \
         --result-json "${result_json}" \
         --outdir .
 

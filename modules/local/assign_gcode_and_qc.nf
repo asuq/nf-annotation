@@ -22,7 +22,7 @@ process ASSIGN_GCODE_AND_QC {
     script:
     """
     summarise_checkm2.py \
-        --accession "${meta.accession}" \
+        --accession=${Shell.quote(meta.accession)} \
         --gcode4-report "${checkm2_gcode4_report}" \
         --gcode11-report "${checkm2_gcode11_report}" \
         --gcode-rule '${params.gcode_rule}' \
@@ -40,7 +40,7 @@ process ASSIGN_GCODE_AND_QC {
     stub:
     """
     summarise_checkm2.py \
-        --accession "${meta.accession}" \
+        --accession=${Shell.quote(meta.accession)} \
         --gcode4-report "${checkm2_gcode4_report}" \
         --gcode11-report "${checkm2_gcode11_report}" \
         --gcode-rule '${params.gcode_rule}' \
