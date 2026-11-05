@@ -111,6 +111,8 @@ class ReferenceStageIntegrationTests(unittest.TestCase):
         )
         (launch / "captured.log").write_text(result.stdout + result.stderr)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        trace = fixture.read_rows(reannotation / "pipeline_info/trace.tsv")
+        self.assertTrue(any(row["name"].split(" (")[0].endswith("REFERENCE_ACCEPTANCE") for row in trace))
         validate_source(reannotation)
         self.assertEqual(
             (chained / 'cohort/aai_clusters/aai_summary.tsv').read_bytes(),
