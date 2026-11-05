@@ -119,6 +119,9 @@ class ReferenceStageIntegrationTests(unittest.TestCase):
             (reannotation / 'cohort/aai_clusters/aai_summary.tsv').read_bytes())
         self.assertTrue(list((reannotation / 'cohort/fastaai/profiles').glob('*/profile.json')))
         self.assertTrue((reannotation / 'cohort/assembly_stats/assembly_stats.tsv').is_file())
+        for relative in ('cohort/fastani/fastani.matrix', 'cohort/ani_clusters/cluster.tsv',
+                         'cohort/ani_clusters/ani_summary.tsv'):
+            self.assertEqual((chained / relative).read_bytes(), (reannotation / relative).read_bytes())
         shutil.rmtree(chained)
         shutil.rmtree(source)
         for output in (portable, materialised, reannotation):

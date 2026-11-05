@@ -452,7 +452,8 @@ def import_source(root: Path, output: Path) -> None:
     # of the original publication. Annotation-only work does not recompute them.
     from independent_copy import copy_independent
 
-    for relative in ("cohort/assembly_stats", "cohort/fastaai", "cohort/aai_clusters"):
+    for relative in ("cohort/assembly_stats", "cohort/fastaai", "cohort/aai_clusters",
+                     "cohort/fastani", "cohort/ani_clusters"):
         source = source_path(root, relative)
         if not source.exists():
             continue
