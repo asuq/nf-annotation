@@ -24,7 +24,7 @@ class StreamliningTests(unittest.TestCase):
         case.setUp()
         self.addCleanup(case.doCleanups)
         args = case.cohort(["B", "A"], tools=())
-        full, ani = case.root / "full", case.root / "ani"
+        full, ani = case.root / "full", case.root / "clustering"
         aggregate_annotations.aggregate(*args, full)
         with patch.object(
             annotation_common,

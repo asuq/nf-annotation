@@ -22,6 +22,7 @@ process WRITE_SAMPLE_STATUS {
     path ccfinder_strains
     path prokka_manifest
     path ani_summary
+    path aai_summary
     path assembly_stats
     val primary_busco_column
     val ani_16s_policy
@@ -55,6 +56,7 @@ process WRITE_SAMPLE_STATUS {
         --ccfinder-strains "${ccfinder_strains}" \
         --prokka-manifest "${prokka_manifest}" \
         ${aniArg} \
+        --aai "${aai_summary}" \
         --assembly-stats "${assembly_stats}" \
         --primary-busco-column "${primary_busco_column}" \
         --ani-16s-policy "${ani_16s_policy}" \

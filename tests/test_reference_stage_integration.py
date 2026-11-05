@@ -33,10 +33,10 @@ class ReferenceStageIntegrationTests(unittest.TestCase):
             source=source,
             extra=[
                 "--pipeline_stage",
-                "ani",
+                "clustering",
                 "--ani_16s_policy",
                 "ignore",
-                "--ani_publication_mode",
+                "--publication_mode",
                 mode,
                 "--qc_publication_root",
                 str(self.root / "results-ref-source"),
@@ -51,7 +51,7 @@ class ReferenceStageIntegrationTests(unittest.TestCase):
         reference = self.ani("reference-view", source, "reference")
         self.assertEqual(
             read_json(reference / "annotation_results.json")["pipeline_contract"],
-            "nf-annotation-ani-reference-v2",
+            "nf-annotation-reference-v0.5",
         )
         validate_source(reference)
         matched = 0
@@ -80,7 +80,7 @@ class ReferenceStageIntegrationTests(unittest.TestCase):
             )
         )
         chained = self.ani("chained-view", reference, "reference")
-        providers = read_json(chained / "ani_references.json")["sources"]
+        providers = read_json(chained / "cohort_references.json")["sources"]
         self.assertEqual([row["path"] for row in providers], ["."])
         shutil.rmtree(reference)
         validate_source(chained)
@@ -112,6 +112,11 @@ class ReferenceStageIntegrationTests(unittest.TestCase):
         (launch / "captured.log").write_text(result.stdout + result.stderr)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         validate_source(reannotation)
+        self.assertEqual(
+            (chained / 'cohort/aai_clusters/aai_summary.tsv').read_bytes(),
+            (reannotation / 'cohort/aai_clusters/aai_summary.tsv').read_bytes())
+        self.assertTrue(list((reannotation / 'cohort/fastaai/profiles').glob('*/profile.json')))
+        self.assertTrue((reannotation / 'cohort/assembly_stats/assembly_stats.tsv').is_file())
         shutil.rmtree(chained)
         shutil.rmtree(source)
         for output in (portable, materialised, reannotation):

@@ -86,6 +86,32 @@ class CohortValidationPoolTests(unittest.TestCase):
 
 
 class CohortValidationEquivalenceTests(unittest.TestCase):
+    def test_shared_genome_is_read_once_and_distinct_candidates_are_checked(self):
+        import prepare_cohort_update as update
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory(dir="/tmp") as name:
+            root = Path(name)
+            (root / "staged").mkdir()
+            staged = root / "staged/A.fasta"
+            staged.write_text(">contig\nACGT\n")
+            shared = root / "shared.fasta"
+            shared.symlink_to(staged)
+            copied = root / "copied.fasta"
+            copied.write_bytes(staged.read_bytes())
+            job = dict(sample={"accession": "A"}, source={"internal_id": "A"},
+                       native=root, stage="clustering", status={}, master={},
+                       lineages=[], gcode_rule="mean_gene_length_ratio")
+            fingerprint = update.genome_fingerprint(staged)
+            with patch.object(update, "validate_sample_outputs", side_effect=lambda *_: update.genome_fingerprint(staged)):
+                for candidate, reads in ((shared, 1), (copied, 2)):
+                    with patch.object(update, "genome_fingerprint", wraps=update.genome_fingerprint) as reader:
+                        self.assertEqual(update.validate_requested_sample(dict(job, candidate=candidate)), fingerprint)
+                        self.assertEqual(reader.call_count, reads)
+                copied.write_text(">contig\nTTTT\n")
+                with self.assertRaisesRegex(update.CohortUpdateError, "Genome content changed"):
+                    update.validate_requested_sample(dict(job, candidate=copied))
+
     def test_real_sample_validation_is_byte_identical_for_all_worker_counts(self):
         import copy
 

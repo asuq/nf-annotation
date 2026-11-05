@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import json
 import shutil
 import subprocess
 import sys
@@ -114,7 +115,11 @@ class StubResumeStorageTestCase(unittest.TestCase):
                        "annotation_results.json", "annotation_complete.txt")
             for directory in added:
                 contents = {path.name for path in (workdir / directory).rglob("*")}
-                self.assertTrue(any(name in contents for name in allowed), directory)
+                if 'preprocessing_metrics.json' in contents:
+                    metrics = json.loads((workdir / directory / 'preprocessing_metrics.json').read_text())
+                    self.assertEqual(metrics['extracted'], 0, directory)
+                else:
+                    self.assertTrue(any(name in contents for name in allowed), (directory, sorted(contents)))
             self.assertTrue((outdir / "tables" / "master_table.tsv").is_file())
             bundle = outdir / "samples/TEST_ACC/annotation/bundle"
             manifest, proteins = bundle_proteins(bundle)

@@ -6,7 +6,7 @@ process IMPORT_ANNOTATION_SOURCE {
     errorStrategy 'finish'
     maxRetries 0
     publishDir params.outdir, mode: 'copy', overwrite: true,
-        saveAs: { name -> name.startsWith('imported/inherited/samples/') || name.startsWith('imported/inherited/tables/') ? name.substring(19) : null }
+        saveAs: { name -> name.startsWith('imported/inherited/samples/') || name.startsWith('imported/inherited/tables/') || name.startsWith('imported/inherited/cohort/') ? name.substring(19) : null }
 
     input:
     path source_results, name: 'source_results'

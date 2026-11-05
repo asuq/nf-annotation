@@ -21,7 +21,7 @@ from annotation_source import import_source, validate_source
 from benchmark_ani_reuse import make_source
 from complete_ani_references import complete
 from import_ani_batch import run
-from publication_references import REFERENCE_CONTRACT as REFERENCE_CONTRACT, REFERENCE_FILE, Publication
+from publication_references import REFERENCE_CONTRACT, REFERENCE_FILE, Publication
 from fingerprinting.source_fingerprint import fingerprint, fingerprint_sources
 from verify_reference_acceptance import verify
 

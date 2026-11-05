@@ -73,10 +73,10 @@ workflow FUNCTIONAL_ANNOTATION {
     }
     sharedPreflight = preflight.first()
     if (!SamplePolicy.annotationTools(params)) {
-        def isAni = SamplePolicy.stage(params) == 'ani'
+        def isAni = SamplePolicy.stage(params) == 'clustering'
         publicationInputs = isAni ? collectedBundles.map { [file(params.outdir)] } : collectedBundles
         publicationPaths = isAni ? collectedBundles.map { items -> items.collect { it.toString() } } : Channel.value([])
-        publicationDependencies = isAni && params.ani_publication_mode == 'reference' ? Channel.value(ReferenceInputs.paths(PublishedSources.paths(params.update_from))) : Channel.value([])
+        publicationDependencies = isAni && params.publication_mode == 'reference' ? Channel.value(ReferenceInputs.paths(PublishedSources.paths(params.update_from))) : Channel.value([])
         PLAN_DISABLED_ANNOTATIONS(samples, sharedPreflight, publicationInputs, publicationPaths, publicationDependencies)
         functionalResults = Channel.empty()
         nativeBatches = Channel.empty()

@@ -5,7 +5,7 @@ process IMPORT_ANI_BATCH {
     stageInMode 'symlink'
     container params.python_container
     cache false
-    maxForks params.ani_import_max_forks
+    maxForks params.import_max_forks
     errorStrategy 'finish'
     maxRetries 0
 
@@ -45,7 +45,7 @@ SOURCE_VALIDATION
     import_status=0
     python3 "\$(command -v import_ani_batch.py)" \
         --records records.json --sources sources.json --destination destination \
-        --mode '${params.ani_publication_mode}' ${qcArg} --source-validation source_validation.json \
+        --mode '${params.publication_mode}' ${qcArg} --source-validation source_validation.json \
         --channels channels --audit import_audit.json || import_status=\$?
     mkdir -p destination/pipeline_info/ani_import
     if [[ -f import_audit.json ]]; then

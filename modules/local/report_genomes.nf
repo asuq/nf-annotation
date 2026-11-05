@@ -10,14 +10,14 @@ process REPORT_GENOMES {
     path master, name: 'master.tsv'
     path status, name: 'status.tsv'
     path bundles, stageAs: 'bundles/bundle??????.json'
-    path reference, name: 'ani_references.json'
+    path reference, name: 'cohort_references.json'
     output:
     path 'report/tables/*', emit: tables
     path 'report/annotation_results.json', emit: manifest
     path 'report/annotation_acceptance.json', emit: acceptance
     script:
     def bundleList = groovy.json.JsonOutput.toJson((bundles instanceof Collection ? bundles : [bundles]).collect { it.toString() })
-    def referenceArg = reference ? '--reference ani_references.json' : ''
+    def referenceArg = reference ? '--reference cohort_references.json' : ''
     """
     cat > bundles.json <<'BUNDLES'
 ${bundleList}

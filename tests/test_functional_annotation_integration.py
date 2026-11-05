@@ -240,9 +240,9 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
         for accession in ("B", "A"):
             target = view / f"samples/{accession}/annotation/bundle"
             target.parent.mkdir(parents=True)
-            target.symlink_to((self.source / f"samples/{accession}/annotation/bundle").resolve(), target_is_directory=True)
+            target.symlink_to(os.path.relpath(self.source / f"samples/{accession}/annotation/bundle", target.parent), target_is_directory=True)
             samples[accession] = {"native_source": 0, "entries": [], "bundle": {"source": 0}}
-        references = {"schema_version": 1, "mode": "reference", "sources": [{"root": snapshot["root"], "sha256": snapshot["sha256"]}], "samples": samples}
+        references = {"schema_version": 1, "mode": "reference", "qc_publication_root": os.path.relpath(self.source, view), "sources": [{"path": ".", "sha256": snapshot["sha256"]}], "samples": samples}
         references["reference_id"] = identity(references)
         write_json(view / REFERENCE_FILE, references)
         manifest = read_json(self.source / "annotation_results.json")

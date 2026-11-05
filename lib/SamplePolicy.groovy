@@ -24,8 +24,9 @@ class SamplePolicy {
     }
 
     static String stage(params) {
+        rejectWithdrawnClusteringOptions(params)
         def value = params.pipeline_stage
-        if (!(value in ['full', 'qc', 'ani'])) { throw new IllegalArgumentException('pipeline_stage must be full, qc or ani') }
+        if (!(value in ['full', 'qc', 'clustering'])) { throw new IllegalArgumentException('pipeline_stage must be full, qc or clustering') }
         value.toString()
     }
 
@@ -38,6 +39,17 @@ class SamplePolicy {
             if (params.containsKey(name)) {
                 throw new IllegalArgumentException("--${name} is unsupported; use --domain bacteria, archaea or metadata")
             }
+        }
+    }
+
+    static void rejectWithdrawnClusteringOptions(params) {
+        ['ani_publication_mode', 'ani_import_batches', 'ani_import_max_forks', 'ani_score_profile'].each { name ->
+            if (params.containsKey(name)) {
+                throw new IllegalArgumentException("--${name} has been removed; use the shared publication_mode, import_batches, import_max_forks and score_profile options")
+            }
+        }
+        if (params.pipeline_stage == 'ani') {
+            throw new IllegalArgumentException('--pipeline_stage ani has been removed; use --pipeline_stage clustering')
         }
     }
 

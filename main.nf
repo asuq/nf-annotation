@@ -4,6 +4,7 @@ nextflow.enable.dsl = 2
 
 include { BUSCO_DATASET_PREP } from './subworkflows/local/busco_dataset_prep'
 include { COHORT_16S } from './subworkflows/local/cohort_16s'
+include { COHORT_AAI } from './subworkflows/local/cohort_aai'
 include { COHORT_ANI } from './subworkflows/local/cohort_ani'
 include { COHORT_TAXONOMY } from './subworkflows/local/cohort_taxonomy'
 include { FINAL_OUTPUTS } from './subworkflows/local/final_outputs'
@@ -15,13 +16,13 @@ include { ANNOTATION_RESOURCES; FUNCTIONAL_ANNOTATION } from './subworkflows/loc
 workflow {
     SamplePolicy.requireDomain(params)
     def pipelineStage = SamplePolicy.stage(params)
-    if (!(params.ani_publication_mode in ['self_contained', 'reference'])) {
-        error '--ani_publication_mode must be self_contained or reference'
+    if (!(params.publication_mode in ['self_contained', 'reference'])) {
+        error '--publication_mode must be self_contained or reference'
     }
-    if (params.ani_publication_mode == 'reference' && pipelineStage != 'ani') {
-        error '--ani_publication_mode reference requires --pipeline_stage ani'
+    if (params.publication_mode == 'reference' && pipelineStage != 'clustering') {
+        error '--publication_mode reference requires --pipeline_stage clustering'
     }
-    if (params.ani_publication_mode == 'reference') {
+    if (params.publication_mode == 'reference') {
         if (!params.qc_publication_root) { error '--qc_publication_root is required for reference outputs' }
         def qcRoot = file(params.qc_publication_root, checkIfExists: true).toFile().canonicalFile.toPath()
         def outputRoot = file(params.outdir).toFile().canonicalFile.toPath()
@@ -37,14 +38,14 @@ workflow {
     if (!fingerprintWorkers.isInteger() || (fingerprintWorkers as int) < 1 || (fingerprintWorkers as int) > 8) {
         error '--source_fingerprint_workers must be an integer from 1 to 8'
     }
-    ['ani_import_batches', 'ani_import_max_forks'].each { name ->
+    ['import_batches', 'import_max_forks'].each { name ->
         def value = params[name].toString()
         if (!value.isInteger() || (value as int) < 1 || (value as int) > 64) {
             error "--${name} must be an integer from 1 to 64"
         }
     }
-    if (pipelineStage == 'ani' && !params.update_from) {
-        error '--pipeline_stage ani requires completed QC publications via --update_from'
+    if (pipelineStage == 'clustering' && !params.update_from) {
+        error '--pipeline_stage clustering requires completed QC publications via --update_from'
     }
     if (!(params.gcode_rule in ['mean_gene_length_ratio', 'strict_delta', 'delta_then_11'])) {
         error "--gcode_rule must be one of: mean_gene_length_ratio, strict_delta, delta_then_11"
@@ -114,11 +115,18 @@ workflow {
     if (!Double.isFinite(aniThresholdValue) || aniThresholdValue <= 0 || aniThresholdValue >= 1) {
         error "params.ani_threshold must be a finite fraction in (0,1)."
     }
-    if (!(params.ani_score_profile in ['default', 'isolate', 'mag'])) {
-        error "params.ani_score_profile must be default, isolate, or mag."
+    if (!(params.score_profile in ['default', 'isolate', 'mag'])) {
+        error "params.score_profile must be default, isolate, or mag."
     }
     if (!params.busco_domain_lineages && !(primaryBuscoColumn in buscoLineagesList.collect { lineage -> "BUSCO_${lineage}".toString() })) {
         error "params.busco_primary_column must identify one of the configured BUSCO lineages."
+    }
+
+    def aaiThresholdValue = null
+    try { aaiThresholdValue = params.aai_threshold.toString().toDouble() }
+    catch (NumberFormatException ignored) { error '--aai_threshold must be a finite fraction from 0.30 to 0.90' }
+    if (!Double.isFinite(aaiThresholdValue) || aaiThresholdValue < 0.30 || aaiThresholdValue > 0.90) {
+        error '--aai_threshold must be a finite fraction from 0.30 to 0.90'
     }
 
     ANNOTATION_RESOURCES()
@@ -183,6 +191,11 @@ workflow {
         Channel.value(primaryBuscoColumn),
         Channel.value(params.ani_16s_policy),
     )
+    COHORT_AAI(
+        INPUT_VALIDATION_AND_STAGING.out.validated_samples, metadata,
+        COHORT_ANI.out.checkm2_table, COHORT_ANI.out.parsed_busco, COHORT_ANI.out.assembly_stats,
+        FUNCTIONAL_ANNOTATION.out.bundle_files, Channel.value(primaryBuscoColumn),
+    )
     FINAL_OUTPUTS(
         INPUT_VALIDATION_AND_STAGING.out.validated_samples,
         INPUT_VALIDATION_AND_STAGING.out.sample_status,
@@ -198,6 +211,7 @@ workflow {
         FUNCTIONAL_ANNOTATION.out.plan,
         FUNCTIONAL_ANNOTATION.out.bundle_files,
         FUNCTIONAL_ANNOTATION.out.native_batches,
+        COHORT_AAI.out.summary,
         COHORT_ANI.out.summary,
         COHORT_ANI.out.representatives,
         COHORT_ANI.out.ani_metadata,
@@ -212,7 +226,7 @@ workflow {
             .mix(PER_SAMPLE_QC.out.versions)
             .mix(COHORT_16S.out.versions)
             .mix(PER_SAMPLE_ANNOTATION.out.versions)
-            .mix(COHORT_ANI.out.versions),
+            .mix(COHORT_ANI.out.versions).mix(COHORT_AAI.out.versions),
         INPUT_VALIDATION_AND_STAGING.out.inherited_versions,
         workflow.nextflow.version.toString(),
         workflow.manifest.version ?: 'NA',

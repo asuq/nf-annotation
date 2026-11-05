@@ -15,17 +15,23 @@ NEXTFLOW = shutil.which("nextflow")
 class DomainCliTests(unittest.TestCase):
     def test_missing_invalid_and_removed_options_fail_before_tasks(self):
         cases = [
+            ("main.nf", ["--domain", "bacteria", "--pipeline_stage", "ani"], "has been removed"),
+            ("main.nf", ["--domain", "bacteria", "--ani_publication_mode", "reference"], "has been removed"),
+            ("main.nf", ["--domain", "bacteria", "--ani_import_batches", "8"], "has been removed"),
+            ("main.nf", ["--domain", "bacteria", "--ani_import_max_forks", "2"], "has been removed"),
+            ("main.nf", ["--domain", "bacteria", "--ani_score_profile", "mag"], "has been removed"),
+            ("main.nf", ["-profile", "test", "--domain", "bacteria", "--aai_threshold", "0.91"], "--aai_threshold"),
             ("reannotate.nf", ["--source_fingerprint_workers", "9"], "must be an integer from 1 to 8"),
-            ("main.nf", ["--domain", "bacteria", "--pipeline_stage", "ani", "--ani_publication_mode", "reference"], "--qc_publication_root is required"),
+            ("main.nf", ["--domain", "bacteria", "--pipeline_stage", "clustering", "--publication_mode", "reference"], "--qc_publication_root is required"),
             ("main.nf", ["--domain", "bacteria", "--cohort_validation_workers", "9"], "must be an integer from 1 to 8"),
             ("main.nf", ["--domain", "bacteria", "--source_fingerprint_workers", "9"], "must be an integer from 1 to 8"),
             ("main.nf", ["--domain", "bacteria", "--source_fingerprint_workers", "0"], "must be an integer from 1 to 8"),
-            ("main.nf", ["--domain", "bacteria", "--ani_publication_mode", "unknown"], "must be self_contained or reference"),
-            ("main.nf", ["--domain", "bacteria", "--ani_publication_mode", "reference"], "requires --pipeline_stage ani"),
+            ("main.nf", ["--domain", "bacteria", "--publication_mode", "unknown"], "must be self_contained or reference"),
+            ("main.nf", ["--domain", "bacteria", "--publication_mode", "reference"], "requires --pipeline_stage clustering"),
             ("main.nf", [], "--domain is required"),
             ("main.nf", ["--domain", "auto"], "--domain is required"),
             ("main.nf", ["--pipeline_stage", "qc"], "--domain is required"),
-            ("main.nf", ["--pipeline_stage", "ani"], "--domain is required"),
+            ("main.nf", ["--pipeline_stage", "clustering"], "--domain is required"),
         ]
         for entrypoint in ("main.nf", "prepare_databases.nf", "reannotate.nf"):
             for name in ("domain_column", "prokka_kingdom", "barrnap_kingdom"):

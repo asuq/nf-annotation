@@ -29,7 +29,7 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
         """Keep warning-prone runtime params defined in the root config."""
         config_text = NEXTFLOW_CONFIG.read_text(encoding="utf-8")
 
-        self.assertIn("ani_score_profile = 'default'", config_text)
+        self.assertIn("score_profile = 'default'", config_text)
         self.assertIn("ani_16s_policy = 'complete'", config_text)
         self.assertIn("busco_db = null", config_text)
         self.assertIn("codetta_db = null", config_text)

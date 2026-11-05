@@ -25,6 +25,7 @@ workflow FINAL_OUTPUTS {
     annotation_plan
     annotation_bundles
     annotation_batches
+    aaiSummary
     aniSummary
     aniRepresentatives
     ani_metadata
@@ -153,6 +154,7 @@ workflow FINAL_OUTPUTS {
         combined_codetta,
         combined_ccfinder,
         aniSummary,
+        aaiSummary,
         assembly_stats,
         Channel.value(SamplePolicy.codeHash(projectDir)),
     )
@@ -170,17 +172,18 @@ workflow FINAL_OUTPUTS {
         combined_ccfinder,
         prokkaManifest,
         aniSummary,
+        aaiSummary,
         assembly_stats,
         primary_busco_column,
         ani_16s_policy,
         Channel.value(SamplePolicy.codeHash(projectDir)),
     )
 
-    def isAni = SamplePolicy.stage(params) == 'ani'
-    publicationDependencies = isAni && params.ani_publication_mode == 'reference' ? Channel.value(ReferenceInputs.paths(PublishedSources.paths(params.update_from))) : Channel.value([])
+    def isAni = SamplePolicy.stage(params) == 'clustering'
+    publicationDependencies = isAni && params.publication_mode == 'reference' ? Channel.value(ReferenceInputs.paths(PublishedSources.paths(params.update_from))) : Channel.value([])
     if (!SamplePolicy.annotationTools(params)) {
         manifests = annotation_bundles.map { items -> items.collect { it.resolve('bundle.json') } }
-        references = annotation_bundles.map { params.ani_publication_mode == 'reference' ? file("${params.outdir}/ani_references.json") : [] }
+        references = annotation_bundles.map { params.publication_mode == 'reference' ? file("${params.outdir}/cohort_references.json") : [] }
         REPORT_GENOMES(annotation_plan, BUILD_MASTER_TABLE.out.master_table, WRITE_SAMPLE_STATUS.out.sample_status, manifests, references)
         reportTables = REPORT_GENOMES.out.tables
         reportManifest = REPORT_GENOMES.out.manifest
@@ -214,7 +217,7 @@ workflow FINAL_OUTPUTS {
         container_engine,
     )
 
-    if (isAni && params.ani_publication_mode == 'reference') {
+    if (isAni && params.publication_mode == 'reference') {
         REFERENCE_ACCEPTANCE(reportAcceptance, COLLECT_VERSIONS.out.versions_table,
             Channel.value(file(params.outdir)), publicationDependencies, Channel.value([]))
     } else {

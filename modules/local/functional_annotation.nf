@@ -52,8 +52,8 @@ process PLAN_DISABLED_ANNOTATIONS {
 
     script:
     def inputs = bundles instanceof Collection ? bundles : [bundles]
-    def isAni = SamplePolicy.stage(params) == 'ani'
-    def publicationArg = isAni ? "--publication '${inputs[0]}' --publication-mode '${params.ani_publication_mode}'" : ''
+    def isAni = SamplePolicy.stage(params) == 'clustering'
+    def publicationArg = isAni ? "--publication '${inputs[0]}' --publication-mode '${params.publication_mode}'" : ''
     def bundleList = groovy.json.JsonOutput.toJson(isAni ? bundle_paths : inputs.collect { it.toString() })
     """
     cat > bundle_list.json <<'ANNOTATION_BUNDLES'
@@ -333,8 +333,8 @@ process AGGREGATE_ANNOTATIONS {
         AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
     }
     def inputs = bundles instanceof Collection ? bundles : [bundles]
-    def isAni = SamplePolicy.stage(params) == 'ani'
-    def publicationArg = isAni ? "--publication '${inputs[0]}' --publication-mode '${params.ani_publication_mode}'" : ''
+    def isAni = SamplePolicy.stage(params) == 'clustering'
+    def publicationArg = isAni ? "--publication '${inputs[0]}' --publication-mode '${params.publication_mode}'" : ''
     def bundleList = groovy.json.JsonOutput.toJson(isAni ? bundle_paths : inputs.collect { it.toString() })
     def resultList = groovy.json.JsonOutput.toJson((results instanceof Collection ? results : [results]).collect { it.toString() })
     def batchList = groovy.json.JsonOutput.toJson((batches instanceof Collection ? batches : [batches]).collect { it.toString() })

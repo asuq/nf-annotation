@@ -121,7 +121,7 @@ class DomainStageIntegrationTests(unittest.TestCase):
         shutil.rmtree(self.root / "work-domain-qc-a")
         shutil.rmtree(self.root / "work-domain-qc-b")
         output = self.run_stage(
-            "domain-ani", ["A", "B", "LOW", "NOGCODE"], "ani", source=[a, b]
+            "domain-ani", ["A", "B", "LOW", "NOGCODE"], "clustering", source=[a, b]
         )
         names = {
             r["name"].split(" (")[0].split(":")[-1]
@@ -208,7 +208,7 @@ class DomainStageIntegrationTests(unittest.TestCase):
         self.run_stage(
             "domain-ani",
             ["A", "B", "LOW", "NOGCODE"],
-            "ani",
+            "clustering",
             source=[a, b],
             resume=True,
         )
@@ -246,7 +246,7 @@ class DomainStageIntegrationTests(unittest.TestCase):
             self.run_stage(
                 "domain-ani",
                 ["A", "B", "LOW", "NOGCODE"],
-                "ani",
+                "clustering",
                 source=[a, b],
                 resume=True,
                 expected_code=1,
@@ -271,7 +271,7 @@ class DomainStageIntegrationTests(unittest.TestCase):
             self.run_stage(
                 "domain-ani",
                 ["A", "B", "LOW", "NOGCODE"],
-                "ani",
+                "clustering",
                 source=[a, b],
                 resume=True,
                 expected_code=1,
@@ -290,7 +290,7 @@ class DomainStageIntegrationTests(unittest.TestCase):
         finally:
             changed.write_bytes(original_bytes)
         self.run_stage(
-            "domain-ani-missing", ["A", "D"], "ani", source=a, expected_code=1
+            "domain-ani-missing", ["A", "D"], "clustering", source=a, expected_code=1
         )
         self.assertIn(
             "completed QC publications for every requested sample",
@@ -300,7 +300,7 @@ class DomainStageIntegrationTests(unittest.TestCase):
         self.config.write_text(
             original_config.replace("['archaea_odb12']", "['other_archaeal_odb12']")
         )
-        self.run_stage("domain-incompatible", ["B"], "ani", source=b, expected_code=1)
+        self.run_stage("domain-incompatible", ["B"], "clustering", source=b, expected_code=1)
         self.config.write_text(original_config)
 
     def test_single_domain_modes_produce_matching_provenance(self):
@@ -350,7 +350,7 @@ class DomainStageIntegrationTests(unittest.TestCase):
                 "params { domain = 'metadata'; busco_domain_lineages = [Bacteria: ['bacillota_odb12', 'mycoplasmatota_odb12']] }\n"
             )
             self.run_stage(
-                "legacy-unsafe", ["A"], "ani", source=legacy, expected_code=1
+                "legacy-unsafe", ["A"], "clustering", source=legacy, expected_code=1
             )
             self.assertIn(
                 "Domain/BUSCO policy changed or is unrecorded",

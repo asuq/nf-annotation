@@ -15,7 +15,7 @@ workflow {
         error '--source_fingerprint_workers must be an integer from 1 to 8'
     }
     if (SamplePolicy.stage(params) != 'full') { error '--pipeline_stage applies to main.nf, not reannotate.nf' }
-    if (params.ani_publication_mode != 'self_contained') { error 'reannotate.nf produces self-contained outputs; --ani_publication_mode applies to ANI-only main.nf runs' }
+    if (params.publication_mode != 'self_contained') { error 'reannotate.nf produces self-contained outputs; --publication_mode applies to ANI-only main.nf runs' }
     if (!params.annotation_from) { error '--annotation_from requires native v0.4 published results' }
     def source = file(params.annotation_from, checkIfExists: true).toFile().canonicalFile.toPath()
     def destination = file(params.outdir).toFile().canonicalFile.toPath()

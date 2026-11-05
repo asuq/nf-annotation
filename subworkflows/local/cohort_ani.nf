@@ -109,7 +109,7 @@ workflow COHORT_ANI {
         }
         .collect()
 
-    if (SamplePolicy.stage(params) == 'ani') {
+    if (SamplePolicy.stage(params) == 'clustering') {
         assemblyStats = reused_assembly_stats
         assemblyVersions = Channel.empty()
     } else {
@@ -162,6 +162,7 @@ workflow COHORT_ANI {
     versions = SUMMARISE_BUSCO.out.versions.mix(assemblyVersions).mix(aniVersions)
 
     emit:
+    checkm2_table = combined_checkm2
     parsed_busco = busco_tables
     fastani_inputs = preparedInputs
     fastani_paths = preparedPaths

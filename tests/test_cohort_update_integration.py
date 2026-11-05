@@ -64,9 +64,13 @@ class CohortUpdateIntegrationTestCase(unittest.TestCase):
             ROOT / "tests/cohort_update_fixture.py",
             cls.project / "tests/cohort_update_fixture.py",
         )
+        if (ROOT / 'tests/fastaai_workflow_fixture.py').is_file():
+            shutil.copy2(ROOT / 'tests/fastaai_workflow_fixture.py', cls.project / 'tests/fastaai_workflow_fixture.py')
         # Keep production scripts intact. Replace expensive stubs and execute
         # the real lightweight scripts in stub mode rather than canned tables.
         for path in (cls.project / "modules/local").glob("*.nf"):
+            if path.name == 'fastaai.nf':
+                continue
             content = path.read_text()
             if "\n    stub:" not in content:
                 continue
@@ -240,7 +244,7 @@ class CohortUpdateIntegrationTestCase(unittest.TestCase):
             in TOOLS - {"fastani"}
         ]
 
-    def test_update_rebuilds_failed_bundle_from_retained_native_inputs(self) -> None:
+    def test_update_preserves_failed_bundle_without_rebuilding(self) -> None:
         source = self.run_pipeline("bundle-source-b", ["B"])
         bundle = source / "samples/B/annotation/bundle"
         original = json.loads((bundle / "bundle.json").read_text())
@@ -252,7 +256,7 @@ class CohortUpdateIntegrationTestCase(unittest.TestCase):
                     "schema_version": original["schema_version"],
                     "accession": "B",
                     "status": "incompatible_input",
-                    "reason": "previous bundle adapter rejected valid native input",
+                    "reason": "native input is incompatible with the canonical bundle",
                 }
             )
             + "\n"
@@ -267,13 +271,18 @@ class CohortUpdateIntegrationTestCase(unittest.TestCase):
         shutil.rmtree(self.root / "work-bundle-source-b")
         shutil.rmtree(self.root / "launch-bundle-source-b/.nextflow")
 
-        updated = self.run_pipeline("bundle-rebuilt-b", ["B"], source=source)
-        rebuilt = json.loads(
-            (updated / "samples/B/annotation/bundle/bundle.json").read_text()
+        updated = self.run_pipeline("bundle-retained-b", ["B"], source=source)
+        self.assertEqual(
+            (updated / "samples/B/annotation/bundle/bundle.json").read_bytes(),
+            (bundle / "bundle.json").read_bytes(),
         )
-        self.assertEqual(rebuilt["status"], "success")
-        self.assertEqual(rebuilt["input_id"], original["input_id"])
-        self.assertEqual(rebuilt["coordinate_id"], original["coordinate_id"])
+        status = read_rows(updated / "tables/sample_status.tsv")[0]
+        self.assertEqual(status["aai_status"], "excluded")
+        self.assertIn("no_valid_protein_bundle", status["aai_exclusion_reason"])
+        self.assertFalse(any(
+            "PREPARE_ANNOTATION_BUNDLE" in row["name"]
+            for row in read_rows(updated / "pipeline_info/trace.tsv")
+        ))
         self.assertEqual(self.heavy_tasks(updated), [])
         self.assertEqual(fingerprints(source), before)
         for name in ("prokka.faa", "prokka.gff", "prokka.gbk"):
@@ -377,7 +386,7 @@ class CohortUpdateIntegrationTestCase(unittest.TestCase):
             extra=[
                 "--ani_threshold",
                 "0.9999",
-                "--ani_score_profile",
+                "--score_profile",
                 "mag",
                 "--busco_lineages",
                 "mycoplasmatota_odb12",

@@ -18,7 +18,7 @@ class FingerprintResumeIntegrationTests(unittest.TestCase):
         source = case.run_pipeline(
             "parallel-source", ["A", "B"], extra=["--pipeline_stage", "qc"]
         )
-        args = ["--pipeline_stage", "ani", "--ani_16s_policy", "ignore"]
+        args = ["--pipeline_stage", "clustering", "--ani_16s_policy", "ignore"]
         output = case.run_pipeline(
             "parallel-view", ["A", "B"], source=source, extra=args
         )

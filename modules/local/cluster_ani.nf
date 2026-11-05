@@ -29,7 +29,7 @@ process CLUSTER_ANI {
         --ani-metadata "${ani_metadata}" \
         --matrix-name-column matrix_name \
         --threshold ${aniThreshold} \
-        --ani-score-profile "${params.ani_score_profile}" \
+        --ani-score-profile "${params.score_profile}" \
         --threads ${task.cpus} \
         --outdir .
 

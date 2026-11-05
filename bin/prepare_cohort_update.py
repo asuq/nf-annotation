@@ -678,18 +678,15 @@ def write_update_tables(
 
 
 def validate_requested_sample(job: dict) -> str:
-    """Pure worker: preserve existing scientific checks without shared mutations."""
+    """Validate one retained sample, reading a shared candidate/QC genome once."""
     sample, candidate = job["sample"], job["candidate"]
-    before = candidate.stat()
-    fingerprint = genome_fingerprint(candidate)
-    after = candidate.stat()
+    candidate_before = candidate.stat()
     fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns")
-    if any(getattr(before, field) != getattr(after, field) for field in fields):
-        raise CohortUpdateError(f"Candidate changed during validation: {sample['accession']}")
     source = job["source"]
+    fingerprint = None
     if source is not None:
         if job["stage"] == "full" and sample_policy.qc_scope(source) == "qc":
-            raise CohortUpdateError("QC-only publications support ANI-only and annotation-only reuse; full-stage reuse requires CRISPR evidence")
+            raise CohortUpdateError("QC-only publications support clustering and annotation-only reuse; full-stage reuse requires CRISPR evidence")
         for field in sample_policy.DOMAIN_FIELDS:
             if sample.get(field) != source.get(field):
                 raise CohortUpdateError(f"Domain/BUSCO policy changed or is unrecorded for {sample['accession']!r}: {field}; regenerate QC")
@@ -699,8 +696,15 @@ def validate_requested_sample(job: dict) -> str:
         after = staged.stat()
         if any(getattr(before, field) != getattr(after, field) for field in fields):
             raise CohortUpdateError(f"Published genome changed during validation: {sample['accession']}")
-        if source_fingerprint != fingerprint:
-            raise CohortUpdateError(f"Genome content changed for retained accession {sample['accession']!r}; run a full analysis or assign a new accession.")
+        if (candidate_before.st_dev, candidate_before.st_ino) == (before.st_dev, before.st_ino):
+            fingerprint = source_fingerprint
+    if fingerprint is None:
+        fingerprint = genome_fingerprint(candidate)
+    after = candidate.stat()
+    if any(getattr(candidate_before, field) != getattr(after, field) for field in fields):
+        raise CohortUpdateError(f"Candidate changed during validation: {sample['accession']}")
+    if source is not None and source_fingerprint != fingerprint:
+        raise CohortUpdateError(f"Genome content changed for retained accession {sample['accession']!r}; run a full analysis or assign a new accession.")
     return fingerprint
 
 
@@ -763,7 +767,7 @@ def run_prepare(args: argparse.Namespace) -> None:
             raise CohortUpdateError(
                 f"Duplicate accessions across published sources: {sorted(overlap)}"
             )
-        if stage == "ani":
+        if stage == "clustering":
             stats_path = source / "cohort/assembly_stats/assembly_stats.tsv"
             _, stats = read_table(stats_path, ("accession", "n50", "scaffolds", "genome_size", "gc_content"))
             stats_index = index_rows(stats, "accession", stats_path)
@@ -782,9 +786,9 @@ def run_prepare(args: argparse.Namespace) -> None:
         for row in source_versions:
             versions.append({**row, "notes": f"reused source {source}: {row['notes']}"})
     stage = json.loads(args.settings.read_text()).get("pipeline_stage", "full")
-    if stage not in ("full", "qc", "ani"):
+    if stage not in ("full", "qc", "clustering"):
         raise CohortUpdateError("Unknown pipeline stage")
-    if stage == "ani" and set(requested) - set(source_index):
+    if stage == "clustering" and set(requested) - set(source_index):
         raise CohortUpdateError("ANI-only stage requires completed QC publications for every requested sample")
     if "qc_scope" in sample_header or any("qc_scope" in row for row in source_index.values()):
         metadata_header, _ = validate_inputs.read_delimited_table(args.metadata)
@@ -903,7 +907,7 @@ def run_prepare(args: argparse.Namespace) -> None:
         versions=versions,
         identity=identity,
     )
-    if stage == "ani":
+    if stage == "clustering":
         write_table(args.outdir / "assembly_stats.tsv",
                     ("accession", "n50", "scaffolds", "genome_size", "gc_content"),
                     [assembly_rows[sample["accession"]] for sample in samples])

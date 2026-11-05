@@ -20,6 +20,7 @@ process BUILD_MASTER_TABLE {
     path codetta_summary
     path ccfinder_strains
     path ani_summary
+    path aai_summary
     path assembly_stats
     val policy_code
 
@@ -47,6 +48,7 @@ process BUILD_MASTER_TABLE {
         --codetta-summary "${codetta_summary}" \
         --ccfinder-strains "${ccfinder_strains}" \
         --ani "${ani_summary}" \
+        --aai "${aai_summary}" \
         --assembly-stats "${assembly_stats}" \
         --output master_table.tsv
 
