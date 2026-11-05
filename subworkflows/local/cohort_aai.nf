@@ -26,16 +26,19 @@ workflow COHORT_AAI {
         qcRows = checkm2.map { it[1] }.splitCsv(header: true, sep: '\t')
         paired = qcRows.filter { it.Gcode in ['4', '11'] }.map { tuple(it.accession, it) }
             .join(bundles.map { tuple(it[0].accession, it[1]) }, remainder: true, failOnDuplicate: true)
-            .map { accession, qc, bundle ->
+            .map { item ->
+                def (accession, qc, bundle) = item
                 if (qc == null) { error "Protein bundle lacks resolved QC: ${accession}" }
                 tuple(accession, qc, bundle ?: [])
             }
         ready = paired.mix(qcRows.filter { !(it.Gcode in ['4', '11']) }.map { tuple(it.accession, it, []) })
-        batches = ready.combine(groupIndex).map { accession, qc, bundle, index ->
+        batches = ready.combine(groupIndex).map { values ->
+            def (accession, qc, bundle, index) = values
             def item = index[accession]
             if (item == null) { error "Foreign AAI QC sample: ${accession}" }
             tuple(groupKey(item.group, item.group.size as int), item.sample + [qc: qc], bundle)
-        }.groupTuple().map { key, records, bundlePaths ->
+        }.groupTuple().map { item ->
+            def (key, records, bundlePaths) = item
             tuple(key.getGroupTarget().id, records.sort(false) { a, b -> a.accession <=> b.accession },
                 bundlePaths.findAll { it }.sort(false) { it.toString() })
         }
@@ -53,7 +56,7 @@ workflow COHORT_AAI {
         }
         FASTAAI_COMPARE(domainRecords)
         CLUSTER_AAI(FASTAAI_COMPARE.out.comparison.toSortedList { a, b -> a[0] <=> b[0] }.map { rows -> rows.collect { it[1] } }, samples, metadata, stats.first(), busco)
-        evidence = FASTAAI_COMPARE.out.comparison.map { domain, directory -> tuple("cohort/fastaai/${domain}", directory) }
+        evidence = FASTAAI_COMPARE.out.comparison.map { item -> tuple("cohort/fastaai/${item[0]}", item[1]) }
             .mix(CLUSTER_AAI.out.evidence.map { tuple('cohort/aai_clusters', it) })
             .mix(PREPARE_AAI_BATCH.out.batch.toList().map { tuple('cohort/fastaai/profiles', file("${params.outdir}/cohort/fastaai/profiles")) })
         summaries = CLUSTER_AAI.out.summary

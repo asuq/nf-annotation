@@ -136,8 +136,9 @@ workflow {
         ANNOTATION_RESOURCES.out.receipt, Channel.value(previous))
     AGGREGATE_ANNOTATIONS(FUNCTIONAL_ANNOTATION.out.plan, IMPORT_ANNOTATION_SOURCE.out.master,
         IMPORT_ANNOTATION_SOURCE.out.sample_status, FUNCTIONAL_ANNOTATION.out.bundle_files,
-        FUNCTIONAL_ANNOTATION.out.results.map { item -> item[1] }.toList(),
-        FUNCTIONAL_ANNOTATION.out.native_batches.toList(), Channel.value([]), Channel.value([]))
+        FUNCTIONAL_ANNOTATION.out.results.toList().map { rows -> tuple(rows.collect { [accession: it[0].accession, tool: it[0].tool] }, rows.collect { it[1] }) },
+        FUNCTIONAL_ANNOTATION.out.native_batches.toList(), Channel.value([]), Channel.value([]),
+        IMPORT_ANNOTATION_SOURCE.out.cohort.map { tuple(['cohort'], [it]) })
     ANNOTATION_ACCEPTANCE(AGGREGATE_ANNOTATIONS.out.acceptance, IMPORT_ANNOTATION_SOURCE.out.samples)
 }
 """

@@ -19,7 +19,6 @@ ARITY_SENSITIVE_COLLECTFILE_CLOSURE = re.compile(
     re.DOTALL,
 )
 SOFT_FAIL_RETRY_MARKERS = {
-    "barrnap.nf": "retrying_barrnap",
     "busco.nf": "retrying_busco",
     "ccfinder.nf": "retrying_ccfinder",
     "checkm2.nf": "retrying_checkm2",
@@ -511,7 +510,7 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertIn('--busco-lineage \\"${it}\\"', module_text)
         self.assertNotIn("--sample-status-columns", module_text)
         self.assertIn("--defer-genome-fasta-check", module_text)
-        self.assertIn('--genome-base-dir "${workflow.launchDir}"', module_text)
+        self.assertIn('--genome-base-dir=${Shell.quote(workflow.launchDir)}', module_text)
         self.assertIn("busco_lineages", workflow_text)
         self.assertNotIn("sample_status_columns", workflow_text)
         self.assertNotIn("BUILD_OUTPUT_CONTRACTS", main_text)
