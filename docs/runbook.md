@@ -197,7 +197,9 @@ missing on the target machine.
 - A prepared destination is reusable only when it validates and contains
   `.nf_myco_ready.json`.
 - Concurrent preparation is blocked by a per-destination lock sidecar ending in
-  `.nf_myco_prepare.lock`.
+  `.nf_myco_prepare.lock`. Lock acquisition is exclusive; forcing a database
+  rebuild never overrides a lock. Remove a stale lock only after confirming
+  that its owning preparation has ended.
 - The helper logic lives in `bin/prepare_runtime_databases.py`, but that script
   is now the implementation detail behind the prep workflow rather than the
   main operator interface.

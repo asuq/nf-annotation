@@ -512,6 +512,39 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
             )
             self.assertFalse((tmpdir / "prepared" / "padloc" / "broken.txt").exists())
 
+    def test_preparation_lock_is_exclusive_and_keeps_a_replacement(self):
+        import threading
+        from concurrent.futures import ThreadPoolExecutor
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory) / "database"
+            start = threading.Barrier(2)
+            blocked, entered, release = threading.Event(), threading.Event(), threading.Event()
+            owners = []
+            def attempt(index):
+                start.wait(timeout=5)
+                try:
+                    with prepare_runtime_databases.preparation_lock(destination):
+                        owners.append(index)
+                        entered.set()
+                        if not release.wait(5):
+                            raise AssertionError("lock test timed out")
+                except prepare_runtime_databases.PrepareRuntimeDatabasesError:
+                    blocked.set()
+            with ThreadPoolExecutor(2) as pool:
+                jobs = [pool.submit(attempt, i) for i in range(2)]
+                try:
+                    self.assertTrue(blocked.wait(5))
+                    self.assertTrue(entered.wait(5))
+                    self.assertEqual(len(owners), 1)
+                finally:
+                    release.set()
+                for job in jobs:
+                    job.result()
+            with prepare_runtime_databases.preparation_lock(destination) as lock:
+                lock.unlink()
+                lock.write_text("replacement")
+            self.assertEqual(lock.read_text(), "replacement")
+
     def test_main_honours_preparation_lock(self) -> None:
         """Fail fast when another preparation lock is already present."""
         with tempfile.TemporaryDirectory() as tmpdir_name:

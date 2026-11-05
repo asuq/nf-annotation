@@ -302,27 +302,33 @@ def write_marker(
 
 
 @contextmanager
-def preparation_lock(destination: Path, *, force: bool) -> Iterator[Path]:
-    """Guard one destination against concurrent preparation."""
+def preparation_lock(destination: Path) -> Iterator[Path]:
+    """Acquire an exclusive sidecar; a force rebuild never steals a live lock."""
     sidecar = lock_path(destination)
     ensure_parent_directory(sidecar)
-    if sidecar.exists():
-        if not force:
-            raise PrepareRuntimeDatabasesError(
-                f"Preparation lock already exists for {destination}: {sidecar}"
-            )
-        LOGGER.warning("Removing existing preparation lock for %s", destination)
-        remove_path(sidecar)
-    payload = {
-        "destination": str(destination),
-        "pid": os.getpid(),
-        "created_at": datetime.now(UTC).isoformat(),
-    }
-    sidecar.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     try:
-        yield sidecar
-    finally:
-        sidecar.unlink(missing_ok=True)
+        handle = sidecar.open("x", encoding="utf-8")
+    except FileExistsError as error:
+        raise PrepareRuntimeDatabasesError(
+            f"Preparation lock already exists for {destination}: {sidecar}"
+        ) from error
+    with handle:
+        owner = os.fstat(handle.fileno())
+        try:
+            handle.write(json.dumps({
+                "destination": str(destination), "pid": os.getpid(),
+                "created_at": datetime.now(UTC).isoformat(),
+            }, indent=2, sort_keys=True) + "\n")
+            handle.flush()
+            yield sidecar
+        finally:
+            try:
+                current = sidecar.lstat()
+            except FileNotFoundError:
+                pass
+            else:
+                if (current.st_dev, current.st_ino) == (owner.st_dev, owner.st_ino):
+                    sidecar.unlink()
 
 
 def validate_taxdump(path: Path) -> ValidationResult:
@@ -1050,7 +1056,7 @@ def prepare_component(
             original_source,
         )
 
-    with preparation_lock(destination, force=force):
+    with preparation_lock(destination):
         if local_source is not None:
             if local_source.is_dir():
                 resolved_source = resolve_directory_source(local_source, validator, component)
