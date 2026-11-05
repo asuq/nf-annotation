@@ -3,8 +3,7 @@
 import multiprocessing
 import sys
 import time
-from collections import deque
-from concurrent.futures import ProcessPoolExecutor, TimeoutError
+from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 from pathlib import Path
 
 from annotation_common import write_json
@@ -52,32 +51,38 @@ def ordered_validation(
             pool = ProcessPoolExecutor(
                 max_workers=workers, mp_context=multiprocessing.get_context("spawn")
             )
-            pending = deque()
-            iterator = iter(jobs)
+            pending, ready = {}, {}
+            iterator = iter(enumerate(jobs))
             exhausted = False
+            failed = False
+            next_output = 0
             while pending or not exhausted:
-                while not exhausted and len(pending) < 2 * workers:
+                while not exhausted and not failed and len(pending) < 2 * workers:
                     try:
-                        job = next(iterator)
+                        index, job = next(iterator)
                     except StopIteration:
                         exhausted = True
                         break
-                    pending.append(pool.submit(function, job))
+                    pending[pool.submit(function, job)] = index
                     metrics["peak_pending"] = max(metrics["peak_pending"], len(pending))
                 if not pending:
                     break
-                future = pending.popleft()
-                while True:
+                completed, _ = wait(pending, timeout=1, return_when=FIRST_COMPLETED)
+                for future in completed:
+                    index = pending.pop(future)
                     try:
-                        result = future.result(timeout=1)
-                        break
-                    except TimeoutError:
-                        if future.done():
-                            raise
-                        report()
-                metrics["completed_samples"] += 1
+                        ready[index] = (future.result(), None)
+                    except Exception as error:
+                        ready[index] = (None, error)
+                        failed = True
+                    metrics["completed_samples"] += 1
                 report()
-                yield result
+                while next_output in ready:
+                    result, error = ready.pop(next_output)
+                    if error is not None:
+                        raise error
+                    yield result
+                    next_output += 1
         metrics["phase"] = "complete"
     except BaseException:
         metrics["phase"] = "failed"

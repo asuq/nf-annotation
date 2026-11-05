@@ -27,6 +27,19 @@ def controlled_job(job):
     return job["value"], os.getpid()
 
 
+def replenishment_job(job):
+    root = Path(job["root"])
+    if job["value"] == 0:
+        deadline = time.monotonic() + 10
+        while not (root / "later-finished-before-first").exists():
+            if time.monotonic() > deadline:
+                raise AssertionError("The queue stalled behind its first job")
+            time.sleep(0.01)
+    elif job["value"] == 6:
+        (root / "later-finished-before-first").touch()
+    return job["value"]
+
+
 class CohortValidationPoolTests(unittest.TestCase):
     def test_bounded_real_processes_and_ordered_results(self):
         with tempfile.TemporaryDirectory(dir="/tmp") as name:
@@ -56,6 +69,15 @@ class CohortValidationPoolTests(unittest.TestCase):
             self.assertEqual(metrics["peak_pending"], 8)
             self.assertEqual(metrics["completed_samples"], 16)
             self.assertEqual(metrics["phase"], "complete")
+
+    def test_slow_first_job_does_not_stop_replenishing_workers(self):
+        with tempfile.TemporaryDirectory(dir="/tmp") as name:
+            root = Path(name)
+            results = list(ordered_validation(
+                replenishment_job, [{"value": i, "root": str(root)} for i in range(12)],
+                workers=2, total=12))
+            self.assertEqual(results, list(range(12)))
+            self.assertTrue((root / "later-finished-before-first").is_file())
 
     def test_serial_equivalence_and_deterministic_first_failure(self):
         jobs = [{"value": i} for i in range(10)]
