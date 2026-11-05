@@ -1,12 +1,15 @@
 """Shared providers get one semantic validation per fresh source-group pass."""
 
 import os
+import sys
 import shutil
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
 
 import annotation_source
 import reuse_source_validation
@@ -18,6 +21,17 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ValidationSharingTests(unittest.TestCase):
+    def test_functional_archive_uses_the_existing_scan_digests(self):
+        import test_annotation_batch_source as fixture
+        from fingerprinting.source_fingerprint import FingerprintScanner
+        case = fixture.AnnotationBatchSourceTests()
+        case.setUp()
+        self.addCleanup(case.doCleanups)
+        with FingerprintScanner(2) as scanner:
+            record = scanner.fingerprint(case.source)
+            with patch("hashlib.file_digest", side_effect=AssertionError("duplicate payload hash")):
+                reuse_source_validation.validate([case.source], [record], checksum=scanner.checksum)
+
     def test_provider_validation_is_shared_but_views_are_still_checked(self):
         case = fixture.ReferencePublicationTests()
         case.setUp()

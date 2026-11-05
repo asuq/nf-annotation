@@ -255,7 +255,7 @@ def write_partitions(
 
 
 def validate_execution(
-    raw: Path, batch: dict[str, Any], proteins: list[dict[str, str]]
+    raw: Path, batch: dict[str, Any], proteins: list[dict[str, str]], *, checksum=digest
 ) -> dict[str, list[dict[str, str]]]:
     """Require every native phase and verify all derived inputs against the search."""
     execution = read_json(raw / "execution.json")
@@ -297,7 +297,7 @@ def validate_execution(
     source = raw / "search/eggnog.emapper.seed_orthologs"
     rows = read_native_seeds(source, query_lookup(proteins))
     partitions = partition_rows(batch, proteins, rows)
-    source_sha = digest(source)
+    source_sha = checksum(source)
     for index, member in enumerate(batch["members"]):
         directory = raw / "derived" / member_name(index)
         selected = partitions[member["accession"]]
@@ -310,7 +310,7 @@ def validate_execution(
             selected, key=lambda row: (int(row["sseqid"]), row["qseqid"])
         )
         if (
-            digest(directory / "input.faa") != member["fasta_sha256"]
+            checksum(directory / "input.faa") != member["fasta_sha256"]
             or (directory / "seeds.tsv").read_bytes() != payload
             or (directory / "partition.json").read_bytes() != receipt
             or (directory / "seeds.tsv.sorted").read_bytes()

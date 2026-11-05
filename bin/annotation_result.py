@@ -18,7 +18,7 @@ from eggnog_batches import validate_batch
 from eggnog_native import validate_execution
 
 
-def inventory(root: Path) -> dict[str, str]:
+def inventory(root: Path, *, checksum=digest) -> dict[str, str]:
     """Inventory ordinary evidence files; reject symlinks and empty inventories."""
     if root.is_symlink():
         raise AnnotationError(f"Linked evidence is unsupported: {root}")
@@ -27,7 +27,7 @@ def inventory(root: Path) -> dict[str, str]:
         if path.is_symlink():
             raise AnnotationError(f"Linked evidence is unsupported: {path}")
         if path.is_file():
-            files[path.relative_to(root).as_posix()] = digest(path)
+            files[path.relative_to(root).as_posix()] = checksum(path)
     if not files:
         raise AnnotationError(f"Missing evidence files: {root}")
     return files
@@ -50,7 +50,7 @@ class NativeBatch:
     members: dict[str, dict[str, Any]]
 
 
-def validate_native_batch(root: Path) -> NativeBatch:
+def validate_native_batch(root: Path, *, checksum=digest) -> NativeBatch:
     """Check an archived batch's original input, native evidence and identities."""
     record = read_json(root / "batch_result.json")
     if (
@@ -74,10 +74,10 @@ def validate_native_batch(root: Path) -> NativeBatch:
         raise AnnotationError(f"Invalid native batch result: {root}")
     if (root / "inputs").is_symlink():
         raise AnnotationError("Linked native batch inputs are unsupported")
-    batch, proteins = validate_batch(root / "inputs")
+    batch, proteins = validate_batch(root / "inputs", checksum=checksum)
     if record["batch"] != batch:
         raise AnnotationError("Native batch input receipt differs from its result")
-    if inventory(root / "raw") != record["raw_files"]:
+    if inventory(root / "raw", checksum=checksum) != record["raw_files"]:
         raise AnnotationError(f"Native batch evidence changed: {root}")
     if type(record["exit_code"]) is not int or record["exit_code"] != native_exit_code(
         root / "raw"
@@ -86,17 +86,17 @@ def validate_native_batch(root: Path) -> NativeBatch:
             "Native batch exit status differs from its retained evidence"
         )
     if record["exit_code"] == 0:
-        validate_execution(root / "raw", batch, proteins)
+        validate_execution(root / "raw", batch, proteins, checksum=checksum)
     return NativeBatch(
         root, record, {member["accession"]: member for member in batch["members"]}
     )
 
 
-def native_batch_index(paths: list[Path]) -> dict[str, NativeBatch]:
+def native_batch_index(paths: list[Path], *, checksum=digest) -> dict[str, NativeBatch]:
     """Validate each staged shared artefact once; never silently replace duplicates."""
     batches = {}
     for path in paths:
-        batch = validate_native_batch(path)
+        batch = validate_native_batch(path, checksum=checksum)
         batch_id = batch.record["batch"]["batch_id"]
         if batch_id in batches:
             raise AnnotationError("Duplicate native eggNOG batch artefact")
@@ -113,6 +113,7 @@ def validate_raw_evidence(
     root: Path,
     record: dict[str, Any],
     batches: dict[str, NativeBatch] | None = None,
+    checksum=digest,
 ) -> None:
     """Validate individual raw files or an explicit, already checked shared batch."""
     if record.get("status") == "success" and (
@@ -124,7 +125,7 @@ def validate_raw_evidence(
     if "native_batch" not in record:
         if "batch" in record.get("search", {}):
             raise AnnotationError("Shared native eggNOG batch reference is missing")
-        if inventory(root / "raw") != record["raw_files"]:
+        if inventory(root / "raw", checksum=checksum) != record["raw_files"]:
             raise AnnotationError(f"Native annotation evidence changed: {root}")
         return
     reference = record["native_batch"]
@@ -167,6 +168,7 @@ def validate_result(
     *,
     normalized: bool = True,
     batches: dict[str, NativeBatch] | None = None,
+    checksum=digest,
 ) -> dict[str, Any]:
     """Validate a successful published result before reusing its evidence."""
     record = read_json(root / "result.json")
@@ -179,7 +181,7 @@ def validate_result(
         raise AnnotationError(f"Invalid annotation result record: {root}")
     if record["status"] != "success":
         raise AnnotationError(f"Cannot reuse unsuccessful annotation result: {root}")
-    validate_raw_evidence(root, record, batches)
-    if normalized and inventory(root / "normalized") != record["normalized_files"]:
+    validate_raw_evidence(root, record, batches, checksum=checksum)
+    if normalized and inventory(root / "normalized", checksum=checksum) != record["normalized_files"]:
         raise AnnotationError(f"Normalized annotation evidence changed: {root}")
     return record

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+import json
+from functools import partial
 import os
 import stat
 import sys
@@ -40,6 +42,24 @@ def checked_digest(path: Path, before: os.stat_result) -> str:
     if signature(before) != signature(path.lstat()):
         raise AnnotationError(f"Publication changed during fingerprinting: {path}")
     return checksum
+
+
+def cached_checksum(path: Path, *, records) -> str:
+    resolved = path.resolve(strict=True)
+    before = path.stat()
+    record = records.get(resolved)
+    if record is None:
+        result = checked_digest(path, before)
+        records[resolved] = (signature(before), result)
+        return result
+    if tuple(record[0]) != signature(before):
+        raise AnnotationError(f"Publication changed after fingerprinting: {path}")
+    return record[1]
+
+
+def load_checksums(path: Path):
+    records = {Path(name): record for name, record in read_json(path).items()}
+    return partial(cached_checksum, records=records)
 
 
 class FingerprintScanner:
@@ -142,14 +162,14 @@ class FingerprintScanner:
 
     def checksum(self, path: Path) -> str:
         """Reuse a digest only within this scan and while its file identity matches."""
-        resolved = path.resolve(strict=True)
-        before = path.stat()
-        record = self.file_digests.get(resolved)
-        if record is None:
-            return checked_digest(path, before)
-        if record[0] != signature(before):
-            raise AnnotationError(f"Publication changed after fingerprinting: {path}")
-        return record[1]
+        return cached_checksum(path, records=self.file_digests)
+
+    def export_checksums(self, path: Path) -> None:
+        """Carry this run's content checks to import tasks without another payload read."""
+        with path.open('w') as handle:
+            json.dump({str(name): record for name, record in self.file_digests.items()}, handle,
+                      separators=(',', ':'))
+            handle.write('\n')
 
     def fingerprint(self, root: Path, *, active=()) -> dict:
         root = root.resolve(strict=True)

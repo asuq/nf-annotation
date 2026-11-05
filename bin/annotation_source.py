@@ -109,6 +109,7 @@ def source_batches(
     manifest: dict[str, Any],
     accessions: list[str],
     publication: Publication | None = None,
+    checksum=digest,
 ) -> dict[str, NativeBatch]:
     """Validate each declared portable shared archive once and match packet IDs."""
     path_for = (
@@ -144,7 +145,7 @@ def source_batches(
             raise AnnotationError("Missing published native batch archive")
         path_for(entry["path"] + "/batch_result.json")
         paths.append(path)
-    batches = native_batch_index(paths)
+    batches = native_batch_index(paths, checksum=checksum)
     if set(batches) != set(entries):
         raise AnnotationError(
             "Published native batch packet IDs differ from the manifest"
@@ -283,7 +284,7 @@ def validate_source(
             "Published annotation status does not contain the complete declared grid"
         )
     batches = source_batches(
-        root, manifest, accessions, publication if publication.reference else None
+        root, manifest, accessions, publication if publication.reference else None, checksum=checksum
     )
     referenced_members = {batch_id: set() for batch_id in batches}
     for master, status in zip(masters, statuses, strict=True):
@@ -363,7 +364,7 @@ def validate_source(
                 or record.get("status") != grid[(accession, tool)]
             ):
                 raise AnnotationError("Published result identity or status changed")
-            validate_raw_evidence(path_for(expected_path), record, batches)
+            validate_raw_evidence(path_for(expected_path), record, batches, checksum=checksum)
             if "native_batch" in record:
                 batch_id = record["native_batch"]["batch_id"]
                 member = batches[batch_id].members[accession]
@@ -404,10 +405,13 @@ def import_source(root: Path, output: Path) -> None:
     publication = Publication(root)
     snapshot = None
     if publication.reference:
-        from reuse_source_validation import fingerprint
+        from fingerprinting.source_fingerprint import FingerprintScanner
 
-        snapshot = fingerprint(root)
-    manifest, _ = validate_source(root, _content_checked=publication.reference)
+        with FingerprintScanner() as scanner:
+            snapshot = scanner.fingerprint(root)
+            manifest, _ = validate_source(root, _content_checked=True, checksum=scanner.checksum)
+    else:
+        manifest, _ = validate_source(root)
     for accession in manifest["accessions"]:
         sample = publication.native_root(accession)
         for path in sample.rglob("*"):

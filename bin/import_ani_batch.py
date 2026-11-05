@@ -79,6 +79,7 @@ def import_sample(
     mode: str = "self_contained",
     source_fingerprint: dict | None = None,
     qc_root: Path | None = None,
+    source_checksum=digest,
 ) -> dict:
     """Atomically install one sample, or verify an identical previous installation."""
     accession = meta["accession"]
@@ -210,7 +211,7 @@ def import_sample(
                     existing = regular_files(target / "annotation/bundle")
                     expected = regular_files(bundle)
                     if set(existing) != set(expected) or any(
-                        digest(existing[name]) != digest(path)
+                        digest(existing[name]) != source_checksum(path)
                         for name, path in expected.items()
                     ):
                         raise AnnotationError(
@@ -250,7 +251,7 @@ def import_sample(
                         for name, path in regular_files(owned_bundle).items()
                     })
                 if set(existing) != set(files) or any(
-                    digest(existing[name]) != digest(path)
+                    digest(existing[name]) != source_checksum(path)
                     for name, path in files.items()
                 ):
                     raise AnnotationError(
@@ -288,6 +289,7 @@ def run(
     mode: str = "self_contained",
     fingerprints: list[dict] | None = None,
     qc_root: Path | None = None,
+    source_checksum=digest,
 ) -> None:
     """Report individual failures and fail the whole batch before ANI can start."""
     if not records or not sources:
@@ -322,6 +324,7 @@ def run(
                 mode=mode,
                 source_fingerprint=snapshots.get(str(root)),
                 qc_root=qc_root,
+                source_checksum=source_checksum,
             )
             result.update(status="done", meta=record["meta"], gcode=record["gcode"])
         except (
@@ -358,7 +361,9 @@ def main() -> int:
     )
     parser.add_argument("--source-validation", type=Path)
     parser.add_argument("--qc-publication-root", type=Path)
+    parser.add_argument("--source-checksums", type=Path)
     args = parser.parse_args()
+    from fingerprinting.source_fingerprint import load_checksums
     try:
         run(
             read_json(args.records),
@@ -367,6 +372,7 @@ def main() -> int:
             args.channels,
             args.audit,
             mode=args.mode,
+            source_checksum=load_checksums(args.source_checksums) if args.source_checksums else digest,
             qc_root=args.qc_publication_root,
             fingerprints=read_json(args.source_validation)["fingerprints"]
             if args.source_validation

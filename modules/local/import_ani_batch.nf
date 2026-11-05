@@ -17,6 +17,7 @@ process IMPORT_ANI_BATCH {
     val destination_root
     val source_validation
     path qc_root, name: 'qc_publications'
+    path checksums, name: 'source_checksums.json'
 
     output:
     tuple path('import_audit.json'), path('channels'), val(destination_root), emit: results
@@ -45,7 +46,7 @@ SOURCE_VALIDATION
     import_status=0
     python3 "\$(command -v import_ani_batch.py)" \
         --records records.json --sources sources.json --destination destination \
-        --mode '${params.publication_mode}' ${qcArg} --source-validation source_validation.json \
+        --mode '${params.publication_mode}' ${qcArg} --source-validation source_validation.json --source-checksums source_checksums.json \
         --channels channels --audit import_audit.json || import_status=\$?
     mkdir -p destination/pipeline_info/ani_import
     if [[ -f import_audit.json ]]; then

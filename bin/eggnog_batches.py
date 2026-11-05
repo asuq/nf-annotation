@@ -321,7 +321,7 @@ def prepare_batches(
 
 
 def validate_batch(
-    path: Path, *, expected_search_fingerprint: str | None = None
+    path: Path, *, expected_search_fingerprint: str | None = None, checksum=digest
 ) -> tuple[dict[str, Any], list[dict[str, str]]]:
     """Validate portable batch files and every member-to-sequence correspondence."""
     record = read_json(path / "batch.json")
@@ -389,7 +389,7 @@ def validate_batch(
     if (
         {child.name for child in children} != set(INPUT_FILES) | {"batch.json"}
         or any(child.is_symlink() or not child.is_file() for child in children)
-        or record.get("files") != {name: digest(path / name) for name in INPUT_FILES}
+        or record.get("files") != {name: checksum(path / name) for name in INPUT_FILES}
     ):
         raise AnnotationError(
             "EggNOG batch input files changed or contain linked evidence"

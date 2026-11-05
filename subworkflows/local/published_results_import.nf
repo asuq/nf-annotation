@@ -84,7 +84,7 @@ workflow PUBLISHED_RESULTS_IMPORT {
             tuple(index, group.collect { [meta: it[0], gcode: it[2].toString(), source_index: sourceRoots.indexOf(it[1].parent.parent)] })
         }
     }
-    IMPORT_ANI_BATCH(batches, Channel.value(sourceRoots), Channel.value(dependencyRoots), Channel.value(destination), Channel.value(destination.toString()), checkedSources, qcRoot)
+    IMPORT_ANI_BATCH(batches, Channel.value(sourceRoots), Channel.value(dependencyRoots), Channel.value(destination), Channel.value(destination.toString()), checkedSources, qcRoot, FINGERPRINT_REUSE_SOURCES.out.checksums.first())
     if (params.publication_mode == 'reference') {
         COMPLETE_ANI_REFERENCES(IMPORT_ANI_BATCH.out.audit.toList(), CHECK_COHORT_UPDATE.out.validated_samples,
             Channel.value(destination), Channel.value(ReferenceInputs.paths(sourceRoots)), qcRoot)

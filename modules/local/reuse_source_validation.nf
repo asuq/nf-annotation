@@ -16,6 +16,7 @@ process FINGERPRINT_REUSE_SOURCES {
     output:
     path 'source_fingerprints.json', emit: fingerprints
     path 'validated_sources.json', emit: receipts
+    path 'source_checksums.json', emit: checksums
     path 'fingerprint_metrics.json', emit: metrics
     path 'fingerprint_progress.json', emit: progress
 
@@ -29,6 +30,6 @@ ${roots}
 SOURCE_ROOTS
     python3 "\$(command -v fingerprint_sources)" \
         --sources sources.json --output source_fingerprints.json --metrics fingerprint_metrics.json \
-        --workers ${workers} --progress fingerprint_progress.json --receipts validated_sources.json ${previousArg}
+        --workers ${workers} --progress fingerprint_progress.json --receipts validated_sources.json --checksums source_checksums.json ${previousArg}
     """
 }

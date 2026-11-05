@@ -19,6 +19,7 @@ def main():
     parser.add_argument("--workers", type=int, required=True)
     parser.add_argument("--receipts", type=Path, required=True)
     parser.add_argument("--previous", type=Path)
+    parser.add_argument("--checksums", type=Path)
     args = parser.parse_args()
     try:
         roots = [Path(value) for value in read_json(args.sources)]
@@ -34,6 +35,8 @@ def main():
             scanner.report(force=True)
             receipts, reused = validate_or_reuse(roots, records, args.previous, checksum=scanner.checksum)
             scanner.metrics["semantic_validation_reused"] = reused
+            if args.checksums:
+                scanner.export_checksums(args.checksums)
         metrics = scanner.metrics
         write_json(args.receipts, receipts)
         write_json(args.output, records)

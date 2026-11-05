@@ -84,6 +84,31 @@ class AniBatchImportTests(unittest.TestCase):
         shutil.rmtree(self.source)
         bundle_proteins(target / "annotation/bundle")
 
+    def test_import_resume_consumes_fresh_scan_checksums_without_source_rereads(self):
+        from fingerprinting.source_fingerprint import FingerprintScanner, load_checksums
+        import hashlib
+        original = hashlib.file_digest
+        with FingerprintScanner(2) as scanner:
+            scanner.metrics.update(current_files_hashed=0, current_bytes_hashed=0)
+            list(scanner.hashes([(p, p.stat()) for p in regular_files(self.source).values()]))
+            catalog = self.root / "checksums.json"
+            scanner.export_checksums(catalog)
+        import_sample(self.source, self.meta, "4", self.destination, self.channels)
+        reads = []
+        def checked(handle, *args, **kwargs):
+            path = Path(handle.name)
+            self.assertFalse(path.is_relative_to(self.source), "source payload read twice")
+            reads.append(path)
+            return original(handle, *args, **kwargs)
+        checksum = load_checksums(catalog)
+        with patch("hashlib.file_digest", side_effect=checked):
+            import_sample(self.source, self.meta, "4", self.destination, self.channels, source_checksum=checksum)
+        self.assertEqual(len(reads), len(regular_files(self.source)))
+        changed = self.source / "prokka/prokka.faa"
+        changed.write_text("changed")
+        with self.assertRaisesRegex(AnnotationError, "changed after fingerprinting"):
+            checksum(changed)
+
     def test_canonical_bundle_is_not_rebuilt_for_a_producer_code_change(self):
         record = read_json(self.bundle / "bundle.json")
         record["producer_sha256"] = "0" * 64
