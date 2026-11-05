@@ -30,36 +30,18 @@ process BARRNAP {
     fi
     mkdir -p "\${TMPDIR}"
 
-    max_attempts="${params.soft_fail_attempts}"
-    if [[ "\${max_attempts}" -lt 1 ]]; then
-        max_attempts=1
-    fi
-
-    attempt=1
-    exit_code=1
+    # Nextflow owns retries; run the native command once per task attempt.
     : > barrnap.log
-    while (( attempt <= max_attempts )); do
-        printf 'attempt=%s/%s\n' "\${attempt}" "\${max_attempts}" >> barrnap.log
-        rm -f rrna.gff rrna.fa
-        set +e
-        barrnap \
-            --threads ${task.cpus} \
-            --kingdom ${barrnapKingdom} \
-            --outseq rrna.fa \
-            "${genome}" \
-            > rrna.gff 2>> barrnap.log
-        exit_code=\$?
-        set -e
-
-        if [[ "\${exit_code}" -eq 0 ]]; then
-            break
-        fi
-        if (( attempt == max_attempts )); then
-            break
-        fi
-        printf 'retrying_barrnap=%s\n' "\${attempt}" >> barrnap.log
-        (( attempt += 1 ))
-    done
+    rm -f rrna.gff rrna.fa
+    set +e
+    barrnap \
+        --threads ${task.cpus} \
+        --kingdom ${barrnapKingdom} \
+        --outseq rrna.fa \
+        "${genome}" \
+        > rrna.gff 2>> barrnap.log
+    exit_code=\$?
+    set -e
 
     printf 'exit_code=%s\n' "\$exit_code" >> barrnap.log
     if [[ "\${exit_code}" -ne 0 ]]; then

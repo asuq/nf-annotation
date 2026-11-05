@@ -29,13 +29,13 @@ class BarrnapRuntimeTests(unittest.TestCase):
                 "file(params.genome, checkIfExists: true)))) }\n"
             )
             (project / "nextflow.config").write_text(
-                "params.soft_fail_attempts = 1\n"
+                "params.soft_fail_attempts = 3\n"
                 "params.barrnap_container = null\n"
                 f"process.scratch = '{root / 'node_scratch'}'\n"
                 "process.stageOutMode = 'copy'\n"
                 "process.executor = 'local'\n"
-                "process.errorStrategy = 'finish'\n"
-                "process.maxRetries = 0\n"
+                "process.errorStrategy = { task.attempt < 3 ? 'retry' : 'finish' }\n"
+                "process.maxRetries = 2\n"
             )
             (root / "node_scratch").mkdir()
             genome = root / "genome.fasta"
@@ -50,6 +50,7 @@ class BarrnapRuntimeTests(unittest.TestCase):
                 "if '--version' in sys.argv:\n"
                 "    print('barrnap synthetic')\n"
                 "    raise SystemExit(0)\n"
+                "with Path(os.environ['FAKE_BARRNAP_CALLS']).open('a') as calls: calls.write('call\\n')\n"
                 "temp = Path(os.environ['TMPDIR'])\n"
                 "Path(os.environ['FAKE_BARRNAP_DIAGNOSTIC']).write_text(\n"
                 "    f'temp={temp} cwd={Path.cwd()}\\n')\n"
@@ -73,6 +74,7 @@ class BarrnapRuntimeTests(unittest.TestCase):
                     os.environ,
                     PATH=str(bindir) + os.pathsep + os.environ["PATH"],
                     FAKE_BARRNAP_MODE=mode,
+                    FAKE_BARRNAP_CALLS=str(root / f"calls-{mode}.txt"),
                     FAKE_BARRNAP_DIAGNOSTIC=str(root / f'diagnostic-{mode}.txt'),
                     NXF_ANSI_LOG="false",
                     NXF_DISABLE_CHECK_LATEST="true",
@@ -88,6 +90,7 @@ class BarrnapRuntimeTests(unittest.TestCase):
                 published = output / "samples/A/barrnap"
                 if mode == "failure":
                     self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertEqual((root / f"calls-{mode}.txt").read_text().splitlines(), ["call"] * 3)
                     self.assertFalse((published / "rrna.gff").exists())
                     self.assertFalse((published / "rrna.fa").exists())
                 else:
