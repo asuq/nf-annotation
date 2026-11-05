@@ -1,42 +1,34 @@
 # Change Log
 
-## v0.5.0 - unreleased
+## v0.5.0 - 2026-11-05
 
 ### Changes
 
-- Add FastAAI genus-scale clusters at 65% AAI using complete linkage, separately
-  for Bacteria and Archaea. Reuse existing QC proteins and portable marker profiles.
-- Include suitable QC genomes independently of the ANI 16S filter. Select AAI
-  representatives with the existing weighted quality components, without centrality.
-- Preserve missing evidence, censored estimates and clusters without a scoreable
-  representative. Keep ANI science and existing taxonomic genus names unchanged.
-- Use readable protein IDs such as `GCF_000005845_2__p000001`, retaining source
+- Add FastAAI genus-scale clustering at 65% estimated AAI using complete linkage,
+  separately for Bacteria and Archaea. Include suitable QC genomes independently of
+  ANI's 16S filter.
+- Select AAI representatives using the existing quality components without centrality.
+  Preserve ANI scoring and taxonomic genus names.
+- Use readable protein IDs such as `GCF_000005845_2__p000001`, retaining original
   identifiers in the mapping table.
-- Store native pair evidence in compact binary arrays and reuse canonical bundles
-  through bounded imports, without old-publication conversion or bundle rebuilding.
-- Fix reference acceptance, resumed full updates, shell argument handling and
-  clustering-evidence integrity. Preserve ANI evidence during reannotation.
-- Recover interrupted profile copies, use exclusive database locks and handle
-  invalid representative metrics without discarding AAI membership.
-- Start marker batches as proteins become ready, share checked digests, replenish
-  validation workers promptly and avoid repeated report parsing and bundle reads.
-- Size clustering separately from native searches, remove nested Barrnap retries
-  and correct resource-profile scoping. Controller capacity is a development
-  expectation, not a new profile default.
-- Rename the reuse stage to `clustering` and shared options to `publication_mode`,
-  `import_batches`, `import_max_forks` and `score_profile`; reject the old names.
+- Replace the `ani` stage with `clustering`. Shared settings are `publication_mode`,
+  `import_batches`, `import_max_forks` and `score_profile`; withdrawn names are
+  rejected.
+- Start marker work from ready batches, reuse profiles and checked digests, and remove
+  repeated reporting work. Fix resume, reference integrity, quoting, evidence retention
+  and interrupted-copy handling.
 
 ### Validation
 
-- Native results match the pinned upstream FastAAI controls on frozen public
-  bacterial and archaeal protein inputs, including readable protein IDs.
-- Pass 685 regression tests, with seven optional controls skipped, plus 88 Linux
-  helper controls and an exact-commit stub smoke. Verify threshold/scoring reuse,
-  independent profiles, source relocation and unchanged ANI scoring. See the [AAI guide](aai_clustering.md) and
+- Development gate: 685 regression tests passed, with seven optional tests skipped.
+  All 88 Linux helper controls and eight native FastAAI pair controls passed.
+- The published Linux amd64 image matches the qualified manifest and is pinned
+  by digest. See the [AAI guide](aai_clustering.md) and
   [qualification record](development/v0.5.0_qualification.md).
 
-Production was not rerun. Publication is paused; the FastAAI runtime is local.
-v0.4 publications and caches are unsupported. Start new v0.5 QC publications.
+v0.4 publications and caches are unsupported; start fresh v0.5 QC publications.
+Production was not rerun.
+
 
 ## v0.4.8 - 2026-11-04
 

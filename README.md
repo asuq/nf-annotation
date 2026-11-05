@@ -2,7 +2,7 @@
 
 Genus-scale FastAAI clustering and quality-based representatives now run alongside
 ANI. See the [AAI guide](docs/aai_clustering.md) for the 65% cutoff, membership,
-outputs and v0.5.0 CLI changes. This branch is unreleased and requires new v0.5
+outputs and v0.5.0 CLI changes. v0.5.0 requires new v0.5
 publications; v0.4 publications and caches are unsupported. Protein IDs use
 [`GCF_000005845_2__p000001`](docs/protein_identifiers.md).
 

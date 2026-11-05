@@ -77,16 +77,20 @@ retain conversion provenance when preparing SIF files.
 
 ## v0.5 FastAAI runtime
 
-The current binary-export runtime is local and unreleased:
-`nf-annotation-fastaai:0.5.0-dev`. Build it with:
+The Linux amd64 runtime is published as `quay.io/asuq1617/nf-annotation-fastaai:0.5.0`.
+Pipeline execution uses its immutable reference:
+
+`quay.io/asuq1617/nf-annotation-fastaai@sha256:b70561032eb2e2aa11f6f513418a489661d84a1f766a000837d6124aa893a989`
+
+Quay access requires registry credentials. A prepared local SIF can be used for
+offline HPC execution through `fastaai_container`.
+
+Build a development image from the committed source and lock file with:
 
 ```bash
 docker build --platform linux/amd64 --provenance=false -t nf-annotation-fastaai:0.5.0-dev docker/fastaai
 ```
 
-An earlier text-export prototype was uploaded before publication was paused.
-It is not the current runtime. Publishing and pinning the final image remain
-release steps.
 Source commit, original/export source hashes, model checksum and locked environment
 identity are recorded in `/opt/nf-annotation/provenance/fastaai.json`. The adaptation
 adds a binary writer for full-precision Jaccard and native marker counts. It does not alter native marker

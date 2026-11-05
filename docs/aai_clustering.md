@@ -87,7 +87,8 @@ large-cohort clustering into a linear operation.
 The native runtime is pinned to FastAAI commit
 `3b4904a223590f8227e9c791b6b7ed6a09c67757` and bundled marker models. Completed
 v0.5 QC publications are required; v0.4 publications and caches are unsupported.
-Source publications are never modified. This unreleased branch uses the locally
-built `nf-annotation-fastaai:0.5.0-dev` image; see `docker/fastaai/Dockerfile`.
+Source publications are never modified. The released Linux amd64 runtime is
+pinned by its immutable Quay digest. Quay pulls require credentials; a prepared
+local SIF is also supported. See [runtime provenance](../docker/README.md#v05-fastaai-runtime).
 See the [upstream software](https://github.com/cruizperez/FastAAI) and
 [FastAAI paper](https://doi.org/10.1093/nar/gkaf348).
