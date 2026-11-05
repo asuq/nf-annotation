@@ -240,7 +240,7 @@ under `--outdir` on success.
 
 ## Minimal test path
 
-Use the frozen fixtures under `assets/testdata/stub/`:
+Use the frozen fixtures under `assets/fixtures/stub/`:
 
 ```bash
 nextflow run . --domain bacteria -profile test -stub-run
@@ -443,7 +443,7 @@ Use `bin/run_acceptance_tests.py` for the layered acceptance workflow:
 - `dbprep-slurm`: run `prepare_databases.nf` on SLURM, download the curated runtime databases, and validate the prepared database tree
 - `all`: run `prepare`, `unit`, `stub`, `local`, and `slurm` in sequence
 
-Tracked cohort descriptors live under `assets/testdata/acceptance/`. Large
+Tracked cohort descriptors live under `assets/tables/acceptance/`. Large
 downloads, generated manifests, and run artefacts stay under the ignored local
 tree `assets/testdata/local/acceptance/`.
 
@@ -625,7 +625,7 @@ That wrapper:
 
 - prepares the tracked 9-sample cohort on HPC-native storage
 - prepares the fixed medium Mycoplasmatota/Bacillota cohort from the
-  repo-tracked source catalog and cohort plan under `assets/testdata/medium/`
+  repo-tracked source catalog and cohort plan under `assets/tables/medium/`
 - runs the full runtime DB gate and the disposable DB existence-state cases
 - runs the tracked 9-sample real pipeline gate
 - runs the medium Mycoplasmatota/Bacillota real-data gate
@@ -974,7 +974,7 @@ Published final tables are written under `results/tables/`:
 
 The master table preserves the original metadata block, then appends derived
 columns in the runtime order resolved from `params.busco_lineages`. The
-checked-in `assets/master_table_append_columns.txt` file records the default
+checked-in `assets/tables/contracts/master_table_append_columns.txt` file records the default
 lineage pair only. The appended block starts with `is_new`, sourced from
 `validated_samples.tsv`. `GC_Content` is derived from the published
 `cohort/assembly_stats/assembly_stats.tsv` table produced by `seqtk comp`.

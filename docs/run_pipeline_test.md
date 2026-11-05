@@ -66,7 +66,7 @@ records `busco_summary_failed`. The primary BUSCO lineage remains strict.
 
 The medium Mycoplasmatota/Bacillota cohort is now prepared in the same way as
 the tracked small cohort from repo-tracked `source_catalog.tsv` and
-`cohort_plan.tsv` files under `assets/testdata/medium/`.
+`cohort_plan.tsv` files under `assets/tables/medium/`.
 
 The wrapper's normal `slurm` path remains centred on the acceptance
 cohort and local-baseline comparison.

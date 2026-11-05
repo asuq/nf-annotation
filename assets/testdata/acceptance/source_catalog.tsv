@@ -1,5 +1,0 @@
-source_accession	organism_name	tax_id	assembly_level	source_url
-GCA_000027325.1	Mycoplasmoides genitalium G37	243273	Complete Genome	https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/027/325/GCA_000027325.1_ASM2732v1/GCA_000027325.1_ASM2732v1_genomic.fna.gz
-GCA_000027345.1	Mycoplasmoides pneumoniae M129	272634	Complete Genome	https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/027/345/GCA_000027345.1_ASM2734v1/GCA_000027345.1_ASM2734v1_genomic.fna.gz
-GCF_000008145.1	Brucella abortus bv. 1 str. 9-941	262698	Complete Genome	https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/008/145/GCF_000008145.1_ASM814v1/GCF_000008145.1_ASM814v1_genomic.fna.gz
-GCA_965226525.1	Spiroplasma sp. (mycoplasmas)	2135	Complete Genome	https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/965/226/525/GCA_965226525.1_jaAntFurc1.Spiroplasma_sp_1.1/GCA_965226525.1_jaAntFurc1.Spiroplasma_sp_1.1_genomic.fna.gz

@@ -12,7 +12,7 @@ enough to run cheaply, but it still exercises the important behaviours:
 - atypical exclusion
 - the atypical exception
 
-The cohort definition lives in `assets/testdata/acceptance/cohort_plan.tsv`
+The cohort definition lives in `assets/tables/acceptance/cohort_plan.tsv`
 and currently contains 9 samples.
 
 Use the `nextflow` conda environment for every Nextflow command. For small
@@ -194,5 +194,5 @@ small-cohort path passes.
 
 - `docs/runbook.md`
 - `docs/run_pipeline_test.md`
-- `assets/testdata/acceptance/cohort_plan.tsv`
+- `assets/tables/acceptance/cohort_plan.tsv`
 - `conf/oist_20k_storage.config`

@@ -1,12 +1,11 @@
-# Test Data
+# Test data
 
-`stub/` contains the minimal fixture set used by `-profile test -stub-run`.
+- `../fixtures/stub/`: miniature genomes and database placeholders for stub runs.
+- `../tables/stub/`: the matching sample sheet and metadata.
+- `../tables/headers/`: empty table templates for gated branches.
+- `../tables/contracts/`: authoritative report column contracts.
+- `../tables/acceptance/` and `../tables/medium/`: frozen cohort descriptors.
+- `fastaai/`: native proteome identities and frozen ANI scoring controls.
 
-- `sample_sheet.csv`: one-sample manifest with a local FASTA path
-- `metadata.tsv`: matching metadata row with the ANI-required fields
-- `taxdump/`: pinned miniature `names.dmp` and `nodes.dmp`
-- `busco/`: empty lineage directories that satisfy offline path checks
-- `checkm2_db/` and `eggnog_db/`: placeholder resource roots for config wiring
-
-`headers/` contains header-only TSV templates used to build stable combined
-tables even when a gated branch yields zero sample rows.
+Downloaded data and generated acceptance outputs remain under ignored `local/`.
+Accession validation and internal-ID mapping are implemented in `bin/validate_inputs.py`.

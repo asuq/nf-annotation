@@ -343,7 +343,6 @@ This is an implementation convenience, not a scientific rule.
 │   └── cohort_ani.nf
 ├── bin/
 │   ├── validate_inputs.py
-│   ├── sanitise_accessions.py
 │   ├── summarise_16s.py
 │   ├── summarise_checkm2.py
 │   ├── summarise_busco.py
@@ -1262,7 +1261,6 @@ Unless later added deliberately, v1 does **not** include:
 1. Write `docs/design_spec.md` from this manual.
 2. Implement and test the standalone Python CLIs first:
    - `validate_inputs.py`
-   - `sanitise_accessions.py`
    - `summarise_16s.py`
    - `summarise_checkm2.py`
    - `summarise_busco.py`

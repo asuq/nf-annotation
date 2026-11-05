@@ -1,6 +1,0 @@
-source_accession	organism_name	tax_id	assembly_level	source_url	phylum
-GCA_000027325.1	Mycoplasmoides genitalium G37	243273	Complete Genome	https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/027/325/GCA_000027325.1_ASM2732v1/GCA_000027325.1_ASM2732v1_genomic.fna.gz	Mycoplasmatota
-GCA_000027345.1	Mycoplasmoides pneumoniae M129	272634	Complete Genome	https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/027/345/GCA_000027345.1_ASM2734v1/GCA_000027345.1_ASM2734v1_genomic.fna.gz	Mycoplasmatota
-GCA_965226525.1	Spiroplasma sp. (mycoplasmas)	2135	Complete Genome	https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/965/226/525/GCA_965226525.1_jaAntFurc1.Spiroplasma_sp_1.1/GCA_965226525.1_jaAntFurc1.Spiroplasma_sp_1.1_genomic.fna.gz	Mycoplasmatota
-GCF_000009045.1	Bacillus subtilis subsp. subtilis str. 168	224308	Complete Genome	https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/009/045/GCF_000009045.1_ASM904v1/GCF_000009045.1_ASM904v1_genomic.fna.gz	Bacillota
-GCF_000006885.1	Streptococcus pneumoniae TIGR4	170187	Complete Genome	https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/006/885/GCF_000006885.1_ASM688v1/GCF_000006885.1_ASM688v1_genomic.fna.gz	Bacillota
