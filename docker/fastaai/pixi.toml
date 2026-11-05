@@ -1,0 +1,12 @@
+[workspace]
+name = "nf-annotation-fastaai"
+channels = ["conda-forge", "bioconda"]
+platforms = ["linux-64"]
+
+[dependencies]
+python = "3.12.*"
+numpy = "==2.2.2"
+pyrodigal = "==3.6.3"
+pyhmmer = "==0.11.0"
+pip = "*"
+setuptools = "*"

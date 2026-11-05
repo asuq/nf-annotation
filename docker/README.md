@@ -5,6 +5,8 @@ BioContainers do not cover a required runtime.
 
 Current repo-owned images:
 
+- `docker/fastaai/Dockerfile`: FastAAI, bundled universal marker models and full-precision native Jaccard export
+
 - `docker/ccfinder/Dockerfile`: CRISPRCasFinder runtime
 - `docker/codetta/Dockerfile`: Codetta runtime
 - `docker/eggnog/Dockerfile`: eggNOG-mapper v3 beta6, with an export of the
@@ -72,3 +74,24 @@ The helper digest matches the OCI manifest used for HPC qualification.
 These defaults can be overridden with checksum-verified local SIF paths for
 offline HPC use. OCI digests and SIF file checksums are different identities;
 retain conversion provenance when preparing SIF files.
+
+## v0.5 FastAAI runtime
+
+The current binary-export runtime is local and unreleased:
+`nf-annotation-fastaai:0.5.0-dev`. Build it with:
+
+```bash
+docker build --platform linux/amd64 --provenance=false -t nf-annotation-fastaai:0.5.0-dev docker/fastaai
+```
+
+An earlier text-export prototype was uploaded before publication was paused.
+It is not the current runtime. Publishing and pinning the final image remain
+release steps.
+Source commit, original/export source hashes, model checksum and locked environment
+identity are recorded in `/opt/nf-annotation/provenance/fastaai.json`. The adaptation
+adds a binary writer for full-precision Jaccard and native marker counts. It does not alter native marker
+selection, tetramers, comparisons or calibration.
+
+The pipeline uses existing proteins and cached selected HMM hits with the standard
+database builder. It avoids upstream convenience-path errors for empty profiles
+and crystal-database merges. See [AAI clustering](../docs/aai_clustering.md).
