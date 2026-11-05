@@ -177,6 +177,21 @@ class AaiProfileTests(unittest.TestCase):
         self.assertIsNotNone(prepare_aai.read_profile(path.parent, path.name))
         self.assertFalse(any(p.is_symlink() for p in path.iterdir()))
 
+    def test_interrupted_profile_copy_can_resume_without_marker_extraction(self):
+        prepare_aai.prepare(self.args)
+        source = self.args.destination
+        self.args.destination = self.root / "successor"
+        self.args.destination.mkdir()
+        write_json(self.args.sources, [str(source)])
+        with patch.object(prepare_aai, "copy_independent", side_effect=OSError("interrupted copy")):
+            with self.assertRaisesRegex(OSError, "interrupted copy"):
+                prepare_aai.prepare(self.args)
+        profile_root = self.args.destination / "cohort/fastaai/profiles"
+        self.assertEqual(list(profile_root.iterdir()), [])
+        prepare_aai.prepare(self.args)
+        self.assertEqual(self.calls, 1)
+        self.assertEqual(read_json(self.args.output.parent / "preprocessing_metrics.json")["reused"], 1)
+
     def test_changed_protein_or_method_recomputes_and_changed_cache_fails(self):
         prepare_aai.prepare(self.args)
         p = Path(read_json(self.args.output)["samples"][0]["profile"])

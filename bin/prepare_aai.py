@@ -202,15 +202,15 @@ def prepare(args):
                 for source in source_roots:
                     existing = read_profile(source, key)
                     if existing is not None:
-                        staging = destination / ("." + key + ".tmp")
-                        staging.mkdir()
-                        for name in (
-                            ("profile.json", "markers.faa", "markers.hmm")
-                            if existing["marker_count"]
-                            else ("profile.json",)
-                        ):
-                            copy_independent(source / key / name, staging / name)
-                        staging.rename(destination / key)
+                        with tempfile.TemporaryDirectory(prefix="." + key + ".", dir=destination) as temporary:
+                            staging = Path(temporary)
+                            for name in (
+                                ("profile.json", "markers.faa", "markers.hmm")
+                                if existing["marker_count"]
+                                else ("profile.json",)
+                            ):
+                                copy_independent(source / key / name, staging / name)
+                            staging.rename(destination / key)
                         break
             row["profile"] = str(destination / key)
             if existing is not None:
