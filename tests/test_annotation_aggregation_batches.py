@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
 import aggregate_annotations
+from annotation_workflow_fixture import indexed_results
 import annotation_result
 import test_annotation_batch_results as batch_fixture
 from annotation_common import (
@@ -175,7 +176,7 @@ class AnnotationAggregationBatchTests(unittest.TestCase):
             self.master,
             self.status,
             self.bundles,
-            self.results if results is None else results,
+            indexed_results(self.results if results is None else results),
             self.root / name,
             batch_dirs=[self.native] if batches is None else batches,
         )
@@ -336,7 +337,7 @@ class AnnotationAggregationBatchTests(unittest.TestCase):
             ("batch-list", [self.native]),
         ):
             path = self.root / (name + " with spaces.json")
-            write_json(path, [str(item) for item in paths])
+            write_json(path, indexed_results(paths) if name == "result-list" else [str(item) for item in paths])
             command.extend(["--" + name, str(path)])
         return command
 

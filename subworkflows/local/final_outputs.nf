@@ -191,7 +191,7 @@ workflow FINAL_OUTPUTS {
         reportAcceptance = REPORT_GENOMES.out.acceptance
     } else {
         AGGREGATE_ANNOTATIONS(annotation_plan, BUILD_MASTER_TABLE.out.master_table, WRITE_SAMPLE_STATUS.out.sample_status,
-            annotation_bundles, annotation_results.map { item -> item[1] }.toList(), annotation_batches.toList(),
+            annotation_bundles, annotation_results.toList().map { rows -> tuple(rows.collect { [accession: it[0].accession, tool: it[0].tool] }, rows.collect { it[1] }) }, annotation_batches.toList(),
             Channel.value([]), Channel.value([]), cohort_evidence)
         reportTables = AGGREGATE_ANNOTATIONS.out.tables
         reportManifest = AGGREGATE_ANNOTATIONS.out.manifest

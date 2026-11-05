@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
 import aggregate_annotations
+from annotation_workflow_fixture import aggregate_fixture, indexed_results
 import test_annotation_tasks as task_fixture
 from annotation_common import (
     COORDINATE_COLUMNS,
@@ -36,6 +37,21 @@ class AnnotationAggregationScalingTests(unittest.TestCase):
         self.fixture.setUp()
         self.addCleanup(self.fixture.doCleanups)
         self.root = self.fixture.root
+
+    def test_keyed_inputs_read_full_result_evidence_once(self):
+        args = self.cohort(["A", "B"])
+        indexed = indexed_results(args[4])
+        counts = []
+        original = aggregate_annotations.read_json
+        def read(path):
+            if path.name == "result.json": counts.append(path)
+            return original(path)
+        with patch.object(aggregate_annotations, "read_json", side_effect=read):
+            aggregate_annotations.aggregate(*args[:4], indexed, self.root / "read-once")
+        self.assertEqual(len(counts), len(args[4]))
+        bad = [dict(indexed[0], accession="B"), indexed[1]]
+        with self.assertRaises(AnnotationError):
+            aggregate_annotations.aggregate(*args[:4], bad, self.root / "wrong-key")
 
     def cohort(self, accessions, tools=("kofam",), error_size=0):
         """Create valid one-protein bundles and explicit synthetic tool evidence."""
@@ -156,7 +172,7 @@ class AnnotationAggregationScalingTests(unittest.TestCase):
         with patch.object(
             aggregate_annotations, "bundle_proteins", wraps=bundle_proteins
         ) as validate:
-            manifest = aggregate_annotations.aggregate(*args, output)
+            manifest = aggregate_fixture(*args, output)
         self.assertEqual(validate.call_count, 3)
         rows = read_tsv(output / "tables/evidence.tsv")
         self.assertEqual(
@@ -210,7 +226,7 @@ class AnnotationAggregationScalingTests(unittest.TestCase):
         )
         self.reidentify_bundle(bundle)
         output = self.root / "coordinates"
-        aggregate_annotations.aggregate(*args, output)
+        aggregate_fixture(*args, output)
         self.assertEqual(
             [
                 row["attributes"]
@@ -228,7 +244,7 @@ class AnnotationAggregationScalingTests(unittest.TestCase):
         self.reidentify_bundle(bundle)
         output = self.root / "collision"
         with self.assertRaisesRegex(AnnotationError, "collide across genomes"):
-            aggregate_annotations.aggregate(*args, output)
+            aggregate_fixture(*args, output)
         self.assertFalse(output.exists())
         self.assertFalse(list(self.root.glob(".annotation-aggregation-*")))
 
@@ -239,7 +255,7 @@ class AnnotationAggregationScalingTests(unittest.TestCase):
             record["evidence"]["definitions"] = {"ko": {"F1": definition}}
             self.reidentify(directory, evidence=record["evidence"])
         with self.assertRaisesRegex(AnnotationError, "Conflicting definition"):
-            aggregate_annotations.aggregate(*args, self.root / "definitions")
+            aggregate_fixture(*args, self.root / "definitions")
         directory = args[4][1]
         write_tsv(
             directory / "normalized/evidence.tsv",
@@ -248,7 +264,7 @@ class AnnotationAggregationScalingTests(unittest.TestCase):
         )
         self.reidentify(directory)
         with self.assertRaisesRegex(AnnotationError, "Mixed normalized table schemas"):
-            aggregate_annotations.aggregate(*args, self.root / "schemas")
+            aggregate_fixture(*args, self.root / "schemas")
         self.assertFalse((self.root / "definitions").exists())
         self.assertFalse((self.root / "schemas").exists())
 
@@ -262,7 +278,7 @@ class AnnotationAggregationScalingTests(unittest.TestCase):
             evidence={**original_evidence, "mapped_genes": ["A::gene_1"]},
         )
         with self.assertRaisesRegex(AnnotationError, "undeclared protein"):
-            aggregate_annotations.aggregate(*args, self.root / "unknown")
+            aggregate_fixture(*args, self.root / "unknown")
         self.reidentify(directory, evidence=original_evidence, method_id="other-method")
         plan = read_json(args[0])
         for task in plan["tasks"]:
@@ -272,12 +288,12 @@ class AnnotationAggregationScalingTests(unittest.TestCase):
         plan["plan_id"] = identity(plan)
         write_json(args[0], plan)
         with self.assertRaisesRegex(AnnotationError, "Mixed annotation methods"):
-            aggregate_annotations.aggregate(*args, self.root / "methods")
+            aggregate_fixture(*args, self.root / "methods")
         (directory / "raw/native.txt").write_text("changed evidence\n")
         with self.assertRaisesRegex(
             AnnotationError, "Native annotation evidence changed"
         ):
-            aggregate_annotations.aggregate(*args, self.root / "raw")
+            aggregate_fixture(*args, self.root / "raw")
         self.assertFalse(list(self.root.glob(".annotation-aggregation-*")))
 
     def test_streamed_detail_rows_cannot_move_to_another_accession(self):
@@ -290,7 +306,7 @@ class AnnotationAggregationScalingTests(unittest.TestCase):
         self.reidentify(directory)
         output = self.root / "foreign-report"
         with self.assertRaisesRegex(AnnotationError, "different accession"):
-            aggregate_annotations.aggregate(*args, output)
+            aggregate_fixture(*args, output)
         self.assertFalse(output.exists())
 
     def test_evidence_memory_does_not_grow_with_cohort_rows(self):
@@ -300,7 +316,7 @@ class AnnotationAggregationScalingTests(unittest.TestCase):
         gc.collect()
         tracemalloc.start()
         try:
-            aggregate_annotations.aggregate(*args, self.root / "many")
+            aggregate_fixture(*args, self.root / "many")
             _, many_peak = tracemalloc.get_traced_memory()
         finally:
             tracemalloc.stop()
@@ -316,7 +332,7 @@ class AnnotationAggregationScalingTests(unittest.TestCase):
         gc.collect()
         tracemalloc.start()
         try:
-            aggregate_annotations.aggregate(
+            aggregate_fixture(
                 *args[:3], args[3][:1], args[4][:1], self.root / "one"
             )
             _, one_peak = tracemalloc.get_traced_memory()

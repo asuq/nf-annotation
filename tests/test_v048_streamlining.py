@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
-import aggregate_annotations
+from annotation_workflow_fixture import aggregate_fixture
 import annotation_common
 import report_genomes
 from annotation_common import AnnotationError, read_json, write_json
@@ -25,7 +25,7 @@ class StreamliningTests(unittest.TestCase):
         self.addCleanup(case.doCleanups)
         args = case.cohort(["B", "A"], tools=())
         full, ani = case.root / "full", case.root / "clustering"
-        aggregate_annotations.aggregate(*args, full)
+        aggregate_fixture(*args, full)
         with patch.object(
             annotation_common,
             "bundle_proteins",

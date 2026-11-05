@@ -318,7 +318,7 @@ process AGGREGATE_ANNOTATIONS {
     path master, name: 'upstream_master.tsv'
     path sample_status, name: 'upstream_sample_status.tsv'
     path bundles, stageAs: 'bundles/bundle??'
-    path results, stageAs: 'results/result???'
+    tuple val(result_keys), path(results, stageAs: 'results/result???')
     path batches, stageAs: 'batches/batch???'
     val bundle_paths
     path dependencies, stageAs: 'dependencies/root????'
@@ -339,7 +339,7 @@ process AGGREGATE_ANNOTATIONS {
     def isAni = SamplePolicy.stage(params) == 'clustering'
     def publicationArg = isAni ? "--publication '${inputs[0]}' --publication-mode '${params.publication_mode}'" : ''
     def bundleList = groovy.json.JsonOutput.toJson(isAni ? bundle_paths : inputs.collect { it.toString() })
-    def resultList = groovy.json.JsonOutput.toJson((results instanceof Collection ? results : [results]).collect { it.toString() })
+    def resultList = groovy.json.JsonOutput.toJson((results instanceof Collection ? results : [results]).withIndex().collect { path, index -> [accession: result_keys[index].accession, tool: result_keys[index].tool, path: path.toString()] })
     def batchList = groovy.json.JsonOutput.toJson((batches instanceof Collection ? batches : [batches]).collect { it.toString() })
     """
     cat > cohort_entries.json <<'COHORT_EVIDENCE'

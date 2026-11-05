@@ -133,3 +133,18 @@ def publish_disabled(source: Path, accessions: list[str], bundles=()) -> None:
     shutil.copytree(output, source, dirs_exist_ok=True)
     shutil.rmtree(output)
     plan_path.unlink()
+
+
+def indexed_results(paths):
+    result = []
+    for path in paths:
+        record = read_json(path / "result.json")
+        result.append(dict(accession=record["accession"], tool=record["tool"], path=str(path)))
+    return result
+
+
+def aggregate_fixture(*args, **kwargs):
+    """Supply producer identities from synthetic result fixtures."""
+    values = list(args)
+    values[4] = indexed_results(values[4])
+    return aggregate(*values, **kwargs)

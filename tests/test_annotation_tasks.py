@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
 import test_annotation_bundle as bundle_fixture
-from aggregate_annotations import aggregate
+from annotation_workflow_fixture import aggregate_fixture as aggregate
 from annotation_commands import commands, shell_script
 from annotation_common import (
     TOOLS,
@@ -49,6 +49,31 @@ class AnnotationTaskTests(unittest.TestCase):
         self.root = self.fixture.root
         self.bundle = self.fixture.build("A")
         self.metadata, self.proteins = bundle_proteins(self.bundle)
+
+    def test_normalisation_reads_only_tables_bound_to_the_planned_bundle(self):
+        import hashlib
+        from annotation_tasks import normalize_task
+        task = self.root / "scoped-task"
+        plan_task(self.bundle, "kofam", self.entry(), task,
+                  bundle_data=(self.metadata, self.proteins))
+        raw = self.root / "failed-native"
+        raw.mkdir()
+        (raw / "exit_code.txt").write_text("1\n")
+        original = hashlib.file_digest
+        observed = []
+        def checksum(handle, *args, **kwargs):
+            path = Path(handle.name)
+            if path.parent == self.bundle:
+                self.assertIn(path.name, ("bundle.json", "protein_manifest.tsv", "gene_coordinates.tsv"))
+                observed.append(path.name)
+            return original(handle, *args, **kwargs)
+        with patch("hashlib.file_digest", side_effect=checksum):
+            result = normalize_task(task, raw, self.bundle, None, self.root / "scoped-result")
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(set(observed), {"bundle.json", "protein_manifest.tsv", "gene_coordinates.tsv"})
+        (self.bundle / "protein_manifest.tsv").write_text("changed")
+        with self.assertRaises(AnnotationError):
+            normalize_task(task, raw, self.bundle, None, self.root / "changed-result")
 
     def test_disabled_cohort_plan_matches_streaming_grid_without_revalidating_payloads(self):
         samples = self.root / "disabled-samples.tsv"

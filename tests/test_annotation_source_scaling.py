@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
 import test_annotation_aggregation_scaling as aggregation_fixture
 import test_annotation_source as source_fixture
-from aggregate_annotations import aggregate
+from annotation_workflow_fixture import aggregate_fixture as aggregate
 from annotation_common import (
     AnnotationError,
     identity,

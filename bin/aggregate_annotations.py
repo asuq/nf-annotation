@@ -262,7 +262,7 @@ def aggregate(
     master: Path,
     sample_status: Path,
     bundles: list[Path],
-    result_dirs: list[Path],
+    result_dirs: list[dict[str, Any]],
     output: Path,
     *,
     batch_dirs: Sequence[Path] = (),
@@ -294,7 +294,7 @@ def aggregate_samples(
     master: Path,
     sample_status: Path,
     bundles: list[Path],
-    result_dirs: list[Path],
+    result_dirs: list[dict[str, Any]],
     output: Path,
     work: Path,
     spool: TableWriter,
@@ -342,12 +342,15 @@ def aggregate_samples(
             path=f"samples/{accession}/annotation/bundle",
             manifest_sha256=digest(bundle / "bundle.json"),
         )
-    # The directory list has no trusted naming convention. Index only paths and
-    # original source order; release each JSON, including its evidence, immediately.
+    # Carry producer identities with paths; read full evidence only for its sample.
+    if not isinstance(result_dirs, list):
+        raise AnnotationError("Annotation results require a keyed path list")
     result_index = {}
-    for source_order, directory in enumerate(result_dirs):
-        record = read_json(directory / "result.json")
-        key = record.get("accession"), record.get("tool")
+    for source_order, entry in enumerate(result_dirs):
+        if not isinstance(entry, dict) or set(entry) != {"accession", "tool", "path"}:
+            raise AnnotationError("Annotation results require keyed paths")
+        directory = Path(entry["path"])
+        key = entry["accession"], entry["tool"]
         if (
             key not in planned
             or key in result_index
@@ -355,7 +358,6 @@ def aggregate_samples(
         ):
             raise AnnotationError("Unexpected, disabled or duplicate annotation result")
         result_index[key] = (source_order, directory)
-        del record
     details = {}
     for tool in TOOLS:
         for name, columns in importlib.import_module(
@@ -596,7 +598,7 @@ def main() -> int:
             args.master,
             args.sample_status,
             read_publication_paths(args.bundle_list, args.publication, args.publication_mode),
-            read_path_list(args.result_list),
+            read_json(args.result_list),
             args.output,
             batch_dirs=read_path_list(args.batch_list),
         )

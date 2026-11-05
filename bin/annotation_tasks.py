@@ -259,6 +259,7 @@ def plan_task(
         raise AnnotationError("eggNOG execution requires the shared batch planner")
     manifest, proteins = bundle_data
     task = task_identity(manifest, tool, entry)
+    task["bundle_manifest_sha256"] = digest(bundle / "bundle.json")
     task.update(action="run", reason="no_compatible_native_result")
     if previous is not None and (previous / "result.json").is_file():
         old = read_json(previous / "result.json")
@@ -304,7 +305,7 @@ def normalize_task(
     task = read_json(taskdir / "task.json")
     if task.get("tool") == "eggnog":
         raise AnnotationError("eggNOG normalization requires the shared batch result")
-    manifest, proteins = bundle_proteins(bundle)
+    manifest, proteins = bundle_proteins(bundle, manifest_sha256=task["bundle_manifest_sha256"])
     if (
         manifest["input_id"] != task["input_id"]
         or manifest["accession"] != task["accession"]
