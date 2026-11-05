@@ -101,7 +101,12 @@ class AniBatchImportTests(unittest.TestCase):
             reads.append(path)
             return original(handle, *args, **kwargs)
         checksum = load_checksums(catalog)
-        with patch("hashlib.file_digest", side_effect=checked):
+        from fingerprinting import source_fingerprint
+        original_signature = source_fingerprint.signature
+        def other_worker(info):
+            value = original_signature(info)
+            return (value[0] + 1, value[1] + 1, *value[2:])
+        with patch.object(source_fingerprint, "signature", side_effect=other_worker), patch("hashlib.file_digest", side_effect=checked):
             import_sample(self.source, self.meta, "4", self.destination, self.channels, source_checksum=checksum)
         self.assertEqual(len(reads), len(regular_files(self.source)))
         changed = self.source / "prokka/prokka.faa"

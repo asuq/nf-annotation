@@ -44,22 +44,23 @@ def checked_digest(path: Path, before: os.stat_result) -> str:
     return checksum
 
 
-def cached_checksum(path: Path, *, records) -> str:
+def cached_checksum(path: Path, *, records, portable=False) -> str:
     resolved = path.resolve(strict=True)
     before = path.stat()
+    current = signature(before)[2:] if portable else signature(before)
     record = records.get(resolved)
     if record is None:
         result = checked_digest(path, before)
-        records[resolved] = (signature(before), result)
+        records[resolved] = (current, result)
         return result
-    if tuple(record[0]) != signature(before):
+    if tuple(record[0]) != current:
         raise AnnotationError(f"Publication changed after fingerprinting: {path}")
     return record[1]
 
 
 def load_checksums(path: Path):
     records = {Path(name): record for name, record in read_json(path).items()}
-    return partial(cached_checksum, records=records)
+    return partial(cached_checksum, records=records, portable=True)
 
 
 class FingerprintScanner:
@@ -165,9 +166,9 @@ class FingerprintScanner:
         return cached_checksum(path, records=self.file_digests)
 
     def export_checksums(self, path: Path) -> None:
-        """Carry this run's content checks to import tasks without another payload read."""
+        """Carry fresh checks across workers; device/inode IDs are mount-local."""
         with path.open('w') as handle:
-            json.dump({str(name): record for name, record in self.file_digests.items()}, handle,
+            json.dump({str(name): (record[0][2:], record[1]) for name, record in self.file_digests.items()}, handle,
                       separators=(',', ':'))
             handle.write('\n')
 
