@@ -1,0 +1,20 @@
+[
+  {
+    "name": "ecoli.faa.gz",
+    "assembly": "GCF_000005845.2",
+    "url": "https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/005/845/GCF_000005845.2_ASM584v2/GCF_000005845.2_ASM584v2_protein.faa.gz",
+    "sha256": "283c91ff66d0597f2488fd1c00ad40f8d0a0b37a92f981b6148d75fa4a934896"
+  },
+  {
+    "name": "mycoplasma.faa.gz",
+    "assembly": "GCF_000027325.1",
+    "url": "https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/027/325/GCF_000027325.1_ASM2732v1/GCF_000027325.1_ASM2732v1_protein.faa.gz",
+    "sha256": "7117e926bed866db7fab6d53567d6de4fe55845deb2dc995a86720850e808c58"
+  },
+  {
+    "name": "archaea.faa.gz",
+    "assembly": "GCF_000091665.1",
+    "url": "https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/091/665/GCF_000091665.1_ASM9166v1/GCF_000091665.1_ASM9166v1_protein.faa.gz",
+    "sha256": "cbd09de5edd1193e81c0e93f290e8a9b0d992055817512007e68b3781514d58a"
+  }
+]
