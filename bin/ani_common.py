@@ -6,6 +6,7 @@ from __future__ import annotations
 import csv
 import os
 import logging
+import math
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -342,30 +343,35 @@ def build_genome_from_row(
     if gcode not in (4, 11):
         reasons.append("invalid_gcode")
 
-    checkm2_completeness = try_parse_float_like(row["checkm2_completeness"])
-    if checkm2_completeness is None:
-        reasons.append("missing_checkm2_completeness")
+    def metric(name, parser, minimum, maximum=None, required=True):
+        raw = row[name]
+        value = parser(raw)
+        if not required:
+            return value
+        if value is None:
+            reasons.append(("missing_" if is_missing_value(raw) else "invalid_") + name)
+        else:
+            try:
+                valid = math.isfinite(value) and value >= minimum and (maximum is None or value <= maximum)
+            except OverflowError:
+                valid = False
+            if not valid:
+                reasons.append("invalid_" + name)
+        return value
 
-    checkm2_contamination = try_parse_float_like(row["checkm2_contamination"])
-    if checkm2_contamination is None:
-        reasons.append("missing_checkm2_contamination")
-
-    n50 = try_parse_int_like(row["n50"])
-    if n50 is None:
-        reasons.append("missing_n50")
-
-    scaffolds = try_parse_int_like(row["scaffolds"])
-    if scaffolds is None:
-        reasons.append("missing_scaffolds")
-
-    genome_size = try_parse_int_like(row["genome_size"])
-    if genome_size is None and require_genome_size:
-        reasons.append("missing_genome_size")
+    checkm2_completeness = metric("checkm2_completeness", try_parse_float_like, 0, 100)
+    # Contamination can exceed 100 for heavily duplicated/chimeric assemblies.
+    checkm2_contamination = metric("checkm2_contamination", try_parse_float_like, 0)
+    n50 = metric("n50", try_parse_int_like, 1)
+    scaffolds = metric("scaffolds", try_parse_int_like, 1)
+    genome_size = metric("genome_size", try_parse_int_like, 1, required=require_genome_size)
 
     busco_str = row[busco_column].strip()
     busco_parsed = try_parse_busco(busco_str)
     if busco_parsed is None:
-        reasons.append(f"missing_{busco_column}")
+        reasons.append(f"missing_{busco_column}" if is_missing_value(busco_str) else f"invalid_{busco_column}")
+    elif any(not math.isfinite(value) or not 0 <= value <= 100 for value in busco_parsed):
+        reasons.append(f"invalid_{busco_column}")
 
     if reasons:
         return None, reasons

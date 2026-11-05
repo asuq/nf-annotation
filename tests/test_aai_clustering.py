@@ -181,6 +181,20 @@ class AaiClusteringTests(unittest.TestCase):
         self.assertEqual(reps[0]["Representative_Accession"], "A")
         self.assertNotEqual(rows[0]["AAI_Score"], "NA")
 
+    def test_invalid_metrics_remove_candidates_without_removing_membership(self):
+        for field, value in (("n50", "-1"), ("scaffolds", "0"),
+                             ("checkm2_completeness", "NaN"),
+                             ("checkm2_contamination", "inf"),
+                             ("busco", "C:101.0%[S:101.0%,D:0.0%],F:0.0%,M:0.0%,n:200")):
+            with self.subTest(field=field):
+                a, b = record("A"), record("B")
+                a["quality"][field] = value
+                rows, reps, _, _ = self.run_case([a, b], {("A", "B"): 1})
+                self.assertEqual(reps[0]["Representative_Accession"], "B")
+                self.assertEqual(rows[0]["aai_status"], "clustered")
+                self.assertEqual(rows[0]["AAI_Score"], "NA")
+                self.assertIn("invalid_", rows[0]["aai_representative_status"])
+
     def test_quality_ties_and_input_order_are_deterministic(self):
         _, reps, _, trace = self.run_case([record("B"), record("A")], {("B", "A"): 1})
         self.assertEqual(reps[0]["Representative_Accession"], "A")
