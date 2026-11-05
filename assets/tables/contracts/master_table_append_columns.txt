@@ -35,6 +35,10 @@ Cluster_ID
 Is_Representative
 ANI_to_Representative
 Score
+AAI_Cluster_ID
+AAI_Is_Representative
+AAI_to_Representative
+AAI_Score
 annotation_input_proteins
 annotation_complete
 eggnog_status

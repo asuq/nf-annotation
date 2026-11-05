@@ -141,6 +141,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=Path,
         help="Path to the final master_table.tsv output.",
     )
+    parser.add_argument("--aai", type=Path)
     return parser.parse_args(argv)
 
 
@@ -723,6 +724,15 @@ def run_build(args: argparse.Namespace) -> None:
     if len(rows) != len({row[metadata_key_column] for row in rows}):
         raise MasterTableError("Final master table contains duplicate accession rows.")
 
+    aai_path = getattr(args, "aai", None)
+    if aai_path is not None:
+        from annotation_common import read_tsv
+        aai_rows = read_tsv(aai_path, ("Accession", *master_table_contract.AAI_COLUMNS))
+        aai_index = {r["Accession"]: r for r in aai_rows}
+        if len(aai_rows) != len(aai_index) or (aai_index and set(aai_index) != validated_accessions):
+            raise MasterTableError("AAI summary membership differs from the cohort")
+        for row, sample in zip(rows, validated_samples, strict=True):
+            row.update({c: aai_index.get(sample["accession"], {}).get(c, "NA") for c in master_table_contract.AAI_COLUMNS})
     write_tsv(args.output, output_header, rows)
 
 

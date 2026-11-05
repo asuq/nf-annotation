@@ -73,8 +73,8 @@ class MasterTableContractTestCase(unittest.TestCase):
             columns.index("busco_lineage_c_status"),
         )
         self.assertEqual(
-            columns[-len(master_table_contract.SAMPLE_STATUS_SUFFIX_COLUMNS) :],
-            list(master_table_contract.SAMPLE_STATUS_SUFFIX_COLUMNS),
+            columns[-len((*master_table_contract.SAMPLE_STATUS_SUFFIX_COLUMNS, *master_table_contract.AAI_STATUS_COLUMNS)) :],
+            list((*master_table_contract.SAMPLE_STATUS_SUFFIX_COLUMNS, *master_table_contract.AAI_STATUS_COLUMNS)),
         )
 
     def test_codetta_columns_follow_gcode_immediately(self) -> None:

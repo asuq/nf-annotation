@@ -142,6 +142,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=Path,
         help="Path to the final sample_status.tsv output.",
     )
+    parser.add_argument("--aai", type=Path)
     return parser.parse_args(argv)
 
 
@@ -195,7 +196,7 @@ def load_initial_status(
     """Load the seed sample-status table and validate its identity columns."""
     try:
         header, rows = table_helpers.read_table(path, delimiter="\t")
-        table_helpers.require_columns(header, output_columns, "initial sample-status table")
+        table_helpers.require_columns(header, [c for c in output_columns if c not in master_table_contract.AAI_STATUS_COLUMNS], "initial sample-status table")
         accession_column = table_helpers.detect_key_column(header, ("accession",))
         status_index = table_helpers.build_index(rows, accession_column, "initial sample-status table")
     except table_helpers.MasterTableError as error:
@@ -855,6 +856,17 @@ def run_build(args: argparse.Namespace) -> None:
             )
         )
 
+    from aai_common import AAI_STATUS_COLUMNS
+    aai_path = getattr(args, "aai", None)
+    aai_index = {}
+    if aai_path is not None:
+        from annotation_common import read_tsv
+        aai_rows = read_tsv(aai_path, ("Accession", *AAI_STATUS_COLUMNS))
+        aai_index = {r["Accession"]: r for r in aai_rows}
+        if len(aai_index) != len(aai_rows) or (aai_index and set(aai_index) != {r["accession"] for r in rows}):
+            raise SampleStatusError("AAI summary membership differs from the cohort")
+    for row in rows:
+        row.update({c: aai_index.get(row["accession"], {}).get(c, "not_requested" if c == "aai_status" else "NA") for c in AAI_STATUS_COLUMNS})
     write_tsv(args.output, output_columns, rows)
 
 

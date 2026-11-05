@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Sequence
 from annotation_summary import ANNOTATION_COLUMNS
+from aai_common import AAI_COLUMNS, AAI_STATUS_COLUMNS
 
 
 DEFAULT_BUSCO_LINEAGES = ("bacillota_odb12", "mycoplasmatota_odb12")
@@ -114,6 +115,7 @@ def build_append_columns(busco_lineages: Sequence[str] | None = None) -> list[st
         *busco_columns,
         *CRISPR_COLUMNS,
         *ANI_COLUMNS,
+        *AAI_COLUMNS,
         *ANNOTATION_COLUMNS,
     ]
 
@@ -161,6 +163,7 @@ def build_sample_status_columns(
         *SAMPLE_STATUS_PREFIX_COLUMNS,
         *busco_columns,
         *SAMPLE_STATUS_SUFFIX_COLUMNS,
+        *AAI_STATUS_COLUMNS,
     ]
 
 
@@ -186,7 +189,7 @@ def extract_busco_lineages_from_append_columns(
         *ASSEMBLY_DERIVED_COLUMNS,
         *GCODE_QC_COLUMNS,
     ]
-    suffix_columns = [*CRISPR_COLUMNS, *ANI_COLUMNS, *ANNOTATION_COLUMNS]
+    suffix_columns = [*CRISPR_COLUMNS, *ANI_COLUMNS, *AAI_COLUMNS, *ANNOTATION_COLUMNS]
     append_list = [column.strip() for column in append_columns]
 
     if append_list[: len(prefix_columns)] != prefix_columns:
@@ -214,14 +217,15 @@ def extract_busco_lineages_from_sample_status_columns(
 ) -> tuple[str, ...]:
     """Return BUSCO lineage names encoded in one sample-status contract."""
     status_list = [column.strip() for column in sample_status_columns]
+    suffix_columns = [*SAMPLE_STATUS_SUFFIX_COLUMNS, *AAI_STATUS_COLUMNS]
 
     if status_list[: len(SAMPLE_STATUS_PREFIX_COLUMNS)] != list(SAMPLE_STATUS_PREFIX_COLUMNS):
         raise ValueError("Sample-status contract has an unexpected non-BUSCO prefix.")
-    if status_list[-len(SAMPLE_STATUS_SUFFIX_COLUMNS) :] != list(SAMPLE_STATUS_SUFFIX_COLUMNS):
+    if status_list[-len(suffix_columns) :] != suffix_columns:
         raise ValueError("Sample-status contract has an unexpected non-BUSCO suffix.")
 
     busco_columns = status_list[
-        len(SAMPLE_STATUS_PREFIX_COLUMNS) : len(status_list) - len(SAMPLE_STATUS_SUFFIX_COLUMNS)
+        len(SAMPLE_STATUS_PREFIX_COLUMNS) : len(status_list) - len(suffix_columns)
     ]
     if not busco_columns:
         raise ValueError("Sample-status contract must contain at least one BUSCO status column.")
