@@ -239,7 +239,16 @@ def import_sample(
                 prepared.rename(target)
         else:
             if target.exists() or target.is_symlink():
-                existing = regular_files(target)
+                existing = regular_files(target, exclude_annotation=True)
+                annotation = target / "annotation"
+                if annotation.is_symlink():
+                    raise AnnotationError("Publication annotation directory must not be linked")
+                owned_bundle = annotation / "bundle"
+                if owned_bundle.exists() or owned_bundle.is_symlink():
+                    existing.update({
+                        "annotation/bundle/" + name: path
+                        for name, path in regular_files(owned_bundle).items()
+                    })
                 if set(existing) != set(files) or any(
                     digest(existing[name]) != digest(path)
                     for name, path in files.items()

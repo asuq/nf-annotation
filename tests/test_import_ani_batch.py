@@ -94,6 +94,19 @@ class AniBatchImportTests(unittest.TestCase):
         self.assertEqual(result["bundle"], "reused")
         bundle_proteins(self.destination / "samples/A/annotation/bundle")
 
+    def test_resume_preserves_functional_outputs_but_checks_owned_bundle(self):
+        import_sample(self.source, self.meta, "4", self.destination, self.channels)
+        result = self.destination / "samples/A/annotation/kofam/result.json"
+        result.parent.mkdir()
+        result.write_text('{"producer": "functional annotation"}\n')
+        before = result.read_bytes()
+        observed = import_sample(self.source, self.meta, "4", self.destination, self.channels)
+        self.assertEqual(observed["publication"], "verified_existing")
+        self.assertEqual(result.read_bytes(), before)
+        (self.destination / "samples/A/annotation/bundle/proteins.faa").write_text("changed")
+        with self.assertRaisesRegex(AnnotationError, "Existing publication differs"):
+            import_sample(self.source, self.meta, "4", self.destination, self.channels)
+
     def test_copy_fallback_preserves_bytes_without_hardlinks(self):
         target = self.root / "copied"
         with patch("import_ani_batch.sys.platform", "unsupported"):
