@@ -25,6 +25,7 @@ workflow FINAL_OUTPUTS {
     annotation_plan
     annotation_bundles
     annotation_batches
+    cohort_evidence
     aaiSummary
     aniSummary
     aniRepresentatives
@@ -184,14 +185,14 @@ workflow FINAL_OUTPUTS {
     if (!SamplePolicy.annotationTools(params)) {
         manifests = annotation_bundles.map { items -> items.collect { it.resolve('bundle.json') } }
         references = annotation_bundles.map { params.publication_mode == 'reference' ? file("${params.outdir}/cohort_references.json") : [] }
-        REPORT_GENOMES(annotation_plan, BUILD_MASTER_TABLE.out.master_table, WRITE_SAMPLE_STATUS.out.sample_status, manifests, references)
+        REPORT_GENOMES(annotation_plan, BUILD_MASTER_TABLE.out.master_table, WRITE_SAMPLE_STATUS.out.sample_status, manifests, references, cohort_evidence)
         reportTables = REPORT_GENOMES.out.tables
         reportManifest = REPORT_GENOMES.out.manifest
         reportAcceptance = REPORT_GENOMES.out.acceptance
     } else {
         AGGREGATE_ANNOTATIONS(annotation_plan, BUILD_MASTER_TABLE.out.master_table, WRITE_SAMPLE_STATUS.out.sample_status,
             annotation_bundles, annotation_results.map { item -> item[1] }.toList(), annotation_batches.toList(),
-            Channel.value([]), Channel.value([]))
+            Channel.value([]), Channel.value([]), cohort_evidence)
         reportTables = AGGREGATE_ANNOTATIONS.out.tables
         reportManifest = AGGREGATE_ANNOTATIONS.out.manifest
         reportAcceptance = AGGREGATE_ANNOTATIONS.out.acceptance

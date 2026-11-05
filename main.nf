@@ -211,6 +211,7 @@ workflow {
         FUNCTIONAL_ANNOTATION.out.plan,
         FUNCTIONAL_ANNOTATION.out.bundle_files,
         FUNCTIONAL_ANNOTATION.out.native_batches,
+        COHORT_AAI.out.evidence.mix(COHORT_ANI.out.evidence).toSortedList { a, b -> a[0] <=> b[0] }.map { rows -> tuple(rows.collect { it[0] }, rows.collect { it[1] }) },
         COHORT_AAI.out.summary,
         COHORT_ANI.out.summary,
         COHORT_ANI.out.representatives,

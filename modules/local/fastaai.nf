@@ -113,8 +113,8 @@ process CLUSTER_AAI {
     label 'process_high'
     container params.python_container
     cache 'deep'
-    publishDir "${params.outdir}/cohort/aai_clusters", mode: 'copy', overwrite: true,
-        saveAs: { name -> name.startsWith('aai/') ? name.substring(4) : null }
+    publishDir "${params.outdir}/cohort", mode: 'copy', overwrite: true,
+        saveAs: { name -> name == 'aai' ? 'aai_clusters' : null }
     input:
     path domains, stageAs: 'domains/domain??'
     path samples
@@ -125,6 +125,7 @@ process CLUSTER_AAI {
     path 'aai/method.json', emit: method
     path 'aai/scores.json', emit: scores
     path 'aai/metrics.json', emit: metrics
+    path 'aai', emit: evidence
     path 'versions.yml', emit: versions
     script:
     def paths = groovy.json.JsonOutput.toJson((domains instanceof Collection ? domains : [domains]).collect { it.toString() })

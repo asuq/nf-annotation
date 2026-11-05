@@ -14,6 +14,7 @@ workflow COHORT_AAI {
         summaries = Channel.value(file("${projectDir}/assets/tables/headers/aai_not_requested.tsv"))
         representatives = Channel.empty()
         versions = Channel.empty()
+        evidence = Channel.empty()
     } else {
         requested = samples.splitCsv(header: true, sep: '\t').toList()
         batches = requested.map { [it] }.combine(bundles.map { [it] }).flatMap { item ->
@@ -41,11 +42,15 @@ workflow COHORT_AAI {
         }
         FASTAAI_COMPARE(domainRecords)
         CLUSTER_AAI(FASTAAI_COMPARE.out.comparison.toSortedList { a, b -> a[0] <=> b[0] }.map { rows -> rows.collect { it[1] } }, samples)
+        evidence = FASTAAI_COMPARE.out.comparison.map { domain, directory -> tuple("cohort/fastaai/${domain}", directory) }
+            .mix(CLUSTER_AAI.out.evidence.map { tuple('cohort/aai_clusters', it) })
+            .mix(PREPARE_AAI_BATCH.out.batch.toList().map { tuple('cohort/fastaai/profiles', file("${params.outdir}/cohort/fastaai/profiles")) })
         summaries = CLUSTER_AAI.out.summary
         representatives = CLUSTER_AAI.out.representatives
         versions = PREPARE_AAI_BATCH.out.versions.mix(FASTAAI_COMPARE.out.versions).mix(CLUSTER_AAI.out.versions)
     }
     emit:
+    evidence = evidence
     summary = summaries
     representatives = representatives
     versions = versions

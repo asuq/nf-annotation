@@ -548,6 +548,7 @@ def aggregate_samples(
         plan_id=plan["plan_id"],
         bundles=bundle_records,
         results=result_manifest,
+        cohort_artifacts={},
         tables={
             str(path.relative_to(work)): digest(path)
             for path in sorted(tables.rglob("*.tsv"))
@@ -586,6 +587,7 @@ def main() -> int:
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--publication", type=Path)
     parser.add_argument("--publication-mode", choices=("self_contained", "reference"), default="self_contained")
+    parser.add_argument("--cohort-entries", type=Path)
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     try:
@@ -598,6 +600,9 @@ def main() -> int:
             args.output,
             batch_dirs=read_path_list(args.batch_list),
         )
+        from cohort_evidence import inventory as cohort_inventory, read_entries
+        manifest["cohort_artifacts"] = cohort_inventory(read_entries(args.cohort_entries))
+        write_json(args.output / "annotation_results.json", manifest)
         if args.publication_mode == "reference":
             from publication_references import (
                 REFERENCE_CONTRACT,

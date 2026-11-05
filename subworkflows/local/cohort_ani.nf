@@ -161,7 +161,19 @@ workflow COHORT_ANI {
     }
     versions = SUMMARISE_BUSCO.out.versions.mix(assemblyVersions).mix(aniVersions)
 
+    evidence = assemblyStats.map { tuple('cohort/assembly_stats/assembly_stats.tsv', it) }
+    if (SamplePolicy.stage(params) != 'qc') {
+        evidence = evidence.mix(matrix.map { tuple('cohort/fastani/fastani.matrix', it) })
+            .mix(raw.map { tuple('cohort/fastani/fastani.tsv', it) })
+            .mix(preparedMetadata.map { tuple('cohort/fastani/ani_metadata.tsv', it) })
+            .mix(preparedExclusions.map { tuple('cohort/fastani/ani_exclusions.tsv', it) })
+            .mix(preparedPaths.map { tuple('cohort/fastani/fastani_paths.txt', it) })
+            .mix(clusters.map { tuple('cohort/ani_clusters/cluster.tsv', it) })
+            .mix(summary.map { tuple('cohort/ani_clusters/ani_summary.tsv', it) })
+            .mix(representatives.map { tuple('cohort/ani_clusters/ani_representatives.tsv', it) })
+    }
     emit:
+    evidence = evidence
     checkm2_table = combined_checkm2
     parsed_busco = busco_tables
     fastani_inputs = preparedInputs

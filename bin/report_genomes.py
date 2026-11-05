@@ -20,6 +20,7 @@ from annotation_common import (
     write_tsv,
 )
 from annotation_path_lists import read_path_list
+from cohort_evidence import inventory as cohort_inventory, read_entries
 from annotation_summary import genome_summary
 from publication_references import PORTABLE_CONTRACT, REFERENCE_CONTRACT
 from validate_inputs import detect_metadata_key_column
@@ -32,6 +33,7 @@ def report(
     bundles: list[Path],
     output: Path,
     reference: Path | None = None,
+    cohort_entries=(),
 ) -> dict:
     plan = read_json(plan_path)
     if (
@@ -122,6 +124,7 @@ def report(
         plan_id=plan["plan_id"],
         bundles=bundle_manifest,
         results={},
+        cohort_artifacts=cohort_inventory(cohort_entries),
         tables={f"tables/{p.name}": digest(p) for p in sorted(tables.iterdir())},
     )
     if reference:
@@ -139,6 +142,7 @@ def main() -> None:
     for name in ("plan", "master", "status", "bundles", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--reference", type=Path)
+    parser.add_argument("--cohort-entries", type=Path)
     args = parser.parse_args()
     try:
         report(
@@ -148,6 +152,7 @@ def main() -> None:
             read_path_list(args.bundles),
             args.output,
             args.reference,
+            read_entries(args.cohort_entries),
         )
     except (AnnotationError, OSError, ValueError) as error:
         parser.exit(1, str(error) + "\n")

@@ -6,7 +6,7 @@ process IMPORT_ANNOTATION_SOURCE {
     errorStrategy 'finish'
     maxRetries 0
     publishDir params.outdir, mode: 'copy', overwrite: true,
-        saveAs: { name -> name.startsWith('imported/inherited/samples/') || name.startsWith('imported/inherited/tables/') || name.startsWith('imported/inherited/cohort/') ? name.substring(19) : null }
+        saveAs: { name -> name == 'imported/inherited/cohort' ? 'cohort' : name.startsWith('imported/inherited/samples/') || name.startsWith('imported/inherited/tables/') || name.startsWith('imported/inherited/cohort/') ? name.substring(19) : null }
 
     input:
     path source_results, name: 'source_results'
@@ -15,6 +15,7 @@ process IMPORT_ANNOTATION_SOURCE {
 
     output:
     path 'imported/source_snapshot.json', emit: snapshot
+    path 'imported/inherited/cohort', emit: cohort
     path 'imported/upstream_master.tsv', emit: master
     path 'imported/upstream_sample_status.tsv', emit: sample_status
     path 'imported/source_samples.tsv', emit: samples

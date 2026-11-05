@@ -323,12 +323,15 @@ process AGGREGATE_ANNOTATIONS {
     val bundle_paths
     path dependencies, stageAs: 'dependencies/root????'
 
+    tuple val(cohort_prefixes), path(cohort_payloads, stageAs: 'cohort_inputs/input????')
+
     output:
     path 'report/tables/*', emit: tables
     path 'report/annotation_results.json', emit: manifest
     path 'report/annotation_acceptance.json', emit: acceptance
 
     script:
+    def cohortEntries = groovy.json.JsonOutput.toJson((cohort_payloads instanceof Collection ? cohort_payloads : [cohort_payloads]).withIndex().collect { value, index -> [prefix: cohort_prefixes[index], path: value.toString()] })
     if (SamplePolicy.annotationTools(params)) {
         AnnotationExecution.requireRuntime(workflow.containerEngine, task.container, params.python_container)
     }
@@ -339,6 +342,9 @@ process AGGREGATE_ANNOTATIONS {
     def resultList = groovy.json.JsonOutput.toJson((results instanceof Collection ? results : [results]).collect { it.toString() })
     def batchList = groovy.json.JsonOutput.toJson((batches instanceof Collection ? batches : [batches]).collect { it.toString() })
     """
+    cat > cohort_entries.json <<'COHORT_EVIDENCE'
+${cohortEntries}
+COHORT_EVIDENCE
     cat > bundle_list.json <<'ANNOTATION_BUNDLE_LIST'
 ${bundleList}
 ANNOTATION_BUNDLE_LIST
@@ -351,7 +357,7 @@ ANNOTATION_BATCH_LIST
     python3 "\$(command -v aggregate_annotations.py)" --plan '${plan}' \
         --master upstream_master.tsv --sample-status upstream_sample_status.tsv \
         --bundle-list bundle_list.json ${publicationArg} --result-list result_list.json \
-        --batch-list batch_list.json --output report
+        --batch-list batch_list.json --cohort-entries cohort_entries.json --output report
     """
 }
 

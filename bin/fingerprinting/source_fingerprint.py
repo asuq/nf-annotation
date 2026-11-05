@@ -194,9 +194,9 @@ class FingerprintScanner:
         self.report(force=True)
         start = time.monotonic()
         links, directories, pending = [], [], []
-        for name in ("tables", "samples", "annotation_batches", "cohort/assembly_stats", "cohort/fastaai/profiles"):
+        for name in ("tables", "samples", "annotation_batches", "cohort/assembly_stats", "cohort/fastaai", "cohort/aai_clusters", "cohort/fastani", "cohort/ani_clusters"):
             directory = root / name
-            if name in ("annotation_batches", "cohort/assembly_stats", "cohort/fastaai/profiles") and not directory.exists():
+            if name in ("annotation_batches", "cohort/assembly_stats", "cohort/fastaai", "cohort/aai_clusters", "cohort/fastani", "cohort/ani_clusters") and not directory.exists():
                 continue
             if directory.is_symlink() or not directory.is_dir():
                 raise AnnotationError(f"Invalid publication directory: {directory}")

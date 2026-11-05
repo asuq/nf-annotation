@@ -59,6 +59,25 @@ class AnnotationSourceTests(unittest.TestCase):
         with self.assertRaisesRegex(AnnotationError, "table changed"):
             validate_source(self.source)
 
+    def test_cohort_evidence_is_bound_to_publication_and_fingerprint(self):
+        from cohort_evidence import inventory
+        from fingerprinting.source_fingerprint import fingerprint
+        evidence = self.source / "cohort/aai_clusters"
+        evidence.mkdir(parents=True)
+        table = evidence / "aai_summary.tsv"
+        table.write_text("Accession\tAAI_Cluster_ID\nA\tAAI_B000001\n")
+        manifest = read_json(self.source / "annotation_results.json")
+        manifest["cohort_artifacts"] = inventory([{"prefix": "cohort/aai_clusters", "path": str(evidence)}])
+        write_json(self.source / "annotation_results.json", manifest)
+        validate_source(self.source)
+        before = fingerprint(self.source)
+        table.write_text(table.read_text().replace("AAI_B000001", "AAI_B000002"))
+        self.assertNotEqual(before["sha256"], fingerprint(self.source)["sha256"])
+        with self.assertRaisesRegex(AnnotationError, "cohort evidence changed"):
+            validate_source(self.source)
+        with self.assertRaisesRegex(AnnotationError, "cohort evidence changed"):
+            import_source(self.source, self.root / "invalid-import")
+
     def test_large_validation_cells_roundtrip_and_restore_csv_limit(self):
         previous_limit = csv.field_size_limit()
         errors = [

@@ -193,6 +193,8 @@ def validate_source(
         "pipeline_contract"
     ) not in ("nf-annotation-v0.5", *REFERENCE_CONTRACTS):
         raise AnnotationError("Annotation reuse requires native v0.5 published results")
+    from cohort_evidence import verify
+    verify(root, manifest.get("cohort_artifacts", {}), checksum)
     accessions = manifest.get("accessions", [])
     if not accessions or len(accessions) != len(set(accessions)):
         raise AnnotationError("Invalid published annotation accession set")
@@ -420,6 +422,7 @@ def import_source(root: Path, output: Path) -> None:
     )
     inherited = output / "inherited"
     (inherited / "tables").mkdir(parents=True)
+    (inherited / "cohort").mkdir()
     for name, destination in (
         ("master_table.tsv", "upstream_master.tsv"),
         ("sample_status.tsv", "upstream_sample_status.tsv"),

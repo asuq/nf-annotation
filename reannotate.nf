@@ -48,6 +48,7 @@ workflow {
         FUNCTIONAL_ANNOTATION.out.native_batches.toList(),
         Channel.value([]),
         Channel.value([]),
+        IMPORT_ANNOTATION_SOURCE.out.cohort.map { tuple(['cohort'], [it]) },
     )
     if (referenceSource) {
         REFERENCE_ACCEPTANCE(AGGREGATE_ANNOTATIONS.out.acceptance, IMPORT_ANNOTATION_SOURCE.out.samples,
