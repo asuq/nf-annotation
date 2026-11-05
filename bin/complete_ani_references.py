@@ -64,7 +64,7 @@ def complete(
             else {"source": indexes[bundle["root"]]},
         }
     record = {
-        "schema_version": 2,
+        "schema_version": 1,
         "qc_publication_root": os.path.relpath(qc_root, destination),
         "mode": "reference",
         "sources": [

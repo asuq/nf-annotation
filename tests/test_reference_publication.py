@@ -21,7 +21,7 @@ from annotation_source import import_source, validate_source
 from benchmark_ani_reuse import make_source
 from complete_ani_references import complete
 from import_ani_batch import run
-from publication_references import REFERENCE_V2_CONTRACT as REFERENCE_CONTRACT, REFERENCE_FILE, Publication
+from publication_references import REFERENCE_CONTRACT as REFERENCE_CONTRACT, REFERENCE_FILE, Publication
 from fingerprinting.source_fingerprint import fingerprint, fingerprint_sources
 from verify_reference_acceptance import verify
 
@@ -58,7 +58,7 @@ class ReferencePublicationTests(unittest.TestCase):
             manifest["pipeline_contract"] = REFERENCE_CONTRACT
             manifest["reference_manifest_sha256"] = digest(output / REFERENCE_FILE)
         else:
-            manifest["pipeline_contract"] = "nf-annotation-v0.4"
+            manifest["pipeline_contract"] = "nf-annotation-v0.5"
             manifest.pop("reference_manifest_sha256", None)
         for accession, bundle in manifest.get("bundles", {}).items():
             bundle["manifest_sha256"] = digest(output / f"samples/{accession}/annotation/bundle/bundle.json")
@@ -182,7 +182,7 @@ class ReferencePublicationTests(unittest.TestCase):
         with self.assertRaisesRegex(AnnotationError, "changed during analysis"):
             verify(view, acceptance)
 
-    def test_locally_rebuilt_bundle_remains_an_explicit_dependency(self):
+    def test_canonical_bundle_stays_bound_to_original_qc_without_rebuilding(self):
         accession = self.accessions[0]
         path = self.source / f"samples/{accession}/annotation/bundle/bundle.json"
         data = read_json(path)
@@ -194,10 +194,10 @@ class ReferencePublicationTests(unittest.TestCase):
         first = self.publish(self.source, "rebuilt-view")
         self.assertEqual(
             read_json(first / REFERENCE_FILE)["samples"][accession]["bundle"],
-            {"local": True},
+            {"source": 0},
         )
         second = self.publish(first, "linked-rebuilt-view")
-        self.assertEqual(read_json(second / REFERENCE_FILE)["samples"][accession]["bundle"], {"local": True})
+        self.assertEqual(read_json(second / REFERENCE_FILE)["samples"][accession]["bundle"], {"source": 0})
         self.assertEqual([row["path"] for row in read_json(second / REFERENCE_FILE)["sources"]], ["."])
         shutil.rmtree(first)
         validate_source(second)

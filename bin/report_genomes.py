@@ -21,7 +21,7 @@ from annotation_common import (
 )
 from annotation_path_lists import read_path_list
 from annotation_summary import genome_summary
-from publication_references import PORTABLE_CONTRACT, REFERENCE_V2_CONTRACT
+from publication_references import PORTABLE_CONTRACT, REFERENCE_CONTRACT
 from validate_inputs import detect_metadata_key_column
 
 
@@ -114,7 +114,7 @@ def report(
     write_tsv(tables / "annotation_provenance.tsv", PROVENANCE_COLUMNS, provenance)
     manifest = dict(
         schema_version=SCHEMA_VERSION,
-        pipeline_contract=REFERENCE_V2_CONTRACT if reference else PORTABLE_CONTRACT,
+        pipeline_contract=REFERENCE_CONTRACT if reference else PORTABLE_CONTRACT,
         report_scope="genome",
         accessions=accessions,
         enabled_tools=[],

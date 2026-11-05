@@ -541,7 +541,7 @@ def aggregate_samples(
     )
     manifest = dict(
         schema_version=SCHEMA_VERSION,
-        pipeline_contract="nf-annotation-v0.4",
+        pipeline_contract="nf-annotation-v0.5",
         accessions=accessions,
         enabled_tools=plan["enabled_tools"],
         complete=not failures,
@@ -600,7 +600,7 @@ def main() -> int:
         )
         if args.publication_mode == "reference":
             from publication_references import (
-                REFERENCE_V2_CONTRACT,
+                REFERENCE_CONTRACT,
                 REFERENCE_FILE,
                 Publication,
             )
@@ -609,7 +609,7 @@ def main() -> int:
             view = Publication(args.publication, pending=True)
             if set(view.document["samples"]) != set(manifest["accessions"]) or manifest["enabled_tools"]:
                 raise AnnotationError("Reference aggregation requires matching membership and disabled tools")
-            manifest["pipeline_contract"] = REFERENCE_V2_CONTRACT
+            manifest["pipeline_contract"] = REFERENCE_CONTRACT
             manifest["reference_manifest_sha256"] = digest(view.root / REFERENCE_FILE)
             write_json(args.output / "annotation_results.json", manifest)
     except (AnnotationError, OSError) as error:

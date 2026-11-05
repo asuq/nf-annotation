@@ -119,7 +119,7 @@ def worker(args):
     root = args.fixture
     bundles = [Path(p) for p in read_json(root / "bundles.json")]
     start = time.monotonic()
-    if args.mode == "ani":
+    if args.mode == "clustering":
         from report_genomes import report
 
         report(
@@ -160,7 +160,7 @@ def main():
     parser.add_argument("--samples", type=int, default=64)
     parser.add_argument("--genes", type=int, default=3000)
     parser.add_argument("--source", type=Path)
-    parser.add_argument("--mode", choices=("full", "ani"))
+    parser.add_argument("--mode", choices=("full", "clustering"))
     parser.add_argument("--output", type=Path)
     parser.add_argument("--worker", action="store_true")
     args = parser.parse_args()
@@ -172,7 +172,7 @@ def main():
     for name, source, mode in [
         ("v047", args.baseline, "full"),
         ("v048_full", ROOT, "full"),
-        ("v048_ani", ROOT, "ani"),
+        ("v048_ani", ROOT, "clustering"),
     ]:
         output = args.fixture / name
         command = [

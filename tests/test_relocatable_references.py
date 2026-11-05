@@ -114,7 +114,7 @@ class RelocatableReferenceTests(unittest.TestCase):
         validate_source(second)
 
     def test_reference_graph_cycle_fails_before_following_payloads(self):
-        from publication_references import REFERENCE_V2_CONTRACT
+        from publication_references import REFERENCE_CONTRACT
 
         view = self.case.publish(self.case.source, "view")
         record = copy.deepcopy(read_json(view / REFERENCE_FILE))
@@ -122,7 +122,7 @@ class RelocatableReferenceTests(unittest.TestCase):
         record["sources"] = [{"path": ".", "sha256": "0" * 64}]
         self.reseal(self.case.source, record)
         manifest = read_json(self.case.source / "annotation_results.json")
-        manifest["pipeline_contract"] = REFERENCE_V2_CONTRACT
+        manifest["pipeline_contract"] = REFERENCE_CONTRACT
         write_json(self.case.source / "annotation_results.json", manifest)
         with self.assertRaisesRegex(AnnotationError, "circular"):
             fingerprint(view, workers=4)
@@ -140,7 +140,7 @@ class RelocatableReferenceTests(unittest.TestCase):
         altered = copy.deepcopy(original)
         altered["legacy_root"] = str(self.case.source)
         self.reseal(view, altered)
-        with self.assertRaisesRegex(AnnotationError, "Unknown v2"):
+        with self.assertRaisesRegex(AnnotationError, "Unknown reference"):
             Publication(view)
         altered = copy.deepcopy(original)
         altered["samples"][self.case.accessions[0]]["bundle"] = {"local": 1}
@@ -175,7 +175,7 @@ class RelocatableReferenceTests(unittest.TestCase):
         with self.assertRaises(AnnotationError):
             self.case.publish(self.case.source, "derived")
 
-    def test_legacy_absolute_view_remains_readable_but_is_not_a_new_provider(self):
+    def test_v04_absolute_view_is_rejected_without_migration(self):
         view = self.case.publish(self.case.source, "legacy")
         document = read_json(view / REFERENCE_FILE)
         document.pop("qc_publication_root")
@@ -193,8 +193,9 @@ class RelocatableReferenceTests(unittest.TestCase):
                 link.symlink_to(target, target_is_directory=target.is_dir())
         self.reseal(view, document)
         manifest = read_json(view / "annotation_results.json")
-        manifest["pipeline_contract"] = REFERENCE_CONTRACT
+        manifest["pipeline_contract"] = "nf-annotation-ani-reference-v1"
         write_json(view / "annotation_results.json", manifest)
-        validate_source(view)
+        with self.assertRaisesRegex(AnnotationError, "v0.5"):
+            validate_source(view)
         with self.assertRaises(AnnotationError):
             self.case.publish(view, "not-migrated")

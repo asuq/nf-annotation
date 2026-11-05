@@ -8,7 +8,6 @@ import os
 import re
 import shutil
 import stat
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -60,50 +59,13 @@ def reusable_bundle(
     if not (bundle / "bundle.json").is_file():
         return None
     record = read_json(bundle / "bundle.json")
-    code = Path(__file__).parent
-    if (
-        record.get("status") != "success"
-        or record.get("accession") != meta["accession"]
-        or str(record.get("genetic_code")) != gcode
-        or record.get("producer_sha256")
-        != digest(code / "prepare_annotation_bundle.py")
-        or record.get("prokka_log_sha256") != digest(sample / "prokka/prokka.log")
+    if record.get("accession") != meta["accession"] or (
+        record.get("status") == "success" and str(record.get("genetic_code")) != gcode
     ):
-        return None
-    native = {
-        "genome.fasta": sample / f"staged/{meta['internal_id']}.fasta",
-        "source.faa": sample / "prokka/prokka.faa",
-        "source.gff": sample / "prokka/prokka.gff",
-        "source.gbk": sample / "prokka/prokka.gbk",
-    }
-    if any(record["files"].get(name) != digest(path) for name, path in native.items()):
-        return None
+        raise AnnotationError(
+            "Canonical bundle identity differs from the requested sample"
+        )
     return bundle
-
-
-def build_bundle(sample: Path, meta: dict, gcode: str, output: Path) -> None:
-    """Use the unchanged adapter when a matching reusable bundle is unavailable."""
-    command = [
-        sys.executable,
-        str(Path(__file__).with_name("prepare_annotation_bundle.py")),
-        "--accession",
-        meta["accession"],
-        "--gcode",
-        gcode,
-        "--genome",
-        str(sample / f"staged/{meta['internal_id']}.fasta"),
-        "--faa",
-        str(sample / "prokka/prokka.faa"),
-        "--gff",
-        str(sample / "prokka/prokka.gff"),
-        "--gbk",
-        str(sample / "prokka/prokka.gbk"),
-        "--prokka-log",
-        str(sample / "prokka/prokka.log"),
-        "--outdir",
-        str(output),
-    ]
-    subprocess.run(command, check=True)
 
 
 def import_sample(
@@ -137,10 +99,6 @@ def import_sample(
                 "Reference publication requires --qc_publication_root"
             )
         qc_root = qc_boundary(qc_root, destination)
-        if view.reference and view.version != 2:
-            raise AnnotationError(
-                "New reference outputs require original QC or v2 inputs; legacy absolute views are not migrated"
-            )
         require_qc_provider(view.native_owner(accession), qc_root)
     source = (
         view.native_root(accession) if view is not None else source.resolve(strict=True)
@@ -189,17 +147,15 @@ def import_sample(
             )
             bundle = reusable_bundle(source, meta, gcode, candidate)
             if bundle is None:
-                bundle = temporary / "rebuilt"
-                build_bundle(source, meta, gcode, bundle)
-                metrics["bundle"] = "rebuilt"
+                metrics["bundle_root"] = None
             else:
                 metrics["bundle"] = "reused"
-            files.update(
-                {
-                    "annotation/bundle/" + name: path
-                    for name, path in regular_files(bundle).items()
-                }
-            )
+                files.update(
+                    {
+                        "annotation/bundle/" + name: path
+                        for name, path in regular_files(bundle).items()
+                    }
+                )
         if mode == "reference":
             native_owner = view.native_owner(accession)
             entries = sorted(
@@ -277,12 +233,9 @@ def import_sample(
                     metrics["local_bundle_bytes"] = sum(
                         path.stat().st_size for path in regular_files(bundle).values()
                     )
-                    if metrics["bundle"] == "rebuilt":
-                        bundle.rename(prepared / "annotation/bundle")
-                    else:
-                        shutil.copytree(bundle, prepared / "annotation/bundle")
-                        metrics["files_copied"] += len(regular_files(bundle))
-                        metrics["logical_bytes_copied"] += metrics["local_bundle_bytes"]
+                    shutil.copytree(bundle, prepared / "annotation/bundle")
+                    metrics["files_copied"] += len(regular_files(bundle))
+                    metrics["logical_bytes_copied"] += metrics["local_bundle_bytes"]
                 prepared.rename(target)
         else:
             if target.exists() or target.is_symlink():
@@ -366,7 +319,6 @@ def run(
             AnnotationError,
             OSError,
             ValueError,
-            subprocess.CalledProcessError,
         ) as error:
             result = {
                 "accession": record["meta"]["accession"],

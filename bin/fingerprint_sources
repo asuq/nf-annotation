@@ -7,6 +7,7 @@ from pathlib import Path
 from annotation_common import AnnotationError, read_json, write_json
 from fingerprinting.source_fingerprint import FingerprintScanner
 from reuse_source_validation import validate_or_reuse
+from publication_references import PORTABLE_CONTRACT, REFERENCE_CONTRACT
 
 
 def main():
@@ -21,6 +22,9 @@ def main():
     args = parser.parse_args()
     try:
         roots = [Path(value) for value in read_json(args.sources)]
+        for root in roots:
+            if read_json(root / 'annotation_results.json').get('pipeline_contract') not in (PORTABLE_CONTRACT, REFERENCE_CONTRACT):
+                raise AnnotationError('Reuse requires v0.5 publications; v0.4 inputs are unsupported')
         with FingerprintScanner(args.workers, progress=args.progress, requested_roots=len(roots)) as scanner:
             records = []
             for root in roots:

@@ -58,13 +58,7 @@ class AniBatchImportTests(unittest.TestCase):
         expected = {
             name: digest(path) for name, path in regular_files(self.source).items()
         }
-        with patch(
-            "import_ani_batch.build_bundle",
-            side_effect=AssertionError("unnecessary bundle rebuild"),
-        ):
-            result = import_sample(
-                self.source, self.meta, "4", self.destination, self.channels
-            )
+        result = import_sample(self.source, self.meta, "4", self.destination, self.channels)
         target = self.destination / "samples/A"
         self.assertEqual(result["bundle"], "reused")
         self.assertEqual(result["files_copied"] + result["files_cloned"], len(expected))
@@ -90,14 +84,14 @@ class AniBatchImportTests(unittest.TestCase):
         shutil.rmtree(self.source)
         bundle_proteins(target / "annotation/bundle")
 
-    def test_old_producer_is_rebuilt_with_the_unchanged_adapter(self):
+    def test_canonical_bundle_is_not_rebuilt_for_a_producer_code_change(self):
         record = read_json(self.bundle / "bundle.json")
         record["producer_sha256"] = "0" * 64
         write_json(self.bundle / "bundle.json", record)
         result = import_sample(
             self.source, self.meta, "4", self.destination, self.channels
         )
-        self.assertEqual(result["bundle"], "rebuilt")
+        self.assertEqual(result["bundle"], "reused")
         bundle_proteins(self.destination / "samples/A/annotation/bundle")
 
     def test_copy_fallback_preserves_bytes_without_hardlinks(self):

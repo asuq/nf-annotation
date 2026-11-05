@@ -43,7 +43,9 @@ def validate_sources(source: Path | list[Path] | None) -> dict[str, NativeBatch]
         manifest, native = validate_source(root)
         overlap = accessions.intersection(manifest["accessions"])
         if overlap:
-            raise AnnotationError(f"Duplicate accessions across published sources: {sorted(overlap)}")
+            raise AnnotationError(
+                f"Duplicate accessions across published sources: {sorted(overlap)}"
+            )
         if batches.keys() & native.keys():
             raise AnnotationError("Duplicate native batch IDs across published sources")
         accessions.update(manifest["accessions"])
@@ -55,7 +57,9 @@ def sample_source(roots: list[Path], accession: str) -> Path | None:
     """Route a sample to its only source; never choose by source precedence."""
     matches = [root for root in roots if (root / "samples" / accession).exists()]
     if len(matches) > 1:
-        raise AnnotationError(f"Duplicate accession across published sources: {accession}")
+        raise AnnotationError(
+            f"Duplicate accession across published sources: {accession}"
+        )
     return matches[0] if matches else None
 
 
@@ -101,10 +105,17 @@ def source_path(root: Path, name: str) -> Path:
 
 
 def source_batches(
-    root: Path, manifest: dict[str, Any], accessions: list[str], publication: Publication | None = None
+    root: Path,
+    manifest: dict[str, Any],
+    accessions: list[str],
+    publication: Publication | None = None,
 ) -> dict[str, NativeBatch]:
     """Validate each declared portable shared archive once and match packet IDs."""
-    path_for = publication.path if publication is not None else lambda name: source_path(root, name)
+    path_for = (
+        publication.path
+        if publication is not None
+        else lambda name: source_path(root, name)
+    )
     entries = manifest.get("native_batches", {})
     if not isinstance(entries, dict):
         raise AnnotationError("Invalid published native batch mapping")
@@ -147,7 +158,13 @@ def source_batches(
     return batches
 
 
-def validate_source(root: Path, *, _content_checked: bool = False, _validated: dict | None = None, checksum=digest) -> tuple[dict[str, Any], dict[str, NativeBatch]]:
+def validate_source(
+    root: Path,
+    *,
+    _content_checked: bool = False,
+    _validated: dict | None = None,
+    checksum=digest,
+) -> tuple[dict[str, Any], dict[str, NativeBatch]]:
     """Verify source artefacts and return its once-validated native batch index."""
     cache_key = root.resolve(strict=True)
     validated = {} if _validated is None else _validated
@@ -157,16 +174,25 @@ def validate_source(root: Path, *, _content_checked: bool = False, _validated: d
     if publication.reference:
         if not _content_checked:
             from reuse_source_validation import fingerprint
+
             fingerprint(root)
         for provider in publication.sources:
-            validate_source(provider.root, _content_checked=True, _validated=validated, checksum=checksum)
-    path_for = publication.path if publication.reference else lambda name: source_path(root, name)
+            validate_source(
+                provider.root,
+                _content_checked=True,
+                _validated=validated,
+                checksum=checksum,
+            )
+    path_for = (
+        publication.path
+        if publication.reference
+        else lambda name: source_path(root, name)
+    )
     manifest = read_json(root / "annotation_results.json")
-    if (
-        manifest.get("schema_version") != SCHEMA_VERSION
-        or manifest.get("pipeline_contract") not in ("nf-annotation-v0.4", *REFERENCE_CONTRACTS)
-    ):
-        raise AnnotationError("Annotation reuse requires native v0.4 published results")
+    if manifest.get("schema_version") != SCHEMA_VERSION or manifest.get(
+        "pipeline_contract"
+    ) not in ("nf-annotation-v0.5", *REFERENCE_CONTRACTS):
+        raise AnnotationError("Annotation reuse requires native v0.5 published results")
     accessions = manifest.get("accessions", [])
     if not accessions or len(accessions) != len(set(accessions)):
         raise AnnotationError("Invalid published annotation accession set")
@@ -196,9 +222,15 @@ def validate_source(root: Path, *, _content_checked: bool = False, _validated: d
     }
     if manifest.get("report_scope") == "genome":
         if manifest.get("enabled_tools") or manifest.get("results"):
-            raise AnnotationError("Genome-only ANI report cannot contain functional results")
-        required = {"tables/master_table.tsv", "tables/sample_status.tsv",
-                    "tables/annotation_status.tsv", "tables/annotation_provenance.tsv"}
+            raise AnnotationError(
+                "Genome-only ANI report cannot contain functional results"
+            )
+        required = {
+            "tables/master_table.tsv",
+            "tables/sample_status.tsv",
+            "tables/annotation_status.tsv",
+            "tables/annotation_provenance.tsv",
+        }
     if not required <= set(manifest.get("tables", {})):
         raise AnnotationError("Published annotation manifest omits required tables")
     for name, expected in manifest["tables"].items():
@@ -248,7 +280,9 @@ def validate_source(root: Path, *, _content_checked: bool = False, _validated: d
         raise AnnotationError(
             "Published annotation status does not contain the complete declared grid"
         )
-    batches = source_batches(root, manifest, accessions, publication if publication.reference else None)
+    batches = source_batches(
+        root, manifest, accessions, publication if publication.reference else None
+    )
     referenced_members = {batch_id: set() for batch_id in batches}
     for master, status in zip(masters, statuses, strict=True):
         accession = master[master_key]
@@ -280,6 +314,27 @@ def validate_source(root: Path, *, _content_checked: bool = False, _validated: d
                 raise AnnotationError("Invalid published bundle record")
             if data.get("status") == "success":
                 metadata, _ = bundle_proteins(bundle, checksum=checksum)
+                native = publication.native_root(accession)
+                if (native / "staged").is_dir():
+                    staged = list((native / "staged").glob("*.fasta"))
+                    if len(staged) != 1:
+                        raise AnnotationError(
+                            "Canonical QC publication requires one staged genome"
+                        )
+                    bindings = {
+                        "genome.fasta": staged[0],
+                        "source.faa": native / "prokka/prokka.faa",
+                        "source.gff": native / "prokka/prokka.gff",
+                        "source.gbk": native / "prokka/prokka.gbk",
+                    }
+                    if any(
+                        checksum(path) != metadata["files"][name]
+                        for name, path in bindings.items()
+                    ):
+                        raise AnnotationError(
+                            "Canonical bundle differs from its native QC inputs"
+                        )
+
                 if (
                     str(metadata["genetic_code"]) != master["Gcode"]
                     or metadata["accession"] != accession
@@ -348,6 +403,7 @@ def import_source(root: Path, output: Path) -> None:
     snapshot = None
     if publication.reference:
         from reuse_source_validation import fingerprint
+
         snapshot = fingerprint(root)
     manifest, _ = validate_source(root, _content_checked=publication.reference)
     for accession in manifest["accessions"]:
@@ -357,7 +413,11 @@ def import_source(root: Path, output: Path) -> None:
                 raise AnnotationError(f"Published sample artefact is a symlink: {path}")
     output.mkdir()
     from annotation_common import write_json
-    write_json(output / "source_snapshot.json", snapshot or {"root": str(root.resolve()), "mode": "self_contained"})
+
+    write_json(
+        output / "source_snapshot.json",
+        snapshot or {"root": str(root.resolve()), "mode": "self_contained"},
+    )
     inherited = output / "inherited"
     (inherited / "tables").mkdir(parents=True)
     for name, destination in (
@@ -384,5 +444,22 @@ def import_source(root: Path, output: Path) -> None:
                 shutil.copyfile(path, target)
         if accession in manifest["bundles"]:
             shutil.copytree(
-                publication.path(f"samples/{accession}/annotation/bundle"), target_sample / "annotation/bundle"
+                publication.path(f"samples/{accession}/annotation/bundle"),
+                target_sample / "annotation/bundle",
             )
+
+    # Keep reusable native AAI evidence and existing clustering results independent
+    # of the original publication. Annotation-only work does not recompute them.
+    from independent_copy import copy_independent
+
+    for relative in ("cohort/assembly_stats", "cohort/fastaai", "cohort/aai_clusters"):
+        source = source_path(root, relative)
+        if not source.exists():
+            continue
+        for path in source.rglob("*"):
+            if path.is_symlink():
+                raise AnnotationError("Inherited cohort evidence must not be a symlink")
+            if path.is_file():
+                target = inherited / path.relative_to(root)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                copy_independent(path, target)
