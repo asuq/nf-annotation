@@ -104,7 +104,10 @@ RECORDS
 }
 
 process CLUSTER_AAI {
-    label 'process_high'
+    label 'process_clustering'
+    cpus 1
+    memory { ClusterResources.aai(domains, params.max_memory) }
+    time { [params.cohort_time, params.max_time].min() }
     container params.python_container
     cache 'deep'
     publishDir "${params.outdir}/cohort", mode: 'copy', overwrite: true,

@@ -195,6 +195,7 @@ def build_ani_outputs(
     ani_matrix: Path,
     score_profile: str,
     matrix_data=None,
+    threads: int = 1,
 ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
     """Build ANI summary and representative tables from raw ANI artifacts."""
     cluster_members_by_accession = load_cluster_members(ani_clusters)
@@ -261,7 +262,7 @@ def build_ani_outputs(
             name_to_idx=name_to_idx,
             meta=metadata_by_matrix_name,
             score_profile=score_profile,
-            threads=1,
+            threads=threads,
         )
     except RuntimeError as error:
         raise RepresentativeSelectionError(str(error)) from error

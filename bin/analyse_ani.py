@@ -23,7 +23,8 @@ from select_ani_representatives import (
 def main():
     args = parse_args()
     configure_logging(args.quiet, args.debug)
-    set_thread_envs(resolve_thread_cap(max(1, args.threads)))
+    threads = resolve_thread_cap(max(1, args.threads))
+    set_thread_envs(threads)
     try:
         args.outdir.mkdir(parents=True, exist_ok=True)
         matrix = run_pipeline(args)
@@ -33,6 +34,7 @@ def main():
             ani_matrix=args.ani_matrix,
             score_profile=args.ani_score_profile,
             matrix_data=matrix,
+            threads=threads,
         )
         write_tsv(args.outdir / "ani_summary.tsv", ANI_SUMMARY_COLUMNS, summaries)
         write_tsv(

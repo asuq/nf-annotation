@@ -3,7 +3,10 @@
  */
 process CLUSTER_ANI {
     tag "ani_cluster"
-    label 'process_medium'
+    label 'process_clustering'
+    cpus { Math.min(4, params.max_cpus as int) }
+    memory { ClusterResources.ani(ani_matrix, params.max_memory) }
+    time { [params.cohort_time, params.max_time].min() }
     publishDir(
         { "${params.outdir}/cohort/ani_clusters" },
         mode: 'copy',

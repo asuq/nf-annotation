@@ -42,6 +42,8 @@ class AaiStageIntegrationTests(unittest.TestCase):
         fixture.CohortUpdateIntegrationTestCase.setUpClass()
         self.addCleanup(fixture.CohortUpdateIntegrationTestCase.tearDownClass)
         case = fixture.CohortUpdateIntegrationTestCase(methodName="runTest")
+        with (case.project / "nextflow.config").open("a") as handle:
+            handle.write("\ntrace.fields = 'task_id,hash,name,status,exit,cpus,memory'\ntrace.raw = true\n")
         path = case.inputs / "PARTIAL.fasta"
         path.write_bytes(case.genomes["B"].read_bytes())
         case.genomes["PARTIAL"] = path
@@ -69,6 +71,12 @@ class AaiStageIntegrationTests(unittest.TestCase):
             master["A"]["AAI_Cluster_ID"], master["PARTIAL"]["AAI_Cluster_ID"]
         )
         self.assertTrue((output / "cohort/fastaai/Bacteria/jaccard.npy").is_file())
+        trace = fixture.read_rows(output / "pipeline_info/trace.tsv")
+        clusters = [r for r in trace if r["name"].split(" (")[0].endswith(":CLUSTER_AAI")]
+        self.assertEqual(len(clusters), 1)
+        self.assertEqual(int(clusters[0]["cpus"]), 1)
+        self.assertEqual(int(clusters[0]["memory"]), 3 * 1024**3)
+
         for extra in (
             ["--aai_threshold", ".85"],
             ["--aai_threshold", ".85", "--score_profile", "mag"],
