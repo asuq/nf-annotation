@@ -119,7 +119,7 @@ def select_representative_for_indices(
             np.log10(np.array([genome.Scaffolds for genome in genomes], dtype=float) + 1.0)
         )
     )
-    centrality_values = ani_centrality(idxs)
+    centrality_values = ani_centrality(idxs) if ani is not None else np.zeros(cluster_size)
 
     if score_profile == "isolate":
         weights = (3.5, 1.5, 1.5, 1.0, 0.25, 0.5)
@@ -127,6 +127,8 @@ def select_representative_for_indices(
         weights = (1.0, 3.0, 2.0, 0.5, 1.5, 0.5)
     else:
         weights = (3.0, 2.0, 1.5, 0.75, 0.5, 0.5)
+    if ani is None:
+        weights = (*weights[:5], 0.0)
     weight_assembly, weight_checkm2, weight_busco, weight_n50, weight_scaffolds, weight_centrality = weights
 
     scored: list[tuple[str, str, float, dict[str, float], Genome]] = []

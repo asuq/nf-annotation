@@ -68,7 +68,7 @@ class Genome:
     CheckM2_Contamination: float
     N50: int
     Scaffolds: int
-    Genome_Size: int
+    Genome_Size: int | None
     BUSCO_str: str
     BUSCO_C: float
     BUSCO_M: float
@@ -320,6 +320,7 @@ def build_genome_from_row(
     acc: str,
     busco_column: str,
     require_existing_path: bool = True,
+    require_genome_size: bool = True,
 ) -> tuple[Genome | None, list[str]]:
     """Convert one ANI metadata row into a Genome record or exclusion reasons."""
     reasons: list[str] = []
@@ -358,7 +359,7 @@ def build_genome_from_row(
         reasons.append("missing_scaffolds")
 
     genome_size = try_parse_int_like(row["genome_size"])
-    if genome_size is None:
+    if genome_size is None and require_genome_size:
         reasons.append("missing_genome_size")
 
     busco_str = row[busco_column].strip()
@@ -374,7 +375,8 @@ def build_genome_from_row(
     assert checkm2_contamination is not None
     assert n50 is not None
     assert scaffolds is not None
-    assert genome_size is not None
+    if require_genome_size:
+        assert genome_size is not None
     busco_c, busco_m = busco_parsed
     return (
         Genome(
