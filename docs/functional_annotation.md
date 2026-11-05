@@ -159,7 +159,7 @@ recorded in the method identity. Native task allocations must match the plan.
 DIAMOND's block size and index chunks are explicit and derived from that
 allocation, with reserved memory for annotation. They do not use host RAM.
 The example uses the native qualification allocation. Pipeline defaults remain
-four CPUs, 32 GB and two concurrent searches; the full-resource eggNOG runtime
+four CPUs and 32 GB per search, with a ceiling of 32 concurrent searches; the full-resource eggNOG runtime
 has not been qualified at those defaults. The `local` profile also caps task
 memory at 16 GB unless explicitly increased. Supply matching CPU/memory limits
 for the selected profile and resources actually available to the runtime.
@@ -211,7 +211,10 @@ order; proteins are neither split nor deduplicated. A proteome larger than the
 target forms one explicitly recorded oversized batch. The target therefore
 bounds ordinary groups, rather than imposing a hard per-genome size limit.
 All native searches, including eggNOG batches and the four individual callers,
-share `annotation_max_forks`.
+share `annotation_max_forks` (default 32). This is a ceiling, not a resource
+reservation: the local executor still limits concurrency by its CPU and memory
+budget, while Slurm places native jobs on worker allocations. Lower the existing
+setting for site or project quotas.
 
 The batch input receipt records membership, genetic codes, input checksums,
 byte offsets, packing policy and code, runtime, resource and command identities.
