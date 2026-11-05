@@ -1,11 +1,17 @@
 # nf-annotation
 
+Genus-scale FastAAI clustering and quality-based representatives now run alongside
+ANI. See the [AAI guide](docs/aai_clustering.md) for the 65% cutoff, membership,
+outputs and v0.5.0 CLI changes. This branch is unreleased and requires new v0.5
+publications; v0.4 publications and caches are unsupported. Protein IDs use
+[`GCF_000005845_2__p000001`](docs/protein_identifiers.md).
+
 [![Nextflow](https://img.shields.io/badge/version-26.04.0-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
 [![run with docker](https://img.shields.io/badge/run%20with-docker-0db7ed?labelColor=000000&logo=docker)](https://www.docker.com/)
 [![run with singularity](https://img.shields.io/badge/run%20with-singularity-1d355c.svg?labelColor=000000)](https://sylabs.io/docs/)
 
 `nf-annotation` is a Nextflow DSL2 pipeline for cohort-scale genome
-annotation, QC, taxonomy expansion, and ANI-based reporting.
+annotation, QC, taxonomy expansion, and ANI/AAI-based reporting.
 
 The implemented workflow validates the input manifest and metadata, stages
 genomes to execution-safe internal IDs, runs Barrnap, paired CheckM2
@@ -130,19 +136,19 @@ scored from six components:
 - ANI centrality within the cluster
 
 The BUSCO component uses the primary BUSCO lineage, which is the first lineage
-in `--busco_lineages` in legacy mode, or the first lineage of that sample's
+in `--busco_lineages` for bacteria without domain profiles, or the first lineage of that sample's
 explicit domain profile. The CheckM2 component uses the completeness and
 contamination values associated with the sample's assigned gcode. Raw BUSCO,
 CheckM2, N50, and scaffold values are winsorised for larger clusters,
 normalised to the `[0, 1]` range within the cluster, and combined with the
-chosen `--ani_score_profile`. ANI centrality is based on the average ANI from
+chosen `--score_profile`. ANI centrality is based on the average ANI from
 one member to the other members in the same cluster; singleton clusters receive
 a centrality value of `1.0`. The scaffold component is inverted before
 weighting, so fewer scaffolds contribute a higher component value.
 
 The scoring profiles use these weights in the component order above:
 
-| `--ani_score_profile` | Weights |
+| `--score_profile` | Weights |
 | --- | --- |
 | `default` | `3.0, 2.0, 1.5, 0.75, 0.5, 0.5` |
 | `isolate` | `3.5, 1.5, 1.5, 1.0, 0.25, 0.5` |

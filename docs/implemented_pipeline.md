@@ -99,8 +99,7 @@ main.nf
      -> VALIDATE_INPUTS
      -> STAGE_INPUTS (new genomes)
      -> PUBLISHED_RESULTS_IMPORT (retained genomes)
-        -> IMPORT_PUBLISHED_SAMPLE
-        -> PREPARE_ANNOTATION_BUNDLE (retained native Prokka outputs)
+        -> IMPORT_ANI_BATCH (bounded imports of native QC and canonical bundles)
   -> BUSCO_DATASET_PREP
   -> COHORT_TAXONOMY
      -> TAXONOMY_EXPAND
@@ -135,6 +134,10 @@ main.nf
      -> BUILD_FASTANI_INPUTS
      -> FASTANI
      -> CLUSTER_ANI
+  -> COHORT_AAI
+     -> PREPARE_AAI_BATCH (at most eight batches, two concurrent)
+     -> FASTAAI_COMPARE (one native database per domain)
+     -> CLUSTER_AAI (complete linkage and quality-only representatives)
   -> FINAL_OUTPUTS
      -> BUILD_MASTER_TABLE
      -> WRITE_SAMPLE_STATUS
@@ -193,11 +196,11 @@ The most important implementation-level parameters are:
 | `source_fingerprint_workers` | Initial/final source checks, including reannotation | Concurrent content readers: 4 by default, 1-8 allowed, capped by task CPUs; execution-only. |
 | `cohort_validation_workers` | `main.nf` source reuse | Per-sample validation processes: default 4, range 1-8, capped by task CPUs; execution-only. |
 | `qc_publication_root` | Reference-mode ANI output | Required permanent QC provider tree, disjoint from the output. Recorded relatively in the v2 manifest. |
-| `ani_publication_mode` | `main.nf` ANI-only reuse | `self_contained` (default) or opt-in `reference`; reference views require their declared QC providers. |
-| `ani_import_batches` | `main.nf` ANI-only reuse | Maximum import allocations, default 8; accepts 1-64. |
-| `ani_import_max_forks` | reuse bookkeeping | Concurrent import/source-validation groups, default 2; accepts 1-64. |
+| `publication_mode` | `main.nf` clustering reuse | `self_contained` (default) or opt-in `reference`; reference views require their declared QC providers. |
+| `import_batches` | `main.nf` clustering reuse | Maximum import allocations, default 8; accepts 1-64. |
+| `import_max_forks` | reuse bookkeeping | Concurrent cohort import batches, default 2; accepts 1-64. |
 | `cohort_time`, `cohort_memory` | cohort bookkeeping | Requests default to 8 h / 8 GB and remain subject to global/site caps. |
-| `pipeline_stage` | `main.nf` | `full` (default), `qc`, or `ani`; ANI-only requires completed published sources for every sample. |
+| `pipeline_stage` | `main.nf` | `full` (default), `qc`, or `clustering`; clustering requires completed published sources for every sample. |
 | `domain` | `main.nf` | Required: `bacteria`, `archaea`, or `metadata`; metadata mode reads the exact `Domain` column. Prokka/Barrnap kingdoms are derived internally. |
 | `busco_domain_lineages` | both | Explicit domain-to-lineage-list map; first entry per domain supplies the existing BUSCO scoring term. |
 | `busco_lineages` | both | Non-empty lineage list; defaults to `bacillota_odb12` and `mycoplasmatota_odb12`. |
@@ -207,7 +210,7 @@ The most important implementation-level parameters are:
 | `ani_threshold` | `main.nf` | FastANI clustering threshold; defaults to `0.95`. |
 | `gcode_rule` | `main.nf` | `mean_gene_length_ratio` (default), `strict_delta`, or `delta_then_11`. The retained completeness rules require a strict advantage greater than 10 percentage points; at smaller/equal differences they leave the code unresolved or select 11, respectively. |
 | `annotation_tools` | `main.nf`, `reannotate.nf` | Explicit cohort-wide subset of the five core tools; all enabled by default. |
-| `annotation_from` | `reannotate.nf` | Validated native v0.4 published source. |
+| `annotation_from` | `reannotate.nf` | Validated native v0.5 published source. |
 | `outdir` | both | Published output root; defaults to `results`. |
 | `download_missing_databases` | `prepare_databases.nf` | Enables in-place population of missing runtime databases. |
 | `force_runtime_database_rebuild` | `prepare_databases.nf` | Forces re-preparation of the existing QC resources. Annotation resources are immutable; changed or invalid content requires a new destination. |
@@ -503,7 +506,7 @@ each sample runs only its own profile. Other-domain lineage fields remain
 unavailable and are not treated as failed analyses.
 
 QC-only publications retain the normal reusable manifest and protein bundles,
-with explicit scope and unavailable ANI/CRISPR evidence. ANI-only runs reject
+with explicit scope and unavailable ANI/CRISPR evidence. clustering runs reject
 new samples or changed/unrecorded source policies. Imported policy code is an
 explicit input to validation, source-import validation and reporting tasks, so
 changes to that code invalidate the corresponding Nextflow cache entries.

@@ -289,7 +289,8 @@ cumulative publication instead of supplying overlapping snapshots.
 
 Retained samples keep their native QC and gene predictions; compatible functional
 results and existing eggNOG batch membership are reused from their owning source.
-No original work directories are required, including for v0.4.2 publications.
+No original work directories are required. Reuse requires v0.5 publications;
+v0.4 publications and caches are unsupported.
 The combined output is portable and can itself become the source of a later
 update. ANI and cohort reports are still rebuilt across the entire desired cohort.
 The per-sample audit identifies its source; the update identity records all source
@@ -335,28 +336,30 @@ Supply the intended `--busco_lineages` in order, plus any non-default ANI
 settings, on every update. Requested BUSCO lineages must already be available
 for retained samples. Their upstream QC, genetic-code decisions and native
 gene predictions remain as published; newly supplied upstream tool settings
-govern additions only. The current bundle adapter revalidates retained Prokka
-outputs. Functional tool selection, resources and search/interpretation settings
+govern additions only. Source validation binds retained canonical bundles to
+their native Prokka inputs without rebuilding them. Functional tool selection,
+resources and search/interpretation settings
 apply to every eligible genome in the revised cohort and determine whether each
 result is reused, renormalized or rerun; see
 [functional annotation](functional_annotation.md#entrypoints-and-reuse).
-The ANI threshold, scoring profile, primary BUSCO column and optional
-incomplete-16S gate apply to the whole revised cohort. ANI pairs are recomputed,
-including retained-to-retained comparisons; this is not a pairwise ANI cache.
+Clustering thresholds and representative scoring apply to the revised cohort.
+The incomplete-16S gate applies only to ANI. Membership changes recompute pairwise
+comparisons, including retained-to-retained comparisons. Threshold/scoring-only
+changes can reuse the same native evidence with `-resume`.
 
 Before new analysis starts, preflight requires the source validated manifest,
 complete master/status tables, versions report and retained sample artefacts.
 Documented failed/skipped tool outcomes remain valid stored outcomes. Missing
 files, malformed or inconsistent summaries, nested sample symlinks, and
-changed genomes under a retained accession cause an explicit error. Older or
-partial results lacking the required published format must be repaired before
-they can be used for a routine update; the recovery helper below has a
-different purpose.
+changed genomes under a retained accession cause an explicit error. v0.4
+publications cannot be upgraded for reuse. Incomplete v0.5 results must satisfy
+the publication contract before reuse; the recovery helper below has a different
+purpose.
 
-A native v0.4 source with a complete published contract and a recorded bundle
-failure can be updated using its retained genome and Prokka files. The current
-adapter rebuilds the bundle without repeating gene prediction; corrected inputs
-then enter the ordinary functional plan. A failed functional result is rerun,
+A native v0.5 source with a recorded bundle failure retains that failure on reuse.
+The importer does not rebuild canonical bundles; affected samples remain excluded
+from AAI and protein searches. Regenerate their QC publication to replace the
+failed bundle. A failed functional result with a valid bundle is rerun,
 while valid results with matching protein/coordinate and method identities are
 reused. Original source results remain unchanged.
 

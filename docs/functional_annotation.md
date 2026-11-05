@@ -1,4 +1,4 @@
-# Functional annotation in v0.4
+# Functional annotation
 
 The shared annotation workflow is implemented in `main.nf` and `reannotate.nf`.
 
@@ -25,8 +25,8 @@ evidence to the original durable work directory. It preserves the native exit
 status and records incomplete or failed diagnostic export. SIGKILL, node loss,
 or an unwritable destination can prevent recovery. Existing work trees are not
 cleaned automatically. Modified scripts can invalidate old Nextflow resume
-hashes; complete v0.4.1 published sources remain the portable reuse route because
-native commands, images and scientific identities are unchanged. Shared eggNOG
+hashes. Portable reuse requires complete v0.5 publications; older publications
+and caches are unsupported. Shared eggNOG
 batch storage is measured once, not once per member.
 
 ## Scheduling and eggNOG readiness groups
@@ -80,10 +80,10 @@ ID, length, uppercase source/native DNA checksums and masked-base count. Origina
 FASTA, FAA, GFF and GenBank bytes remain in the published bundle. Native OY-M
 output qualifies this rule with three masked bases.
 
-Main-workflow cohort updates rebuild bundles from validated retained Prokka
-outputs using the current adapter. Gene prediction is reused. This allows a
-corrected bundle adapter to recover a previous bundle failure while compatible
-functional searches remain reusable through their protein/coordinate identities.
+Main-workflow cohort updates reuse recorded canonical bundles. They repeat neither
+gene prediction nor bundle construction. Recorded bundle failures remain failures;
+regenerate the affected QC publication to replace them. Valid functional searches
+remain reusable through their protein/coordinate and method identities.
 
 ## Configuration
 
@@ -253,7 +253,7 @@ Relative `genome_fasta` entries in the sample manifest resolve against the
 directory from which Nextflow is launched. Metadata and the existing QC,
 genetic-code, CRISPR and ANI fields remain in the master table.
 
-Reannotation requires a published native v0.4 source and a separate destination:
+Reannotation requires a published native v0.5 source and a separate destination:
 
 ```bash
 nextflow run reannotate.nf -profile slurm,singularity -c annotation.config \

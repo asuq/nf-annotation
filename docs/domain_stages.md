@@ -1,8 +1,8 @@
-# Explicit domains and separate QC/ANI stages
+# Explicit domains and separate QC/clustering stages
 
 Every `main.nf` run requires an explicit `--domain` selection, supplied on the
 command line or as `params.domain` in a configuration file. There is no default.
-The same setting applies to full, QC-only and ANI-only runs.
+The same setting applies to full, QC-only and clustering runs.
 
 | Selection | Domain source |
 | --- | --- |
@@ -24,9 +24,10 @@ mode, a populated `Domain` field must agree with the selected domain. Organism
 names, accession prefixes and metabolic groups are never classifiers. Prokka and
 Barrnap kingdoms are derived internally; they have no separate CLI options.
 
-The native four-column sample CSV and identifier/mapping rules are unchanged.
-Changing a domain can alter biological predictions and requires new QC; native
-gene/protein IDs are never rewritten to match genome IDs.
+The native four-column sample CSV is unchanged. Canonical protein IDs use
+[readable accession and protein numbers](protein_identifiers.md); source IDs
+remain in the mapping table. Changing a domain can alter biological predictions
+and requires new QC.
 
 ## BUSCO profiles
 
@@ -100,11 +101,11 @@ lineage search or implicit database update is introduced.
 
 | `pipeline_stage` | New analyses | Publication/use |
 | --- | --- | --- |
-| `full` (default) | Existing QC, gene prediction, CRISPR, selected functional tools and ANI | Complete existing workflow |
-| `qc` | Barrnap, paired CheckM2, BUSCO, Codetta and code-qualified Prokka | Reusable QC/protein-bundle publications; no CRISPR, functional search or ANI |
-| `ani` | Cumulative ANI, representative selection and reporting from completed publications | Requires `update_from`; cannot submit new QC or gene prediction |
+| `full` (default) | QC, gene prediction, CRISPR, selected functional tools, ANI and AAI | Complete workflow |
+| `qc` | Barrnap, paired CheckM2, BUSCO, Codetta and code-qualified Prokka | Reusable QC/protein-bundle publications; no CRISPR, functional search, ANI or AAI |
+| `clustering` | Cumulative ANI and AAI, representative selection and reporting from completed publications | Requires `update_from`; cannot submit new QC or gene prediction |
 
-The QC and ANI stages disable the separate functional callers even when
+The QC and clustering stages disable the separate functional callers even when
 `annotation_tools` is configured. Prokka retains its existing annotation flags,
 including `--rfam` and `--compliant`; QC does not rewrite its native output IDs.
 Protein and coordinate mapping tables continue to connect genes to accessions.
@@ -121,7 +122,7 @@ nextflow run main.nf --domain metadata -profile oist -c analysis.config \
     --outdir qc_batch
 
 nextflow run main.nf --domain metadata -profile oist -c analysis.config \
-    --pipeline_stage ani --sample_csv cumulative.csv --metadata metadata.tsv \
+    --pipeline_stage clustering --sample_csv cumulative.csv --metadata metadata.tsv \
     --update_from qc_batch,previous_qc_batch --ani_16s_policy ignore \
     --outdir cumulative_ani
 ```
@@ -133,7 +134,7 @@ sample is an error, not permission to run fresh QC. Source directories must be
 distinct from the new output directory. `ignore` bypasses only 16S eligibility;
 the quality screen and other ANI exclusions remain active.
 
-The QC stage still needs its normal QC databases and taxonomy input. An ANI-only
+The QC stage still needs its normal QC databases and taxonomy input. A clustering
 update can use the published QC data without supplying CheckM2/Codetta resources
 for new analyses, because no new samples are allowed. It still needs the cohort
 metadata and taxonomy input for reporting.
@@ -143,14 +144,13 @@ metadata and taxonomy input for reporting.
 Domain, declaration source, kingdom choices, ordered BUSCO profile and primary
 lineage survive publication and reuse. Changing these settings, or attempting to
 assign them to an old publication that did not record them, requires new QC.
-Legacy bacterial publications remain reusable with `--domain bacteria` and
-their existing BUSCO configuration; this is not an
-importer for previously patched or unverified domain assignments.
+Reuse requires v0.5 publications. v0.4 publications and caches are unsupported,
+including bacterial publications; start fresh QC when upgrading.
 
-QC publications support ANI-only reuse and the existing `reannotate.nf` workflow
+QC publications support clustering reuse and the existing `reannotate.nf` workflow
 for functional annotation. Full-stage reuse of a QC-only publication is rejected
 because its CRISPR evidence was never requested. Existing full publications can
-supply their retained evidence to QC/ANI updates without rerunning those tools.
+supply their retained evidence to QC/clustering updates without rerunning those tools.
 The original work directory is not needed. Policy-helper code hashes are explicit
 validation/reporting task inputs, so changed code is revalidated on resume.
 Reused native outputs, identifiers and mapping tables are preserved; no gene-renaming adapter is introduced.
@@ -177,8 +177,8 @@ or published scientific output formats.
 
 ## ANI reuse performance
 
-From v0.4.5, ANI-only reuse batches import work, retains matching validated bundles
-and reuses checked BUSCO summaries. Disabled functional tools use one cohort
+Full and clustering reuse batch import work, retain matching validated bundles
+and reuse checked BUSCO summaries. Disabled functional tools use one cohort
 plan. The [performance guide](ani_performance.md) describes source integrity,
 resume behaviour, self-contained publication and optional resource settings.
 The domain and scientific policies above are unchanged.
