@@ -11,10 +11,13 @@
   They do not reread genomes to recalculate these statistics. Source membership
   and the fresh source fingerprint bind the reused table to the requested data.
 - One source task fingerprints content and performs semantic validation with the
-  same digests. It checks file identity before reusing a digest within that task.
+  same digests. It exports a compact checksum catalogue for imports, so unchanged
+  source payloads are not rehashed. Local scan checks retain device/inode guards;
+  cross-worker reuse checks portable mode, size and timestamps against the fresh
+  content digests.
   On resume, semantic receipts are reused only after the fresh content fingerprints
   and validator code match; file metadata alone never authorises reuse.
-- Fingerprint readers replenish work as files finish. Final digest ordering stays
+- Fingerprint readers and cohort-validation workers replenish work as files finish. Final digest ordering stays
   deterministic even when a large file is slow.
 - Clustering and representative selection share one matrix load. Parsing is one
   pass, with strict values, dimensions, identity and mutation checks. Complete
@@ -76,7 +79,7 @@ params {
 }
 ```
 
-Worker counts accept 1–8 and are capped by task CPUs. Import settings accept
+Fingerprint and validation worker counts accept 1–8 and are capped by task CPUs. Import settings accept
 1–64. More readers can saturate shared storage; raising concurrency is not a
 substitute for removing duplicate reads. Site resource limits still apply.
 

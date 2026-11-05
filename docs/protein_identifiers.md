@@ -25,3 +25,8 @@ Raw source annotations and identifiers remain unchanged. Sequence checksums and
 method fingerprints remain hashes because they establish provenance, not protein
 names. The v0.5 identifier change requires newly generated canonical bundles;
 there is no old-hash ID alias or migration adapter.
+
+Original accessions remain separate from tool-safe internal IDs. Internal IDs use
+ASCII letters, digits and underscores; original accessions can contain other
+filesystem-safe characters. Shell arguments quote those original values as data,
+so reporting retains them without interpreting shell syntax.

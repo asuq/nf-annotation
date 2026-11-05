@@ -14,6 +14,15 @@
   identifiers in the mapping table.
 - Store native pair evidence in compact binary arrays and reuse canonical bundles
   through bounded imports, without old-publication conversion or bundle rebuilding.
+- Fix reference acceptance, resumed full updates, shell argument handling and
+  clustering-evidence integrity. Preserve ANI evidence during reannotation.
+- Recover interrupted profile copies, use exclusive database locks and handle
+  invalid representative metrics without discarding AAI membership.
+- Start marker batches as proteins become ready, share checked digests, replenish
+  validation workers promptly and avoid repeated report parsing and bundle reads.
+- Size clustering separately from native searches, remove nested Barrnap retries
+  and correct resource-profile scoping. Controller capacity is a development
+  expectation, not a new profile default.
 - Rename the reuse stage to `clustering` and shared options to `publication_mode`,
   `import_batches`, `import_max_forks` and `score_profile`; reject the old names.
 
@@ -21,7 +30,7 @@
 
 - Native results match the pinned upstream FastAAI controls on frozen public
   bacterial and archaeal protein inputs, including readable protein IDs.
-- Pass 673 regression tests, with seven optional controls skipped, plus 45 Linux
+- Pass 685 regression tests, with seven optional controls skipped, plus 88 Linux
   helper controls and an exact-commit stub smoke. Verify threshold/scoring reuse,
   independent profiles, source relocation and unchanged ANI scoring. See the [AAI guide](aai_clustering.md) and
   [qualification record](development/v0.5.0_qualification.md).
