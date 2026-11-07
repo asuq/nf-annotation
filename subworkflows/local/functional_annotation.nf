@@ -1,6 +1,7 @@
 include { ANNOTATION_PREFLIGHT } from '../../modules/local/functional_annotation'
 include { PLAN_DISABLED_ANNOTATIONS; PLAN_ANNOTATION_GROUPS; PLAN_ANNOTATION_PART; MERGE_ANNOTATION_PLANS } from '../../modules/local/functional_annotation'
 include { ANNOTATION_SEARCH } from '../../modules/local/functional_annotation'
+include { RECOVER_EGGNOG_BATCH } from '../../modules/local/recover_eggnog'
 include { NORMALIZE_ANNOTATION } from '../../modules/local/functional_annotation'
 include { REUSE_ANNOTATION } from '../../modules/local/functional_annotation'
 include { COMPLETE_EGGNOG_BATCH } from '../../modules/local/functional_annotation'
@@ -13,6 +14,9 @@ workflow ANNOTATION_RESOURCES {
             error "--${removed} has been removed; use the shared --annotation_tools workflow and its fixed scientific methods"
         }
     }
+    if (params.eggnog_recovery_from && workflow.scriptName != 'reannotate.nf') {
+        error '--eggnog_recovery_from applies only to reannotate.nf'
+    }
     def supported = ['eggnog', 'cogclassifier', 'pfam', 'kofam', 'padloc']
     if (!params.eggnog_group_samples.toString().isInteger() || (params.eggnog_group_samples as int) < 1) {
         error '--eggnog_group_samples must be a positive integer'
@@ -22,6 +26,7 @@ workflow ANNOTATION_RESOURCES {
     if (selected.unique(false).size() != selected.size() || selected.any { !(it in supported) }) {
         error "--annotation_tools must be a unique comma-separated subset of ${supported.join(',')}"
     }
+    if (params.eggnog_recovery_from && !('eggnog' in selected)) { error 'eggNOG recovery requires eggnog in --annotation_tools' }
     if (selected) {
         AnnotationExecution.requireEngine(workflow.containerEngine)
     }
@@ -55,6 +60,7 @@ workflow FUNCTIONAL_ANNOTATION {
     source_results
 
     main:
+    def recoverySource = params.eggnog_recovery_from ? AnnotationRecovery.source(params.eggnog_recovery_from, params.outdir) : null
     // This list is available from the manifest before sample jobs run.
     declaredAccessions = samples.splitCsv(header: true, sep: '\t').toList().map { rows ->
         rows.collect { it.accession.toString() } as Set
@@ -193,9 +199,25 @@ workflow FUNCTIONAL_ANNOTATION {
             item
         }
         runTasks = plannedTasks.filter { item -> item[0].action == 'run' }
-        ANNOTATION_SEARCH(runTasks)
+        if (recoverySource) {
+            // This one recovery-only barrier rejects changed plans before any native task.
+            recoveryTargets = MERGE_ANNOTATION_PLANS.out.plan.combine(sharedPreflight).map { pair ->
+                AnnotationRecovery.targets(recoverySource, pair[0], pair[1])
+            }
+            recoveryTasks = runTasks.combine(recoveryTargets).map { item ->
+                def previous = item[4][item[0].task_directory]
+                if (!previous) { error 'eggNOG recovery cannot start another native search' }
+                tuple(item[0], item[1], item[2], item[3], previous[0], previous[1])
+            }
+            nativeTasks = Channel.empty()
+            RECOVER_EGGNOG_BATCH(recoveryTasks)
+        } else {
+            nativeTasks = runTasks
+        }
+        ANNOTATION_SEARCH(nativeTasks)
+        searchResults = recoverySource ? ANNOTATION_SEARCH.out.raw_results.mix(RECOVER_EGGNOG_BATCH.out.raw_results) : ANNOTATION_SEARCH.out.raw_results
         plannedExecutionContexts = runTasks.map { item -> tuple(item[0].task_directory, item) }
-        nativeExecutionResults = ANNOTATION_SEARCH.out.raw_results
+        nativeExecutionResults = searchResults
             .map { item -> tuple(item[0].task_directory, tuple(item[0], item[1], item[2])) }
         successfulNativeResults = plannedExecutionContexts.join(nativeExecutionResults, failOnDuplicate: true, remainder: true)
             .filter { joined ->
@@ -219,7 +241,7 @@ workflow FUNCTIONAL_ANNOTATION {
         // Failed native tasks retain a real nonzero Nextflow exit and are therefore
         // rerun on resume. Collect their saved diagnostics after all searches finish.
         failedRawResults = runTasks
-            .combine(ANNOTATION_SEARCH.out.raw_results.count())
+            .combine(searchResults.count())
             .map { item ->
                 def raw = AnnotationExecution.failedNativeRaw(params.outdir, workflow.start, item[0])
                 raw ? tuple(item[0], item[1], item[2], item[3], raw) : null

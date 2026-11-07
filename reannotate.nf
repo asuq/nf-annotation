@@ -39,7 +39,8 @@ workflow {
         }
     FUNCTIONAL_ANNOTATION(
         IMPORT_ANNOTATION_SOURCE.out.samples, bundles,
-        ANNOTATION_RESOURCES.out.receipt, Channel.value(source),
+        ANNOTATION_RESOURCES.out.receipt,
+        Channel.value(params.eggnog_recovery_from ? file(params.eggnog_recovery_from, checkIfExists: true).toRealPath() : source),
     )
     AGGREGATE_ANNOTATIONS(
         FUNCTIONAL_ANNOTATION.out.plan, IMPORT_ANNOTATION_SOURCE.out.master,

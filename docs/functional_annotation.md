@@ -407,3 +407,50 @@ prefixes are retained when they fit; overlong prefixes are shortened before
 annotation. Full accession identities remain separate from native locus tags.
 Affected Prokka products must be regenerated. Bundle validation remains strict
 and does not rewrite or infer malformed GenBank headers.
+
+### Recover an interrupted eggNOG annotation batch
+
+An annotation timeout can leave a completed pooled DIAMOND search and completed
+member annotations inside an otherwise failed batch. `reannotate.nf` can recover
+that batch with `--eggnog_recovery_from /path/to/failed-publication`.
+
+- Keep the original configuration and `--annotation_from` source. Use a fresh,
+  separate output directory and recovery work directory; retain the original run.
+- Recovery requires the identical cohort, grouping, tool selection, resources,
+  runtime and annotation arguments. A changed plan fails before native work.
+- Successful results use the existing publication-reuse path and are recorded as
+  `reuse`. No native search process runs in recovery mode, even without the original
+  Nextflow cache. This also permits a separate fixed checkout without editing the
+  original release. Subsequent ordinary runs can reuse the healed publication and
+  resume through the normal Nextflow cache.
+- The failed batch reuses its validated search and completed member outputs.
+  Only failed or unstarted members run, each with its complete original proteome
+  and seed partition. Native `--resume` is not used.
+- Six annotation database files are copied once per recovered batch to worker-local
+  scratch and checked against the prepared resource manifest. The DIAMOND index
+  remains linked and no DIAMOND search runs. Allow space for the annotation database
+  plus the batch inputs and outputs; the pinned eggNOG 7 annotation database is
+  about 23 GB. The ordinary CPU and memory settings remain unchanged.
+
+Using the recovery-capable checkout:
+
+```bash
+nextflow run /path/to/pipeline/reannotate.nf \
+  -profile singularity,slurm -c /path/to/original.config \
+  --annotation_from /path/to/original-qc-publication \
+  --eggnog_recovery_from /path/to/failed-publication \
+  --outdir /path/to/recovered-publication \
+  -work-dir /path/to/recovery-work
+```
+
+Retain the actual original profiles and configuration rather than substituting
+those shown above. Recovery leaves the source publication unchanged. Each new
+native packet retains `raw/recovery.json`, the source packet identity, reused and
+executed stages, database copy checksums and timings, and original failure records
+under `raw/failed_attempts/`. The existing normalisation and final acceptance
+checks still decide whether the recovered publication is complete.
+
+Local staging removes shared-filesystem access from the annotation database reads;
+it does not change the mapper's internal timeout or guarantee every member will
+complete. A further native failure remains a failed result with its real exit code.
+No retries occur within the recovery task.
