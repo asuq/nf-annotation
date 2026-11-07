@@ -301,7 +301,9 @@ def recover(
     ):
         if (raw / name).exists():
             shutil.copyfile(raw / name, archive / name)
-    completed = validate_partial(raw, batch, proteins, resource)
+    local_database = Path("eggnog_data")
+    database_files = stage_database(resource.resolve(), prepared, local_database)
+    completed = validate_partial(raw, batch, proteins, local_database)
     receipt = {
         "schema": RECOVERY_SCHEMA,
         "source_batch_result_id": old.record["batch_result_id"],
@@ -309,7 +311,7 @@ def recover(
         "runtime_id": batch["search_method"]["runtime_id"],
         "reused_stages": [stage["directory"] for stage in completed],
         "executed_stages": [],
-        "database_files": {},
+        "database_files": database_files,
     }
     write_json(raw / "recovery.json", receipt)
     execution = {
@@ -321,10 +323,6 @@ def recover(
     # Keep a real nonzero status until every remaining native stage has completed.
     (raw / "exit_code.txt").write_text("1\n")
     with (raw / "tool.log").open("w") as log:
-        receipt["database_files"] = stage_database(
-            resource.resolve(), prepared, Path("eggnog_data")
-        )
-        write_json(raw / "recovery.json", receipt)
         environment = dict(
             os.environ, **batch["search_method"]["command"]["environment"]
         )
