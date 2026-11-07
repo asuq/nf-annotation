@@ -158,6 +158,10 @@ class EggnogRecoveryTests(unittest.TestCase):
             (self.recovery / "eggnog_data/eggnog_proteins.dmnd").is_symlink()
         )
         archive = raw / "failed_attempts" / receipt["source_batch_result_id"]
+        self.assertEqual(
+            read_json(archive / "batch_result.json"),
+            read_json(self.packet / "batch_result.json"),
+        )
         self.assertEqual((archive / "exit_code.txt").read_text(), "9\n")
         self.assertEqual(
             (archive / "annotations/member00000001/exit_code.txt").read_text(), "9\n"

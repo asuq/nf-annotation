@@ -291,6 +291,7 @@ def recover(
         raise AnnotationError("Recovery copy differs from the sealed source packet")
     archive = raw / "failed_attempts" / old.record["batch_result_id"]
     archive.mkdir(parents=True)
+    write_json(archive / "batch_result.json", old.record)
     for name in (
         "execution.json",
         "exit_code.txt",
