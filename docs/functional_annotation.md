@@ -450,6 +450,11 @@ executed stages, database copy checksums and timings, and original failure recor
 under `raw/failed_attempts/`. The existing normalisation and final acceptance
 checks still decide whether the recovered publication is complete.
 
+`COMPLETE_EGGNOG_BATCH` also validates and republishes existing native packets.
+A fresh reuse run can execute this helper with `action=reuse`; a subsequent
+resume can cache it. Check native recomputation using `ANNOTATION_SEARCH`,
+the planned actions and native-call evidence.
+
 Local staging removes shared-filesystem access from the annotation database reads;
 it does not change the mapper's internal timeout or guarantee every member will
 complete. A further native failure remains a failed result with its real exit code.
