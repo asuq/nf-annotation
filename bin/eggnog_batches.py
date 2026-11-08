@@ -133,7 +133,7 @@ def validate_search_method(method: dict[str, Any]) -> None:
         raise AnnotationError("Batch inputs require the validated eggNOG search method")
     if (
         not isinstance(method["runtime_id"], str)
-        or not re.fullmatch(r"(?:sif-)?sha256:[a-f0-9]{64}", method["runtime_id"])
+        or not re.fullmatch(r"(?:sha256:[a-f0-9]{64}|sif-md5:[a-f0-9]{32})", method["runtime_id"])
         or not isinstance(method["resource_id"], str)
         or not re.fullmatch(r"[a-f0-9]{64}", method["resource_id"])
         or not isinstance(method["native_code"], dict)

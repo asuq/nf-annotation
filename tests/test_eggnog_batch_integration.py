@@ -218,6 +218,7 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
         incompatible_archives=False,
         group_samples=8,
         node_scratch=False,
+        local_images=False,
     ):
         configuration = self.root / f"{name}.config"
         configuration.write_text(
@@ -233,6 +234,14 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
             + " max_cpus = 1\n max_memory = 18.GB\n"
             + f" eggnog_group_samples = {group_samples}\n}}\n"
         )
+        if local_images:
+            from prepare_annotation_runtime import prepare
+            with configuration.open("a") as handle:
+                for tool in ("python", "eggnog"):
+                    image = self.root / (tool + ".sif")
+                    image.write_bytes((tool + " synthetic runtime").encode())
+                    prepare(image)
+                    handle.write(f"params.{tool}_container = '{image}'\n")
         if node_scratch:
             with configuration.open('a') as handle:
                 handle.write("process.scratch = true\nprocess.stageOutMode = 'copy'\n")
@@ -398,6 +407,13 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
         )
         publish_disabled(source, accessions, bundles)
         return source
+
+    def test_sif_receipts_support_planning_execution_and_publication(self):
+        output = self.run_pipeline("sif-receipts", self.source, local_images=True)
+        manifest, batches = validate_source(output)
+        self.assertTrue(manifest["complete"])
+        self.assertEqual(len(self.calls()), 1)
+        self.assertTrue(all(batch.record["batch"]["search_method"]["runtime_id"].startswith("sif-md5:") for batch in batches.values()))
 
     def test_ready_batch_starts_while_another_group_waits(self):
         fixture = bundle_fixture.AnnotationBundleTests()
