@@ -2,9 +2,13 @@
 
 Genus-scale FastAAI clustering and quality-based representatives now run alongside
 ANI. See the [AAI guide](docs/aai_clustering.md) for the 65% cutoff, membership,
-outputs and v0.5.0 CLI changes. v0.5.0 requires new v0.5
+outputs and v0.5.0 CLI changes. v0.5 requires new v0.5
 publications; v0.4 publications and caches are unsupported. Protein IDs use
 [`GCF_000005845_2__p000001`](docs/protein_identifiers.md).
+
+v0.5.1 adds eggNOG recovery and local database staging, with preparation receipts
+to avoid repeated resource scans. Prepare the new database and SIF receipts before
+upgrading; see the [annotation guide](docs/functional_annotation.md).
 
 [![Nextflow](https://img.shields.io/badge/version-26.04.0-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
 [![run with docker](https://img.shields.io/badge/run%20with-docker-0db7ed?labelColor=000000&logo=docker)](https://www.docker.com/)

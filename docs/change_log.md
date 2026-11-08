@@ -1,5 +1,24 @@
 # Change Log
 
+## v0.5.1 - 2026-11-08
+
+### Changes
+
+- Recover interrupted eggNOG batches while retaining completed searches and annotations.
+- Stage eggNOG annotation databases locally for ordinary runs and recovery.
+- Reuse MD5 preparation receipts instead of rescanning databases and SIF images.
+  Fix acceptance of SIF MD5 identities during batch planning.
+
+### Validation
+
+- All 17 native Slurm pilot cases passed, including annotation, reuse/resume,
+  genuine full-source reuse and reference relocation.
+- Regression, Linux execution, helper integration and Viper checks passed; see the
+  [qualification record](development/v0.5.1_qualification.md).
+
+Prepare schema-2 database receipts and local SIF receipts before upgrading.
+Recovery requires matching preparation and method identities. Production was not rerun.
+
 ## v0.5.0 - 2026-11-05
 
 ### Changes
