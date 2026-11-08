@@ -11,6 +11,7 @@ import importlib.metadata
 import json
 import logging
 import math
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -26,7 +27,7 @@ from download_annotation_resources import (
 )
 
 LOGGER = logging.getLogger(__name__)
-RESOURCE_SCHEMA = 1
+RESOURCE_SCHEMA = 2
 RESOURCE_FILE = "annotation_resource.json"
 RESOURCE_TOOLS = ("eggnog", "cogclassifier", "pfam", "kofam")
 
@@ -72,19 +73,19 @@ def file_records(root: Path) -> list[dict[str, Any]]:
             {
                 "path": path.relative_to(root).as_posix(),
                 "bytes": path.stat().st_size,
-                "sha256": checksum_file(path),
+                "md5": checksum_file(path, "md5"),
             }
         )
     return result
 
 
 def validate_resource(
-    root: Path, component: str, *, verify_checksums: bool = True
+    root: Path, component: str, *, verify_checksums: bool = False
 ) -> dict[str, Any]:
-    """Validate the prepared contract; checksum verification belongs in preflight.
+    """Reuse a preparation receipt; full content reads are explicit preparation work.
 
-    Per-proteome jobs consume the identity already checked once for the run and
-    may inspect metadata without reading whole databases again.
+    Published resource directories are immutable. Runtime checks inspect only the
+    receipt; they do not recheck a published immutable file tree.
     """
     path = root / RESOURCE_FILE
     try:
@@ -94,7 +95,8 @@ def validate_resource(
             f"Missing or invalid prepared resource record: {path}"
         ) from error
     if (
-        payload.get("schema_version") != RESOURCE_SCHEMA
+        not isinstance(payload, dict)
+        or payload.get("schema_version") != RESOURCE_SCHEMA
         or payload.get("component") != component
     ):
         raise AnnotationResourceError(
@@ -116,6 +118,12 @@ def validate_resource(
         raise AnnotationResourceError(f"Missing resource inventory: {path}")
     seen = set()
     for entry in files:
+        if (
+            not isinstance(entry, dict)
+            or type(entry.get("bytes")) is not int
+            or entry["bytes"] < 0
+        ):
+            raise AnnotationResourceError("Invalid prepared resource file record")
         name = entry.get("path")
         if (
             not isinstance(name, str)
@@ -128,17 +136,26 @@ def validate_resource(
                 f"Invalid or duplicate resource path: {name!r}"
             )
         seen.add(name)
-        candidate = root / name
-        if (
-            candidate.is_symlink()
-            or not candidate.is_file()
-            or candidate.stat().st_size != entry.get("bytes")
+        if not isinstance(entry.get("md5"), str) or not re.fullmatch(
+            r"[0-9a-f]{32}", entry["md5"]
         ):
             raise AnnotationResourceError(
-                f"Missing or changed resource file: {candidate}"
+                "Invalid MD5 preparation receipt; prepare this resource again"
             )
-        if verify_checksums and checksum_file(candidate) != entry.get("sha256"):
-            raise AnnotationResourceError(f"Resource checksum mismatch: {candidate}")
+        if verify_checksums:
+            candidate = root / name
+            if (
+                candidate.is_symlink()
+                or not candidate.is_file()
+                or candidate.stat().st_size != entry.get("bytes")
+            ):
+                raise AnnotationResourceError(
+                    f"Missing or changed resource file: {candidate}"
+                )
+            if checksum_file(candidate, "md5") != entry["md5"]:
+                raise AnnotationResourceError(
+                    f"Resource checksum mismatch: {candidate}"
+                )
     return payload
 
 
@@ -557,6 +574,17 @@ def prepare_eggnog(source: Path, root: Path) -> dict[str, Any]:
     }
 
 
+def seal_resource(root: Path) -> None:
+    """Publish prepared resources read-only; edits require a new prepared version."""
+    record = json.loads((root / RESOURCE_FILE).read_text())
+    for name in [
+        RESOURCE_FILE,
+        *(entry["path"] for entry in record["contract"]["files"]),
+    ]:
+        path = root / name
+        path.chmod(path.stat().st_mode & ~0o222)
+
+
 def prepare_resource(
     component: str, version: str, source: Path, destination: Path
 ) -> dict[str, Any]:
@@ -595,6 +623,8 @@ def prepare_resource(
             )
         temporary = destination.with_name(destination.name + ".preparing")
         shutil.copytree(source, temporary)
+        validate_resource(temporary, component, verify_checksums=True)
+        seal_resource(temporary)
         temporary.rename(destination)
         return payload
     acquisition = validate_acquisition(source, component, version)
@@ -626,6 +656,7 @@ def prepare_resource(
             "acquisition": acquisition,
         }
         write_json(temporary / RESOURCE_FILE, payload)
+        seal_resource(temporary)
         temporary.rename(destination)
         return payload
     except (OSError, ValueError, sqlite3.Error, ResourceDownloadError) as error:

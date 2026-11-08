@@ -36,7 +36,7 @@ class ResourceTests(unittest.TestCase):
             "files": resources.file_records(root),
         }
         record = {
-            "schema_version": 1,
+            "schema_version": 2,
             "component": "pfam",
             "resource_id": resources.identity(contract),
             "contract": contract,
@@ -50,6 +50,7 @@ class ResourceTests(unittest.TestCase):
         destination = self.root / "destination"
         first = resources.prepare_resource("pfam", "38.2", source, destination)
         self.assertEqual(first, resources.validate_resource(destination, "pfam"))
+        self.assertEqual((destination / "resource.dat").stat().st_mode & 0o222, 0)
         self.assertEqual(
             first, resources.prepare_resource("pfam", "38.2", source, destination)
         )
@@ -62,7 +63,7 @@ class ResourceTests(unittest.TestCase):
         source = self.prepared()
         (source / "resource.dat").write_text("modified resource data\n")
         with self.assertRaises(resources.AnnotationResourceError):
-            resources.validate_resource(source, "pfam")
+            resources.validate_resource(source, "pfam", verify_checksums=True)
         record = json.loads((source / resources.RESOURCE_FILE).read_text())
         record["contract"]["version"] = "other"
         (source / resources.RESOURCE_FILE).write_text(json.dumps(record))
@@ -70,6 +71,17 @@ class ResourceTests(unittest.TestCase):
             resources.AnnotationResourceError, "identity mismatch"
         ):
             resources.validate_resource(source, "pfam")
+
+    def test_runtime_reuses_md5_receipt_without_reading_payloads(self):
+        source = self.prepared()
+        with patch.object(
+            resources, "checksum_file", side_effect=AssertionError("payload reread")
+        ):
+            record = resources.validate_resource(source, "pfam")
+        self.assertEqual(len(record["contract"]["files"][0]["md5"]), 32)
+        (source / "resource.dat").unlink()
+        with self.assertRaises(resources.AnnotationResourceError):
+            resources.validate_resource(source, "pfam", verify_checksums=True)
 
     def test_wrong_component_and_unprepared_sources_fail(self):
         source = self.prepared()

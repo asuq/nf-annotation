@@ -153,7 +153,7 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
         write_json(
             self.database / "annotation_resource.json",
             dict(
-                schema_version=1,
+                schema_version=2,
                 component="kofam",
                 contract=contract,
                 resource_id=identity(contract),

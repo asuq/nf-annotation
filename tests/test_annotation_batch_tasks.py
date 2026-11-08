@@ -70,7 +70,7 @@ class AnnotationBatchTaskTests(unittest.TestCase):
             files=file_records(self.resource),
         )
         self.resource_record = dict(
-            schema_version=1,
+            schema_version=2,
             component="eggnog",
             resource_id=identity(contract),
             contract=contract,

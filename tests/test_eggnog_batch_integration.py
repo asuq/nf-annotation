@@ -179,7 +179,7 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
         write_json(
             self.database / "annotation_resource.json",
             dict(
-                schema_version=1,
+                schema_version=2,
                 component="eggnog",
                 resource_id=identity(contract),
                 contract=contract,

@@ -254,7 +254,7 @@ def stage_database(resource: Path, prepared: dict, destination: Path) -> dict:
     copied = {}
     for name in ANNOTATION_FILES:
         started = time.monotonic()
-        checksum, size = hashlib.sha256(), 0
+        checksum, size = hashlib.md5(), 0
         target = destination / name
         with (resource / name).open("rb") as source, target.open("xb") as output:
             while block := source.read(8 * 1024 * 1024):
@@ -263,12 +263,12 @@ def stage_database(resource: Path, prepared: dict, destination: Path) -> dict:
                 size += len(block)
         if (
             size != records[name]["bytes"]
-            or checksum.hexdigest() != records[name]["sha256"]
+            or checksum.hexdigest() != records[name]["md5"]
         ):
             raise AnnotationError(f"Changed annotation database while staging: {name}")
         copied[name] = {
             "bytes": size,
-            "sha256": checksum.hexdigest(),
+            "md5": checksum.hexdigest(),
             "wall_seconds": time.monotonic() - started,
         }
     (destination / "eggnog_proteins.dmnd").symlink_to(resource / "eggnog_proteins.dmnd")

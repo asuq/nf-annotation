@@ -88,7 +88,7 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
         for name in ("eggnog.db", "eggnog_proteins.dmnd", "eggnog.db.taxids.bin", "eggnog.db.fieldpresence.bin", "eggnog.taxa.db", "eggnog.taxa.db.traverse.pkl", "go-basic.obo"):
             self.write_text_file(path / name, "synthetic-prepared-resource\n")
         contract = {"component": "eggnog", "version": "eggNOG7-emapper3.0", "files": annotation_resources.file_records(path), "settings": {"synthetic_fixture": True}}
-        payload = {"schema_version": 1, "component": "eggnog", "resource_id": annotation_resources.identity(contract), "contract": contract, "acquisition": {"files": []}}
+        payload = {"schema_version": 2, "component": "eggnog", "resource_id": annotation_resources.identity(contract), "contract": contract, "acquisition": {"files": []}}
         self.write_text_file(path / annotation_resources.RESOURCE_FILE, json.dumps(payload))
         return path
 
