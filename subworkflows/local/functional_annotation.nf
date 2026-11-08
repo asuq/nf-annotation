@@ -41,10 +41,16 @@ workflow ANNOTATION_RESOURCES {
         def resource = tool == 'padloc' ? null : params["${tool}_db"]
         if (tool != 'padloc' && !resource) { error "--${tool}_db is required for an enabled annotation tool" }
         if (resource) { resourcePaths.add(file(resource, checkIfExists: true)) }
-        if (container.toString().endsWith('.sif')) { runtimePaths.add(file(container, checkIfExists: true)) }
+        if (container.toString().endsWith('.sif')) {
+            runtimePaths.add(file(container, checkIfExists: true))
+            runtimePaths.add(file(container.toString() + '.receipt.json', checkIfExists: true))
+        }
         config.tools[tool] = [container: container.toString(), resource: resource ? file(resource).toAbsolutePath().toString() : null, cpus: cpus, memory_gib: memory]
     }
-    if (params.python_container.toString().endsWith('.sif')) { runtimePaths.add(file(params.python_container, checkIfExists: true)) }
+    if (params.python_container.toString().endsWith('.sif')) {
+        runtimePaths.add(file(params.python_container, checkIfExists: true))
+        runtimePaths.add(file(params.python_container.toString() + '.receipt.json', checkIfExists: true))
+    }
     ANNOTATION_PREFLIGHT(Channel.value(config), Channel.value(resourcePaths), Channel.value(runtimePaths.unique()))
 
     emit:

@@ -22,6 +22,7 @@ from annotation_common import (
 from annotation_resources import RESOURCE_FILE, validate_resource
 from annotation_result import inventory, native_exit_code, validate_result
 from eggnog_native import NATIVE_CODE_FILES
+from prepare_annotation_runtime import read_receipt
 from prepare_padloc_input import prepare_gff
 
 PADLOC_RESOURCE = {
@@ -67,7 +68,7 @@ def code_identity(tool: str) -> dict[str, str]:
 
 
 def runtime_identity(reference: str) -> str:
-    """Require a content-addressed Docker reference or hash the actual local SIF."""
+    """Require an OCI digest or reuse the preparation receipt for a local SIF."""
     if not isinstance(reference, str) or not reference:
         raise AnnotationError(
             "Every enabled annotation tool requires an immutable container"
@@ -78,7 +79,7 @@ def runtime_identity(reference: str) -> str:
             raise AnnotationError(
                 f"Container must be an existing absolute SIF path: {reference}"
             )
-        return "sif-sha256:" + digest(path)
+        return "sif-md5:" + read_receipt(path)["md5"]
     if re.fullmatch(r"(?:[^\s]+@)?sha256:[a-f0-9]{64}", reference):
         return reference.rsplit("@", 1)[-1]
     raise AnnotationError(f"Mutable or unsupported annotation container: {reference}")
@@ -91,6 +92,8 @@ def planning_code_identity() -> dict[str, str]:
         name: digest(root / name)
         for name in (
             "prepare_annotation_tasks.py",
+            "prepare_annotation_runtime.py",
+            "annotation_resources.py",
             "annotation_commands.py",
             "annotation_path_lists.py",
             "annotation_tasks.py",

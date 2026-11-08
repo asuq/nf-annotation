@@ -119,7 +119,27 @@ params {
 }
 ```
 
-SIF references must be absolute existing paths; preflight hashes their contents.
+After staging local SIF images, prepare their MD5 receipts once:
+
+```bash
+python3 bin/prepare_annotation_runtime.py /path/to/python-scipy.sif /path/to/eggnog.sif
+```
+
+Include every enabled annotation image. Each image receives an adjacent
+`.receipt.json`; keep it with the image and preserve modification times when
+copying. Runtime preflight reads this receipt and checks size and modification
+time, without reading the image contents. Missing or stale receipts fail before
+annotation; prepare them with the command above. No new pipeline options are required.
+
+Database preparation writes schema-2 receipts containing MD5 file checksums.
+Runtime preflight checks the preparation receipt without traversing or
+rehashing the database files. Preparation makes resource files read-only. Keep
+the prepared version immutable and publish edits as a new version. Receipt reuse does not detect payload edits that
+violate that contract. Copies made by database preparation are checked against
+the preparation MD5 values before publication. Older resource receipts must be
+prepared again when deploying this revision.
+
+SIF references must be absolute existing paths.
 Docker references must contain `@sha256:<64 hex characters>` or be a local
 `sha256:<64 hex characters>` image ID. Mutable annotation image tags are rejected.
 The shared Python helper runtime is part of the interpretation identity and

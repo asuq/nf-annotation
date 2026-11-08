@@ -175,7 +175,9 @@ class AnnotationTaskTests(unittest.TestCase):
         )
         sif = self.root / "tool.sif"
         sif.write_bytes(b"immutable runtime fixture")
-        self.assertTrue(runtime_identity(str(sif)).startswith("sif-sha256:"))
+        from prepare_annotation_runtime import prepare
+        prepare(sif)
+        self.assertTrue(runtime_identity(str(sif)).startswith("sif-md5:"))
         with self.assertRaisesRegex(AnnotationError, "memory"):
             commands("eggnog", 8, 8)
         command = commands("eggnog", 4, 32)["native_stages"]["search"]
