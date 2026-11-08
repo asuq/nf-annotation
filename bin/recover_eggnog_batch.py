@@ -22,6 +22,7 @@ from annotation_normalization import Normalized
 from annotation_resources import RESOURCE_FILE, validate_resource
 from annotation_result import inventory, validate_native_batch, validate_raw_evidence
 from eggnog_batches import validate_batch
+from eggnog_database import ANNOTATION_FILES, stage_database
 from eggnog_native import (
     DERIVED_HEADER,
     EXECUTION_SCHEMA,
@@ -37,14 +38,6 @@ from eggnog_native import (
 )
 from normalize_eggnog import _normalize_annotations, _seed_evidence, ontology_terms
 
-ANNOTATION_FILES = (
-    "eggnog.db",
-    "eggnog.db.fieldpresence.bin",
-    "eggnog.db.taxids.bin",
-    "eggnog.taxa.db",
-    "eggnog.taxa.db.traverse.pkl",
-    "go-basic.obo",
-)
 RECOVERY_SCHEMA = "eggnog-annotation-stage-recovery-v1"
 
 
@@ -242,37 +235,6 @@ def validate_source(
         raise AnnotationError("Recovery member identity or coordinate mapping changed")
     return old, batch, proteins, prepared
 
-
-def stage_database(resource: Path, prepared: dict, destination: Path) -> dict:
-    """Copy annotation files once; hash while copying, never copy the DIAMOND index."""
-    import hashlib
-
-    records = {row["path"]: row for row in prepared["contract"]["files"]}
-    if not set(ANNOTATION_FILES) <= records.keys():
-        raise AnnotationError("Missing annotation database files in prepared resource")
-    destination.mkdir()
-    copied = {}
-    for name in ANNOTATION_FILES:
-        started = time.monotonic()
-        checksum, size = hashlib.md5(), 0
-        target = destination / name
-        with (resource / name).open("rb") as source, target.open("xb") as output:
-            while block := source.read(8 * 1024 * 1024):
-                output.write(block)
-                checksum.update(block)
-                size += len(block)
-        if (
-            size != records[name]["bytes"]
-            or checksum.hexdigest() != records[name]["md5"]
-        ):
-            raise AnnotationError(f"Changed annotation database while staging: {name}")
-        copied[name] = {
-            "bytes": size,
-            "md5": checksum.hexdigest(),
-            "wall_seconds": time.monotonic() - started,
-        }
-    (destination / "eggnog_proteins.dmnd").symlink_to(resource / "eggnog_proteins.dmnd")
-    return copied
 
 
 def recover(

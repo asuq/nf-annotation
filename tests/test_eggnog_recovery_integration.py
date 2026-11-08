@@ -14,14 +14,6 @@ from annotation_result import inventory
 from annotation_source import validate_source
 
 ROOT = Path(__file__).resolve().parents[1]
-# Recover a failure produced by the original release's execution code.
-BASE = "6da8a4fb520076e8f88757137a31cdaedd87f963"
-ROUTING_FILES = (
-    "modules/local/functional_annotation.nf",
-    "subworkflows/local/functional_annotation.nf",
-    "nextflow.config",
-    "reannotate.nf",
-)
 
 
 @unittest.skipUnless(
@@ -115,20 +107,12 @@ class EggnogRecoveryIntegrationTests(unittest.TestCase):
         return destination, result.stdout + result.stderr
 
     def original_failure(self):
-        # Start with the unmodified release's scripts, then apply only this fix.
-        for name in ROUTING_FILES:
-            original = subprocess.check_output(
-                ["git", "show", f"{BASE}:{name}"], cwd=ROOT
-            )
-            (self.project / name).write_bytes(original)
         self.batch.fail_native.write_text("no_search\n")
         self.run_workflow("failed", succeeds=False)
         self.batch.fail_native.unlink()
         upgrade = self.root / "pipeline-upgrade"
         shutil.copytree(self.project, upgrade)
         self.project = upgrade
-        for name in ROUTING_FILES:
-            shutil.copyfile(ROOT / name, self.project / name)
         self.protected = inventory(self.old)
         self.previous_calls = self.batch.calls("no_search")
         self.searches = self.batch.calls()
@@ -139,7 +123,7 @@ class EggnogRecoveryIntegrationTests(unittest.TestCase):
                 "process { withName: ANNOTATION_SEARCH { beforeScript = 'echo UNEXPECTED_NATIVE_SEARCH >&2; exit 97' } }\n"
             )
 
-    def test_released_run_recovers_without_rerunning_successful_native_tasks(self):
+    def test_failed_run_recovers_without_rerunning_successful_native_tasks(self):
         self.original_failure()
         output, log = self.run_workflow("recovered", recovery=True)
         manifest, batches = validate_source(output)

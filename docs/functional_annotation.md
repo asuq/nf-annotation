@@ -479,3 +479,11 @@ Local staging removes shared-filesystem access from the annotation database read
 it does not change the mapper's internal timeout or guarantee every member will
 complete. A further native failure remains a failed result with its real exit code.
 No retries occur within the recovery task.
+
+### Local eggNOG annotation databases
+
+Ordinary eggNOG batches copy the six annotation database files to task scratch
+after the pooled search succeeds. The same MD5-verified copy serves every member;
+the DIAMOND index remains linked. Recovery uses the same staging implementation.
+Run native annotation tasks on worker-local scratch with space for the prepared
+annotation database. Biological arguments and per-proteome context are unchanged.

@@ -94,6 +94,9 @@ class EggnogNativeExecutionTests(unittest.TestCase):
         )
         self.assertEqual([len(row["queries"]) for row in calls], [3, 1, 1, 1])
         self.assertFalse((raw / "search/eggnog.emapper.annotations").exists())
+        self.assertFalse((self.work / "eggnog_data/eggnog.db").is_symlink())
+        self.assertTrue((self.work / "eggnog_data/eggnog_proteins.dmnd").is_symlink())
+        self.assertEqual(digest(self.work / "eggnog_data/eggnog.db"), digest(self.fixture.resource / "eggnog.db"))
         results = self.complete(raw)
         for protein in self.proteins:
             record = results[protein["accession"]]

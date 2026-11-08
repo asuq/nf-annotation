@@ -176,6 +176,8 @@ process ANNOTATION_SEARCH {
     time { params.max_time }
     maxForks params.annotation_max_forks
     container { meta.container }
+    scratch true
+    stageOutMode 'copy'
     publishDir "${params.outdir}/pipeline_info/annotation_storage", mode: 'copy', overwrite: true,
         saveAs: { name -> name == 'annotation_storage.json' ? "${meta.task_directory}.json" : null }
     // An abruptly terminated task may not emit raw files. The complete plan lets

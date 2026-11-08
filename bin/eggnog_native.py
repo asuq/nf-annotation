@@ -22,6 +22,7 @@ from annotation_common import (
 
 NATIVE_CODE_FILES = (
     "annotation_commands.py",
+    "eggnog_database.py",
     "run_eggnog_batch.py",
     "eggnog_native.py",
     "eggnog_batches.py",

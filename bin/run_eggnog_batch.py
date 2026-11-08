@@ -15,6 +15,7 @@ sys.dont_write_bytecode = True
 
 from annotation_common import AnnotationError, digest, read_json, write_json
 from eggnog_batches import validate_batch
+from eggnog_database import stage_database
 from eggnog_native import (
     EXECUTION_SCHEMA,
     NATIVE_CODE_FILES,
@@ -71,6 +72,14 @@ def run(batchdir: Path, commands: Path, raw: Path) -> int:
             return exit_code
         if stage["name"] == "search":
             write_partitions(batchdir, raw, batch, proteins)
+            resource = Path("resource").resolve(strict=True)
+            prepared = read_json(resource / "annotation_resource.json")
+            if prepared["resource_id"] != batch["search_method"]["resource_id"]:
+                raise AnnotationError("Annotation database changed after planning")
+            copied = stage_database(resource, prepared, Path("local_eggnog_data"))
+            Path("eggnog_data").rename("eggnog_search_data")
+            Path("local_eggnog_data").rename("eggnog_data")
+            write_json(raw / "database_staging.json", copied)
     validate_execution(raw, batch, proteins)
     return 0
 

@@ -63,6 +63,11 @@ class AnnotationBatchTaskTests(unittest.TestCase):
             )
         )
         (self.raw / "exit_code.txt").write_text("0\n")
+        from eggnog_database import ANNOTATION_FILES
+        for name in (*ANNOTATION_FILES, "eggnog_proteins.dmnd"):
+            path = self.resource / name
+            if not path.exists():
+                path.write_bytes(b"Synthetic resource control\n")
         contract = dict(
             component="eggnog",
             version="synthetic-v7",

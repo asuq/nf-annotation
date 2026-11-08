@@ -118,7 +118,7 @@ def commands(tool: str, cpus: int, memory_gib: float) -> dict[str, Any]:
         # The pinned mapper chooses its taxid-cache path based on the directory's
         # writability, even when a validated shipped cache is readable. A small
         # task-local directory of links makes it consume that existing cache;
-        # source files stay read-only and no multi-gigabyte data are copied.
+        # Annotation files are copied locally after the successful pooled search.
         linked_files = (
             "eggnog.db",
             "eggnog_proteins.dmnd",
