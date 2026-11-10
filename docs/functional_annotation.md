@@ -74,11 +74,24 @@ they do not establish performance at 10,000 samples.
 Bundle validation matches native contig DNA to the source using Prokka's
 native preprocessing: uppercase sequence and IUPAC ambiguity codes replaced
 with `N`. Gaps and pads are rejected because deleting them would shift source
-coordinates. Other substitutions, indels and non-unique contig matches fail.
+coordinates. For compliant Prokka output, contigs are mapped by verified native
+numbering in retained input order (Prokka filters sequences shorter than 200 bp).
+Every retained sequence must match; exact duplicates and ambiguity-masked
+duplicates keep distinct source IDs. Missing records, inconsistent numbering,
+other substitutions and indels fail. Non-compliant output still requires native
+IDs or unique sequence matches.
 `bundle.json` records the sequence policy and, for each native contig, its source
 ID, length, uppercase source/native DNA checksums and masked-base count. Original
 FASTA, FAA, GFF and GenBank bytes remain in the published bundle. Native OY-M
 output qualifies this rule with three masked bases.
+
+CRISPRCasFinder receives reversible `ctg00000001` headers for every sample.
+Descriptions are excluded from its input to avoid invalid native JSON; sequence
+bytes and contig order are preserved. Publications retain `native_result.json`,
+`contig_mapping.json` and the restored `result.json`. Original contig IDs,
+descriptions and identifier-bearing feature fields are restored only after a
+complete bijection and length check. Invalid or incomplete native output remains
+a failed result, never a zero-CRISPR result. No JSON repair is applied.
 
 Main-workflow cohort updates reuse recorded canonical bundles. They repeat neither
 gene prediction nor bundle construction. Recorded bundle failures remain failures;

@@ -12,7 +12,7 @@ class SamplePolicy {
         def root = new File(projectDir.toString(), 'bin')
         def sources = []
         root.eachFileRecurse(groovy.io.FileType.FILES) { source ->
-            if (source.name.endsWith('.py')) { sources.add(source) }
+            if (source.name.endsWith('.py') || source.name.endsWith('.pl')) { sources.add(source) }
         }
         sources.sort { root.toPath().relativize(it.toPath()).toString() }.each { source ->
             def relative = root.toPath().relativize(source.toPath()).toString()

@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -25,6 +26,20 @@ def write(path: str | Path, content: str) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content)
+
+
+def ccfinder_zero(genome: Path, output: Path) -> None:
+    """Synthetic native zero; run the real uniform input/output adapter."""
+    output.mkdir(parents=True, exist_ok=True)
+    adapter = str(ROOT / "bin/ccfinder_contigs.pl")
+    staged, mapping = output / "tool.fasta", output / "contig_mapping.json"
+    subprocess.run(["perl", adapter, "stage", str(genome), str(staged), str(mapping),
+                    str(output), str(output / "files.txt")], check=True)
+    native = {"Sequences": [dict(Id=row["tool_id"], Length=row["length"], Crisprs=[], Cas=[])
+                            for row in json.loads(mapping.read_text())["contigs"]]}
+    write(output / "native_result.json", json.dumps(native))
+    subprocess.run(["perl", adapter, "restore", str(genome), str(staged), str(mapping),
+                    str(output / "native_result.json"), str(output / "result.json")], check=True)
 
 
 def table(path: str | Path, header: list[str], rows: list[list[str]]) -> None:
@@ -197,12 +212,7 @@ def make_stub(args: argparse.Namespace) -> None:
         write("prokka.log", f"exit_code={1 if failed else 0}\n")
     elif tool == "ccfinder":
         Path("ccfinder").mkdir()
-        write(
-            "result.json",
-            json.dumps(
-                {"Sequences": [{"Id": internal_id, "Length": 2000, "Crisprs": []}]}
-            ),
-        )
+        ccfinder_zero(Path(args.genome), Path("."))
         write("ccfinder.log", "exit_code=0\n")
     else:
         raise ValueError(f"Unknown synthetic process: {tool}")

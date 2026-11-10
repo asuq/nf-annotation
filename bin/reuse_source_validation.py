@@ -14,11 +14,12 @@ from fingerprinting.source_fingerprint import fingerprint
 
 
 def code_id() -> str:
-    """Identify every Python helper available to the validation contract."""
+    """Identify Python helpers and the native contig adapter."""
     result = hashlib.sha256()
     root = Path(__file__).resolve().parent
     for path in sorted(
-        root.rglob("*.py"), key=lambda item: item.relative_to(root).as_posix()
+        (path for path in root.rglob("*") if path.suffix in {".py", ".pl"}),
+        key=lambda item: item.relative_to(root).as_posix()
     ):
         result.update(path.relative_to(root).as_posix().encode() + b"\0")
         result.update(path.read_bytes())

@@ -416,8 +416,11 @@ def validate_annotations(
                         raise CohortUpdateError(
                             f"Invalid published {column} for {accession!r}"
                         )
-                with (root / "ccfinder/result.json").open() as handle:
-                    json.load(handle)
+                from ccfinder_mapping import validate_publication
+                try:
+                    validate_publication(root / "ccfinder")
+                except (ValueError, KeyError, TypeError, OSError) as error:
+                    raise CohortUpdateError(f"Invalid CRISPRCasFinder mapping for {accession!r}: {error}") from error
             summaries.append(ccfinder)
         exit_code = read_exit_code(root / "prokka/prokka.log")
         present = all((root / "prokka" / name).stat().st_size > 0 for name in ("prokka.gff", "prokka.faa"))

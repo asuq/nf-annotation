@@ -21,6 +21,7 @@ import master_table_contract  # noqa: E402
 import prepare_cohort_update as update  # noqa: E402
 import validate_inputs  # noqa: E402
 from annotation_workflow_fixture import publish_disabled, refresh_tables
+from cohort_update_fixture import ccfinder_zero
 
 LINEAGE = "bacillota_odb12"
 BUSCO = "C:98.0%[S:98.0%,D:0.0%],F:1.0%,M:1.0%,n:200"
@@ -170,10 +171,7 @@ class PrepareCohortUpdateTestCase(unittest.TestCase):
                 "ccfinder/ccfinder_crisprs.tsv",
             ):
                 write(sample / relative, "fixture\n")
-            write(
-                sample / "ccfinder/result.json",
-                '{"Sequences": [{"Id": "contig1", "Length": 1600, "Crisprs": []}]}\n',
-            )
+            ccfinder_zero(self.genome(accession), sample / "ccfinder")
             for extension in ("gff", "faa", "gbk"):
                 write(
                     sample / f"prokka/prokka.{extension}", "" if failed else "fixture\n"
