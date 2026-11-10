@@ -11,6 +11,7 @@ import stat
 import sys
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from annotation_common import (
     AnnotationError,
@@ -95,6 +96,7 @@ def import_sample(
     ):
         raise AnnotationError("Reference import requires a validated source snapshot")
     if mode == "reference":
+        assert view is not None and source_fingerprint is not None
         if qc_root is None:
             raise AnnotationError(
                 "Reference publication requires --qc_publication_root"
@@ -120,7 +122,7 @@ def import_sample(
         )
     parents.mkdir(parents=True, exist_ok=True)
     target = parents / accession
-    metrics = {
+    metrics: dict[str, Any] = {
         "accession": accession,
         "files_copied": 0,
         "files_cloned": 0,
@@ -158,6 +160,11 @@ def import_sample(
                     }
                 )
         if mode == "reference":
+            assert (
+                view is not None
+                and source_fingerprint is not None
+                and qc_root is not None
+            )
             native_owner = view.native_owner(accession)
             entries = sorted(
                 path.name for path in source.iterdir() if path.name != "annotation"

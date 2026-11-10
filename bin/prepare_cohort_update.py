@@ -12,8 +12,8 @@ import logging
 import math
 import re
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 import build_master_table
 import build_sample_status
@@ -528,9 +528,8 @@ def validate_sample_outputs(
     elif any(key in master for key in sample_policy.PROVENANCE_COLUMNS[:4]):
         raise CohortUpdateError("Published source omits its resolved domain policy")
     scope = sample_policy.qc_scope(sample)
-    if scope == "qc" or "QC_Scope" in master:
-        if master.get("QC_Scope") != scope:
-            raise CohortUpdateError("Published master/QC scope mismatch")
+    if (scope == "qc" or "QC_Scope" in master) and master.get("QC_Scope") != scope:
+        raise CohortUpdateError("Published master/QC scope mismatch")
     master_summaries.extend(
         validate_annotations(root, accession, status, qc["Gcode"], scope)
     )

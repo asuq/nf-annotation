@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import hashlib
 import json
-from functools import partial
 import os
 import stat
 import sys
 import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from functools import partial
 from pathlib import Path
+from typing import NotRequired, TypedDict
 
 from annotation_common import AnnotationError, identity, read_json, write_json
 from publication_references import REFERENCE_CONTRACTS, REFERENCE_FILE, Publication
@@ -63,6 +64,27 @@ def load_checksums(path: Path):
     return partial(cached_checksum, records=records, portable=True)
 
 
+class FingerprintMetrics(TypedDict):
+    operation: str
+    workers: int
+    phase: str
+    requested_roots: int
+    completed_roots: int
+    unique_roots_completed: int
+    shared_root_hits: int
+    files_hashed: int
+    bytes_hashed: int
+    scan_seconds: float
+    hash_seconds: float
+    peak_pending_reads: int
+    seconds: NotRequired[float]
+    current_root: NotRequired[str]
+    current_files_hashed: NotRequired[int]
+    current_bytes_hashed: NotRequired[int]
+    current_files_total: NotRequired[int]
+    current_bytes_total: NotRequired[int]
+
+
 class FingerprintScanner:
     """One pool per invocation; at most two queued reads per worker, no nesting."""
 
@@ -78,7 +100,7 @@ class FingerprintScanner:
         self.file_digests = {}
         self.start = time.monotonic()
         self.last_report = 0.0
-        self.metrics = {
+        self.metrics: FingerprintMetrics = {
             "operation": "fingerprint",
             "workers": workers,
             "phase": "starting",
@@ -99,6 +121,7 @@ class FingerprintScanner:
         return self
 
     def __exit__(self, kind, value, traceback):
+        assert self.pool is not None
         self.pool.shutdown(wait=True, cancel_futures=True)
         self.metrics["phase"] = "failed" if kind else "complete"
         self.report(force=True)
@@ -133,6 +156,7 @@ class FingerprintScanner:
 
     def hashes(self, paths):
         """Submit a bounded window and consume in sorted order, regardless of I/O order."""
+        assert self.pool is not None
         ordered = sorted(paths, key=lambda item: item[0])
         items = iter(enumerate(ordered))
         pending, completed = {}, {}

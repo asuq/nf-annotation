@@ -5,8 +5,18 @@ import sys
 import time
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 from pathlib import Path
+from typing import NotRequired, TypedDict
 
 from annotation_common import write_json
+
+
+class ValidationMetrics(TypedDict):
+    phase: str
+    workers: int
+    total_samples: int
+    completed_samples: int
+    peak_pending: int
+    seconds: NotRequired[float]
 
 
 def ordered_validation(
@@ -16,7 +26,7 @@ def ordered_validation(
         raise ValueError("Cohort validation workers must be an integer from 1 to 8")
     start = time.monotonic()
     last = 0.0
-    metrics = {
+    metrics: ValidationMetrics = {
         "phase": "validating",
         "workers": workers,
         "total_samples": total,
@@ -70,11 +80,11 @@ def ordered_validation(
                 completed, _ = wait(pending, timeout=1, return_when=FIRST_COMPLETED)
                 for future in completed:
                     index = pending.pop(future)
-                    try:
-                        ready[index] = (future.result(), None)
-                    except Exception as error:
-                        ready[index] = (None, error)
-                        failed = True
+                    error = future.exception()
+                    ready[index] = (
+                        (None, error) if error is not None else (future.result(), None)
+                    )
+                    failed = failed or error is not None
                     metrics["completed_samples"] += 1
                 report()
                 while next_output in ready:

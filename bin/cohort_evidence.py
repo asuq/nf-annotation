@@ -1,6 +1,7 @@
 """Bind published cohort evidence to the existing annotation manifest."""
 
 from pathlib import Path
+
 from annotation_common import AnnotationError, digest, read_json
 from publication_references import strict_path
 

@@ -180,7 +180,7 @@ class Publication:
         }:
             raise AnnotationError("Unknown reference manifest fields")
         self.qc_root = qc_boundary(
-            relative_location(self.root, doc.get("qc_publication_root"), parents=True),
+            relative_location(self.root, doc["qc_publication_root"], parents=True),
             self.root,
         )
         seen = set()
@@ -254,12 +254,14 @@ class Publication:
                     strict_path(self.root, f"samples/{accession}/annotation/bundle")
                 elif isinstance(bundle, dict) and set(bundle) == {"source"}:
                     owner, index = self.provider(bundle["source"], accession)
-                    if owner.reference and owner.document["samples"][accession][
-                        "bundle"
-                    ] != {"local": True}:
-                        raise AnnotationError(
-                            "Bundle references must be flattened to their physical owner"
-                        )
+                    if owner.reference:
+                        assert owner.document is not None
+                        if owner.document["samples"][accession]["bundle"] != {
+                            "local": True
+                        }:
+                            raise AnnotationError(
+                                "Bundle references must be flattened to their physical owner"
+                            )
                     relative = f"samples/{accession}/annotation/bundle"
                     self.links[relative] = owner.path(relative)
                     used.add(index)
@@ -282,6 +284,7 @@ class Publication:
 
     def check_links(self) -> None:
         """Reject retargeted, missing and undeclared links in a completed view."""
+        assert self.document is not None
         samples = strict_path(self.root, "samples")
         if {path.name for path in samples.iterdir()} != set(self.document["samples"]):
             raise AnnotationError(
@@ -339,11 +342,10 @@ class Publication:
         return strict_path(self.root, name)
 
     def native_owner(self, accession: str) -> Publication:
-        return (
-            self.sources[self.document["samples"][accession]["native_source"]]
-            if self.reference
-            else self
-        )
+        if not self.reference:
+            return self
+        assert self.document is not None
+        return self.sources[self.document["samples"][accession]["native_source"]]
 
     def native_root(self, accession: str) -> Path:
         owner = self.native_owner(accession)
@@ -351,6 +353,7 @@ class Publication:
 
     def bundle_owner(self, accession: str) -> Publication:
         if self.reference:
+            assert self.document is not None
             record = self.document["samples"][accession]["bundle"]
             if record and "source" in record:
                 return self.sources[record["source"]]
