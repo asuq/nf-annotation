@@ -1,5 +1,21 @@
 # Change Log
 
+## v0.5.2 - 2026-11-11
+
+### Changes
+
+- Preserve distinct Prokka contigs with duplicate or ambiguity-masked DNA.
+  Restore original CRISPRCasFinder IDs and retain native mapping evidence.
+- Support reviewed genetic-code choices tied to the accession and FASTA identity,
+  retaining the automatic call and checking recorded choices during reuse.
+- Add locked, repository-wide Ruff and ty checks. Fix GC backfill portability
+  and explicit failure when reusing a missing database.
+
+### Validation
+
+- Release qualification is in progress; publication requires the fresh ten-genome
+  native pilot and the remaining regression checks to pass.
+
 ## v0.5.1 - 2026-11-08
 
 ### Changes
