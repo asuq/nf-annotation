@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import re
 import sys
 from collections import Counter, defaultdict
 from decimal import Decimal
@@ -34,21 +33,17 @@ def require(condition: bool, message: str) -> None:
 
 
 def native_integer(value: object, name: str, minimum: int) -> int:
-    require(
-        type(value) is int and value >= minimum, f"Invalid native {name}: {value!r}"
-    )
+    if type(value) is not int or value < minimum:
+        raise AnnotationError(f"Invalid native {name}: {value!r}")
     return value
 
 
 def crispr_coordinates(payload: dict, lengths: dict[str, int]) -> list[dict]:
-    """Join the wrapper's explicit version-stripped IDs to source coordinates."""
-    aliases = {}
-    for source_id, length in lengths.items():
-        native_id = re.sub(r"\.[0-9]+$", "", source_id)
-        require(native_id not in aliases, f"Ambiguous CRISPR contig alias: {native_id}")
-        aliases[native_id] = (source_id, length)
+    """Join restored, complete source IDs to source coordinates."""
+    aliases = {source_id: (source_id, length) for source_id, length in lengths.items()}
     sequences = payload.get("Sequences")
-    require(isinstance(sequences, list), "Missing native CRISPR sequence list")
+    if not isinstance(sequences, list):
+        raise AnnotationError("Missing native CRISPR sequence list")
     seen, names, arrays = set(), set(), []
     for sequence in sequences:
         require(isinstance(sequence, dict), "Malformed native CRISPR sequence")
@@ -83,15 +78,15 @@ def crispr_coordinates(payload: dict, lengths: dict[str, int]) -> list[dict]:
             )
             names.add((native_id, name))
             arrays.append(
-                dict(
-                    contig_id=native_id,
-                    source_contig_id=source_id,
-                    crispr_id=name,
-                    start=start,
-                    end=end,
-                    evidence_level=level,
-                    spacer_count=spacers,
-                )
+                {
+                    "contig_id": native_id,
+                    "source_contig_id": source_id,
+                    "crispr_id": name,
+                    "start": start,
+                    "end": end,
+                    "evidence_level": level,
+                    "spacer_count": spacers,
+                }
             )
     require(seen == set(aliases), "Native CRISPR results omit source contigs")
     return arrays
@@ -232,10 +227,10 @@ def qualify(results: Path, controls: list[dict[str, str]]) -> dict:
                 "CDS cannot join to original genome coordinates",
             )
         overlaps = [
-            dict(
-                contig_id=array["source_contig_id"],
-                crispr_id=array["crispr_id"],
-                gene_ids=sorted(
+            {
+                "contig_id": array["source_contig_id"],
+                "crispr_id": array["crispr_id"],
+                "gene_ids": sorted(
                     {
                         coordinate["gene_id"]
                         for coordinate in coordinates
@@ -244,7 +239,7 @@ def qualify(results: Path, controls: list[dict[str, str]]) -> dict:
                         and int(coordinate["end"]) >= array["start"]
                     }
                 ),
-            )
+            }
             for array in arrays
         ]
         for tool in TOOLS:
@@ -272,23 +267,25 @@ def qualify(results: Path, controls: list[dict[str, str]]) -> dict:
                     <= Decimal("0.0000000000005"),
                     "Fractional COG category count differs",
                 )
-        reports[accession] = dict(
-            genetic_code=row["Gcode"],
-            protein_count=len(proteins),
-            input_id=metadata["input_id"],
-            crispr_arrays=len(arrays),
-            spacers=total_spacers,
-            source_contigs=len(lengths),
-            cds_segments=len(coordinates),
-            crispr_overlapping_genes=overlaps,
-            sixteen_s=row["16S"],
-            codetta=row["Codetta_Genetic_Code"],
-            field_errors=row["annotation_field_errors"],
-        )
+        reports[accession] = {
+            "genetic_code": row["Gcode"],
+            "protein_count": len(proteins),
+            "input_id": metadata["input_id"],
+            "crispr_arrays": len(arrays),
+            "spacers": total_spacers,
+            "source_contigs": len(lengths),
+            "cds_segments": len(coordinates),
+            "crispr_overlapping_genes": overlaps,
+            "sixteen_s": row["16S"],
+            "codetta": row["Codetta_Genetic_Code"],
+            "field_errors": row["annotation_field_errors"],
+        }
     for matrix, (tool, field) in MATRICES.items():
         path = results / f"tables/functional_matrices/{matrix}.tsv"
         with path.open(newline="") as handle:
             reader = csv.DictReader(handle, delimiter="\t")
+            if reader.fieldnames is None:
+                raise AnnotationError("Missing matrix header")
             features = reader.fieldnames[1:]
             rows = list(reader)
         require(
@@ -339,13 +336,13 @@ def qualify(results: Path, controls: list[dict[str, str]]) -> dict:
             == sum(row["accession"] == accession for row in systems),
             "PADLOC system/master counts differ",
         )
-    return dict(
-        complete=True,
-        accessions=accessions,
-        genomes=reports,
-        matrices=list(MATRICES),
-        control_interpretation="Historical genetic-code and CRISPR regression controls; not experimental biological truth",
-    )
+    return {
+        "complete": True,
+        "accessions": accessions,
+        "genomes": reports,
+        "matrices": list(MATRICES),
+        "control_interpretation": "Historical genetic-code and CRISPR regression controls; not experimental biological truth",
+    }
 
 
 def main() -> int:
@@ -371,7 +368,7 @@ def main() -> int:
     try:
         report = qualify(args.results, controls)
     except (AnnotationError, OSError, ValueError) as error:
-        report = dict(complete=False, error=str(error))
+        report = {"complete": False, "error": str(error)}
         args.report.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
         print(str(error), file=sys.stderr)
         return 1

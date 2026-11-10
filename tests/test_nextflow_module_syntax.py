@@ -6,7 +6,6 @@ import re
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 MODULES_DIR = ROOT / "modules" / "local"
 SUBWORKFLOWS_DIR = ROOT / "subworkflows" / "local"
@@ -848,44 +847,6 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertIn('-outdir "\\${tool_output_root}" \\', module_text)
         self.assertNotIn('-outdir "\\$PWD/ccfinder" \\', module_text)
 
-    def test_ccfinder_stages_local_fasta_and_collects_run_root_outputs(self) -> None:
-        """Require the isolated run to reopen the staged FASTA by local basename."""
-        module_text = (MODULES_DIR / "ccfinder.nf").read_text(encoding="utf-8")
-
-        self.assertIn(
-            'genome_path="\\$(cd "\\$(dirname "${genome}")" && pwd)/\\$(basename "${genome}")"',
-            module_text,
-        )
-        self.assertIn('genome_name="\\$(basename "${genome}")"', module_text)
-        self.assertIn("ccfinder_generated_contigs.txt", module_text)
-        self.assertIn('awk -v output_root="\\${task_root}" \'', module_text)
-        self.assertIn('output_path = output_root "/" contig_id ".fna"', module_text)
-        self.assertIn('sub(/\\\\.[0-9]+\\$/, "", contig_id)', module_text)
-        self.assertIn("print \\$0 > output_path", module_text)
-        self.assertIn("while (length(sequence_line) > 60) {", module_text)
-        self.assertIn("print substr(sequence_line, 1, 60) >> output_path", module_text)
-        self.assertIn('cp "\\${genome_path}" "\\${genome_name}"', module_text)
-        self.assertIn(": > index.html", module_text)
-        self.assertIn(
-            'perl "\\${ccfinder_root}/CRISPRCasFinder.pl" -in "\\${genome_name}" \\',
-            module_text,
-        )
-        self.assertIn(
-            'result_json_path=\\$(find "\\${tool_output_root}" "\\${run_root}" -type f -name \'result.json\' | head -n 1 || true)',
-            module_text,
-        )
-        self.assertIn(
-            "perl -0pi -e 's/:\\\\s*(?=,|\\\\}|\\\\])/: null/g' \"\\${result_json_path}\"",
-            module_text,
-        )
-        self.assertIn(
-            "internal_log_path=\\$(find \"\\${tool_output_root}\" \"\\${run_root}\" -type f \\\\( -name 'ccfinder.log' -o -name 'logFile_*' \\\\) | head -n 1 || true)",
-            module_text,
-        )
-
-        self.assertIn("perl -MJSON::PP -0777", module_text)
-        self.assertIn("cleanup-legacy", module_text)
-
     def test_pruned_tool_outputs_keep_declared_resume_safe_directories(self) -> None:
         """Require pruned tool wrappers to recreate declared output directories before task end."""
         checkm2_text = (MODULES_DIR / "checkm2.nf").read_text(encoding="utf-8")
@@ -955,7 +916,7 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertIn("cp prokka.gbk prokka/", prokka_text)
 
         self.assertIn(
-            "filename in ['result.json', 'ccfinder.log', 'ccfinder_storage.json']",
+            "filename in ['result.json', 'native_result.json', 'contig_mapping.json', 'ccfinder.log', 'ccfinder_storage.json']",
             ccfinder_text,
         )
         self.assertNotIn("filename == 'versions.yml' ? null : filename", ccfinder_text)

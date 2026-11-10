@@ -18,7 +18,7 @@ class FunctionalQualificationTests(unittest.TestCase):
         return {
             "Sequences": [
                 {
-                    "Id": "contig",
+                    "Id": "contig.2",
                     "Length": 100,
                     "Crisprs": [
                         {"Evidence_Level": 1},
@@ -34,7 +34,7 @@ class FunctionalQualificationTests(unittest.TestCase):
             ],
         }
 
-    def test_native_contig_alias_and_established_evidence_policy(self):
+    def test_restored_contig_identity_and_established_evidence_policy(self):
         rows = crispr_coordinates(self.payload(), {"contig.2": 100})
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["source_contig_id"], "contig.2")
@@ -42,9 +42,16 @@ class FunctionalQualificationTests(unittest.TestCase):
             (rows[0]["start"], rows[0]["end"], rows[0]["spacer_count"]), (11, 40, 2)
         )
 
-    def test_colliding_version_stripped_contig_names_are_rejected(self):
-        with self.assertRaisesRegex(AnnotationError, "Ambiguous"):
-            crispr_coordinates(self.payload(), {"contig.1": 100, "contig.2": 100})
+    def test_colliding_dotted_contig_names_remain_distinct(self):
+        payload = self.payload()
+        second = copy.deepcopy(payload["Sequences"][0])
+        second["Id"] = "contig.1"
+        second["Crisprs"][1]["Name"] = "array2"
+        payload["Sequences"].append(second)
+        rows = crispr_coordinates(payload, {"contig.1": 100, "contig.2": 100})
+        self.assertEqual(
+            {row["source_contig_id"] for row in rows}, {"contig.1", "contig.2"}
+        )
 
     def test_native_coordinates_require_complete_unique_bounded_contigs(self):
         original = self.payload()
