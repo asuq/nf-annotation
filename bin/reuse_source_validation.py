@@ -19,7 +19,7 @@ def code_id() -> str:
     root = Path(__file__).resolve().parent
     for path in sorted(
         (path for path in root.rglob("*") if path.suffix in {".py", ".pl"}),
-        key=lambda item: item.relative_to(root).as_posix()
+        key=lambda item: item.relative_to(root).as_posix(),
     ):
         result.update(path.relative_to(root).as_posix().encode() + b"\0")
         result.update(path.read_bytes())
@@ -27,7 +27,9 @@ def code_id() -> str:
     return result.hexdigest()
 
 
-def validate(roots: list[Path], fingerprints: list[dict], *, checksum=None) -> list[dict]:
+def validate(
+    roots: list[Path], fingerprints: list[dict], *, checksum=None
+) -> list[dict]:
     """Validate one bounded source group after fresh content fingerprinting."""
     if len(roots) != len(fingerprints) or not roots:
         raise AnnotationError("Source validation roots and fingerprints must match")
@@ -45,7 +47,9 @@ def validate(roots: list[Path], fingerprints: list[dict], *, checksum=None) -> l
     return receipts
 
 
-def validate_or_reuse(roots: list[Path], fingerprints: list[dict], previous: Path | None, *, checksum) -> tuple[list[dict], bool]:
+def validate_or_reuse(
+    roots: list[Path], fingerprints: list[dict], previous: Path | None, *, checksum
+) -> tuple[list[dict], bool]:
     """Reuse semantic work only after a fresh complete content-and-code match."""
     if previous is not None:
         receipts = read_json(previous)["receipts"]

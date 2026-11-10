@@ -192,7 +192,9 @@ def sniff_delimiter(path: Path) -> str:
     return dialect.delimiter
 
 
-def read_table(path: Path, delimiter: str | None = None) -> tuple[list[str], list[dict[str, str]]]:
+def read_table(
+    path: Path, delimiter: str | None = None
+) -> tuple[list[str], list[dict[str, str]]]:
     """Read a delimited table into a header and row dictionaries."""
     if not path.is_file():
         raise MasterTableError(f"Missing input table: {path}")
@@ -218,7 +220,10 @@ def read_table(path: Path, delimiter: str | None = None) -> tuple[list[str], lis
                 f"expected {len(header)}."
             )
         records.append(
-            {column: value.strip() for column, value in zip(header, values, strict=True)}
+            {
+                column: value.strip()
+                for column, value in zip(header, values, strict=True)
+            }
         )
     return header, records
 
@@ -292,7 +297,9 @@ def load_validated_samples(path: Path) -> list[dict[str, str]]:
     samples = build_index(rows, "accession", "validated_samples.tsv")
     internal_ids = [row["internal_id"] for row in samples.values()]
     if len(set(internal_ids)) != len(internal_ids):
-        raise MasterTableError("validated_samples.tsv contains duplicate internal_id values.")
+        raise MasterTableError(
+            "validated_samples.tsv contains duplicate internal_id values."
+        )
     return list(samples.values())
 
 
@@ -310,7 +317,9 @@ def load_sample_status_columns(
     if not columns:
         raise MasterTableError(f"Sample-status column asset is empty: {path}")
     if len(set(columns)) != len(columns):
-        raise MasterTableError(f"Sample-status column asset contains duplicate columns: {path}")
+        raise MasterTableError(
+            f"Sample-status column asset contains duplicate columns: {path}"
+        )
     return columns
 
 
@@ -360,7 +369,9 @@ def build_metadata_row(
 
     if assembly_stats_row:
         for metadata_column, stats_column in ASSEMBLY_METADATA_COLUMN_MAP.items():
-            header_column = find_column_by_normalised_name(metadata_header, metadata_column)
+            header_column = find_column_by_normalised_name(
+                metadata_header, metadata_column
+            )
             if header_column is None:
                 continue
             if not is_missing(metadata_row.get(header_column)):
@@ -448,7 +459,9 @@ def load_busco_index(
             )
         busco_column = busco_columns[0]
         if busco_column in seen_busco_columns:
-            raise MasterTableError(f"Duplicate BUSCO lineage column supplied: {busco_column}")
+            raise MasterTableError(
+                f"Duplicate BUSCO lineage column supplied: {busco_column}"
+            )
         seen_busco_columns.add(busco_column)
 
         table_index = build_index(rows, key_column, f"BUSCO table {path.name}")
@@ -507,7 +520,9 @@ def derive_taxonomy_values(
     taxonomy_row = taxonomy_index.get(tax_id)
     if taxonomy_row is None:
         return blank_taxonomy
-    return {column: taxonomy_row.get(column, "NA") or "NA" for column in TAXONOMY_COLUMNS}
+    return {
+        column: taxonomy_row.get(column, "NA") or "NA" for column in TAXONOMY_COLUMNS
+    }
 
 
 def find_column_by_normalised_name(
@@ -531,7 +546,9 @@ def detect_metadata_value(metadata_row: dict[str, str], column_name: str) -> str
     return "NA" if is_missing(value) else value
 
 
-def choose_assembly_level(sample_row: dict[str, str], metadata_row: dict[str, str]) -> str:
+def choose_assembly_level(
+    sample_row: dict[str, str], metadata_row: dict[str, str]
+) -> str:
     """Choose the ANI assembly level, using the sample manifest for new genomes."""
     if sample_row.get("is_new") == "true":
         value = sample_row.get("assembly_level", "NA")
@@ -577,7 +594,9 @@ def build_master_row(
     if assembly_stats_row is not None:
         for output_column, stats_column in ASSEMBLY_DERIVED_COLUMN_MAP.items():
             stats_value = assembly_stats_row.get(stats_column, "NA")
-            derived_values[output_column] = "NA" if is_missing(stats_value) else stats_value
+            derived_values[output_column] = (
+                "NA" if is_missing(stats_value) else stats_value
+            )
 
     if accession in sixteen_s_index and "16S" in sixteen_s_index[accession]:
         derived_values["16S"] = sixteen_s_index[accession]["16S"] or "NA"
@@ -603,7 +622,9 @@ def build_master_row(
     return row
 
 
-def write_tsv(path: Path, header: Sequence[str], rows: Sequence[dict[str, str]]) -> None:
+def write_tsv(
+    path: Path, header: Sequence[str], rows: Sequence[dict[str, str]]
+) -> None:
     """Write a TSV with a fixed header."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -641,7 +662,9 @@ def run_build(args: argparse.Namespace) -> None:
         )
 
     taxonomy_index = load_taxonomy_index(args.taxonomy)
-    assembly_stats_index = load_assembly_stats_index(args.assembly_stats, validated_accessions)
+    assembly_stats_index = load_assembly_stats_index(
+        args.assembly_stats, validated_accessions
+    )
     checkm2_index = load_optional_accession_index(
         args.checkm2,
         CHECKM2_COLUMNS,
@@ -672,7 +695,9 @@ def run_build(args: argparse.Namespace) -> None:
         "ANI summary table",
         validated_accessions,
     )
-    busco_index, provided_busco_columns = load_busco_index(args.busco, validated_accessions)
+    busco_index, provided_busco_columns = load_busco_index(
+        args.busco, validated_accessions
+    )
     expected_busco_columns = {f"BUSCO_{lineage}" for lineage in busco_lineages}
     unexpected_busco_columns = sorted(provided_busco_columns - expected_busco_columns)
     if unexpected_busco_columns:
@@ -727,12 +752,20 @@ def run_build(args: argparse.Namespace) -> None:
     aai_path = getattr(args, "aai", None)
     if aai_path is not None:
         from annotation_common import read_tsv
+
         aai_rows = read_tsv(aai_path, ("Accession", *master_table_contract.AAI_COLUMNS))
         aai_index = {r["Accession"]: r for r in aai_rows}
-        if len(aai_rows) != len(aai_index) or (aai_index and set(aai_index) != validated_accessions):
+        if len(aai_rows) != len(aai_index) or (
+            aai_index and set(aai_index) != validated_accessions
+        ):
             raise MasterTableError("AAI summary membership differs from the cohort")
         for row, sample in zip(rows, validated_samples, strict=True):
-            row.update({c: aai_index.get(sample["accession"], {}).get(c, "NA") for c in master_table_contract.AAI_COLUMNS})
+            row.update(
+                {
+                    c: aai_index.get(sample["accession"], {}).get(c, "NA")
+                    for c in master_table_contract.AAI_COLUMNS
+                }
+            )
     write_tsv(args.output, output_header, rows)
 
 

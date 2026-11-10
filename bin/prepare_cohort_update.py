@@ -300,9 +300,13 @@ def validate_qc(
             try:
                 report = summarise_checkm2.parse_report(report_path)
             except ValueError as error:
-                raise CohortUpdateError(f"Invalid published CheckM2 report: {error}") from error
+                raise CohortUpdateError(
+                    f"Invalid published CheckM2 report: {error}"
+                ) from error
             if report.translation_table != code:
-                raise CohortUpdateError(f"CheckM2 translation-table mismatch: {report_path}")
+                raise CohortUpdateError(
+                    f"CheckM2 translation-table mismatch: {report_path}"
+                )
             native_reports[code] = report
             for metric, value in report.metrics.items():
                 if (
@@ -313,7 +317,9 @@ def validate_qc(
                         f"CheckM2 report disagrees with published summary: {report_path}"
                     )
     expected = summarise_checkm2.build_output_row(
-        accession, native_reports.get(4), native_reports.get(11),
+        accession,
+        native_reports.get(4),
+        native_reports.get(11),
         warnings=[value for value in qc["warnings"].split(";") if value],
         gcode_rule=gcode_rule,
         genome=root / f"staged/{sample['internal_id']}.fasta",
@@ -321,8 +327,10 @@ def validate_qc(
         genome_id=sample["internal_id"],
     )
     for field in (
-        "Gcode", *master_table_contract.GCODE_PROVENANCE_COLUMNS,
-        "Low_quality", "checkm2_status",
+        "Gcode",
+        *master_table_contract.GCODE_PROVENANCE_COLUMNS,
+        "Low_quality",
+        "checkm2_status",
     ):
         if qc[field] != expected[field]:
             raise CohortUpdateError(
@@ -400,9 +408,19 @@ def validate_annotations(
         if scope == "qc":
             check_status(status, "ccfinder_status", "na", accession)
             if (root / "ccfinder").exists():
-                raise CohortUpdateError("QC-only source contains contradictory CRISPR outputs")
+                raise CohortUpdateError(
+                    "QC-only source contains contradictory CRISPR outputs"
+                )
         else:
-            require_files(root, ("ccfinder/result.json", "ccfinder/ccfinder.log", "ccfinder/ccfinder_contigs.tsv", "ccfinder/ccfinder_crisprs.tsv"))
+            require_files(
+                root,
+                (
+                    "ccfinder/result.json",
+                    "ccfinder/ccfinder.log",
+                    "ccfinder/ccfinder_contigs.tsv",
+                    "ccfinder/ccfinder_crisprs.tsv",
+                ),
+            )
             ccfinder = single_summary(
                 root / "ccfinder/ccfinder_strains.tsv",
                 accession,
@@ -412,7 +430,9 @@ def validate_annotations(
                 raise CohortUpdateError(
                     f"Invalid published CRISPRCasFinder status for {accession!r}"
                 )
-            check_status(status, "ccfinder_status", ccfinder["ccfinder_status"], accession)
+            check_status(
+                status, "ccfinder_status", ccfinder["ccfinder_status"], accession
+            )
             if ccfinder["ccfinder_status"] == "done":
                 for column in build_master_table.CRISPR_COLUMNS:
                     number = float(ccfinder[column])
@@ -421,14 +441,25 @@ def validate_annotations(
                             f"Invalid published {column} for {accession!r}"
                         )
                 from ccfinder_mapping import validate_publication
+
                 try:
                     validate_publication(root / "ccfinder")
                 except (ValueError, KeyError, TypeError, OSError) as error:
-                    raise CohortUpdateError(f"Invalid CRISPRCasFinder mapping for {accession!r}: {error}") from error
+                    raise CohortUpdateError(
+                        f"Invalid CRISPRCasFinder mapping for {accession!r}: {error}"
+                    ) from error
             summaries.append(ccfinder)
         exit_code = read_exit_code(root / "prokka/prokka.log")
-        present = all((root / "prokka" / name).stat().st_size > 0 for name in ("prokka.gff", "prokka.faa"))
-        check_status(status, "prokka_status", "done" if exit_code == "0" and present else "failed", accession)
+        present = all(
+            (root / "prokka" / name).stat().st_size > 0
+            for name in ("prokka.gff", "prokka.faa")
+        )
+        check_status(
+            status,
+            "prokka_status",
+            "done" if exit_code == "0" and present else "failed",
+            accession,
+        )
     return summaries
 
 
@@ -488,15 +519,21 @@ def validate_sample_outputs(
             or master.get("Annotation_Domain_Source") != sample["domain_source"]
         ):
             raise CohortUpdateError("Published master/domain policy mismatch")
-        if master.get("Primary_BUSCO_Score") != master.get("BUSCO_" + sample["primary_busco_lineage"]):
-            raise CohortUpdateError("Published primary BUSCO score does not match its lineage")
+        if master.get("Primary_BUSCO_Score") != master.get(
+            "BUSCO_" + sample["primary_busco_lineage"]
+        ):
+            raise CohortUpdateError(
+                "Published primary BUSCO score does not match its lineage"
+            )
     elif any(key in master for key in sample_policy.PROVENANCE_COLUMNS[:4]):
         raise CohortUpdateError("Published source omits its resolved domain policy")
     scope = sample_policy.qc_scope(sample)
     if scope == "qc" or "QC_Scope" in master:
         if master.get("QC_Scope") != scope:
             raise CohortUpdateError("Published master/QC scope mismatch")
-    master_summaries.extend(validate_annotations(root, accession, status, qc["Gcode"], scope))
+    master_summaries.extend(
+        validate_annotations(root, accession, status, qc["Gcode"], scope)
+    )
     derived_columns = set(master_table_contract.build_append_columns(lineages))
     for summary in master_summaries:
         for column in derived_columns & summary.keys():
@@ -524,7 +561,11 @@ def write_table(
 
 
 def load_source_tables(
-    source: Path, lineages: Sequence[str], requested: set[str], *, source_validated: bool = False
+    source: Path,
+    lineages: Sequence[str],
+    requested: set[str],
+    *,
+    source_validated: bool = False,
 ) -> tuple[
     dict[str, dict[str, str]],
     dict[str, dict[str, str]],
@@ -665,7 +706,15 @@ def write_update_tables(
             [
                 *validate_inputs.REQUIRED_SAMPLE_COLUMNS,
                 "internal_id",
-                *[name for name in (*sample_policy.DOMAIN_FIELDS, "qc_scope", "review_candidates_base64") if name in sample_header],
+                *[
+                    name
+                    for name in (
+                        *sample_policy.DOMAIN_FIELDS,
+                        "qc_scope",
+                        "review_candidates_base64",
+                    )
+                    if name in sample_header
+                ],
                 "source_gcode",
                 "source_index",
             ],
@@ -693,27 +742,51 @@ def validate_requested_sample(job: dict) -> str:
     fingerprint = None
     if source is not None:
         if recorded_candidates(sample) != recorded_candidates(source):
-            raise CohortUpdateError("Reviewed genetic-code policy differs; regenerate the affected sample")
+            raise CohortUpdateError(
+                "Reviewed genetic-code policy differs; regenerate the affected sample"
+            )
         if job["stage"] == "full" and sample_policy.qc_scope(source) == "qc":
-            raise CohortUpdateError("QC-only publications support clustering and annotation-only reuse; full-stage reuse requires CRISPR evidence")
+            raise CohortUpdateError(
+                "QC-only publications support clustering and annotation-only reuse; full-stage reuse requires CRISPR evidence"
+            )
         for field in sample_policy.DOMAIN_FIELDS:
             if sample.get(field) != source.get(field):
-                raise CohortUpdateError(f"Domain/BUSCO policy changed or is unrecorded for {sample['accession']!r}: {field}; regenerate QC")
+                raise CohortUpdateError(
+                    f"Domain/BUSCO policy changed or is unrecorded for {sample['accession']!r}: {field}; regenerate QC"
+                )
         staged = job["native"] / f"staged/{source['internal_id']}.fasta"
         before = staged.stat()
-        source_fingerprint = validate_sample_outputs(job["native"], source, job["status"], job["master"], job["lineages"], job["gcode_rule"])
+        source_fingerprint = validate_sample_outputs(
+            job["native"],
+            source,
+            job["status"],
+            job["master"],
+            job["lineages"],
+            job["gcode_rule"],
+        )
         after = staged.stat()
         if any(getattr(before, field) != getattr(after, field) for field in fields):
-            raise CohortUpdateError(f"Published genome changed during validation: {sample['accession']}")
-        if (candidate_before.st_dev, candidate_before.st_ino) == (before.st_dev, before.st_ino):
+            raise CohortUpdateError(
+                f"Published genome changed during validation: {sample['accession']}"
+            )
+        if (candidate_before.st_dev, candidate_before.st_ino) == (
+            before.st_dev,
+            before.st_ino,
+        ):
             fingerprint = source_fingerprint
     if fingerprint is None:
         fingerprint = genome_fingerprint(candidate)
     after = candidate.stat()
-    if any(getattr(candidate_before, field) != getattr(after, field) for field in fields):
-        raise CohortUpdateError(f"Candidate changed during validation: {sample['accession']}")
+    if any(
+        getattr(candidate_before, field) != getattr(after, field) for field in fields
+    ):
+        raise CohortUpdateError(
+            f"Candidate changed during validation: {sample['accession']}"
+        )
     if source is not None and source_fingerprint != fingerprint:
-        raise CohortUpdateError(f"Genome content changed for retained accession {sample['accession']!r}; run a full analysis or assign a new accession.")
+        raise CohortUpdateError(
+            f"Genome content changed for retained accession {sample['accession']!r}; run a full analysis or assign a new accession."
+        )
     return fingerprint
 
 
@@ -731,8 +804,12 @@ def run_prepare(args: argparse.Namespace) -> None:
     ):
         raise CohortUpdateError("BUSCO lineages must be simple directory names.")
     destination = args.destination.resolve()
-    if any(source == destination or source in destination.parents
-           or destination in source.parents for source in sources):
+    if any(
+        source == destination
+        or source in destination.parents
+        or destination in source.parents
+        for source in sources
+    ):
         raise CohortUpdateError(
             "--update_from and --outdir must be separate, non-overlapping directories."
         )
@@ -748,10 +825,13 @@ def run_prepare(args: argparse.Namespace) -> None:
     checked = set()
     if getattr(args, "source_validation", None) is not None:
         from reuse_source_validation import checked_roots
+
         receipt = json.loads(args.source_validation.read_text())
         checked = checked_roots(receipt["receipts"], receipt["fingerprints"])
         if checked != set(sources):
-            raise CohortUpdateError("Validated source receipts do not match the requested sources")
+            raise CohortUpdateError(
+                "Validated source receipts do not match the requested sources"
+            )
     stage = json.loads(args.settings.read_text()).get("pipeline_stage", "full")
     assembly_rows = {}
     publications = [Publication(source) for source in sources]
@@ -763,13 +843,23 @@ def run_prepare(args: argparse.Namespace) -> None:
             continue
         dependency_roots.add(publication.root)
         pending.extend(publication.sources)
-    if any(root == destination or root in destination.parents or destination in root.parents for root in dependency_roots):
+    if any(
+        root == destination
+        or root in destination.parents
+        or destination in root.parents
+        for root in dependency_roots
+    ):
         raise CohortUpdateError("--outdir must not overlap a reference dependency")
     source_index, statuses, masters, origins = {}, {}, {}, {}
     versions, source_identities = [], []
     for number, source in enumerate(sources):
-        source_samples, source_statuses, source_masters, source_versions = load_source_tables(
-            source, args.busco_lineage, set(requested), source_validated=source in checked
+        source_samples, source_statuses, source_masters, source_versions = (
+            load_source_tables(
+                source,
+                args.busco_lineage,
+                set(requested),
+                source_validated=source in checked,
+            )
         )
         overlap = source_index.keys() & source_samples.keys()
         if overlap:
@@ -778,35 +868,52 @@ def run_prepare(args: argparse.Namespace) -> None:
             )
         if stage == "clustering":
             stats_path = source / "cohort/assembly_stats/assembly_stats.tsv"
-            _, stats = read_table(stats_path, ("accession", "n50", "scaffolds", "genome_size", "gc_content"))
+            _, stats = read_table(
+                stats_path,
+                ("accession", "n50", "scaffolds", "genome_size", "gc_content"),
+            )
             stats_index = index_rows(stats, "accession", stats_path)
             if set(stats_index) != set(source_samples):
-                raise CohortUpdateError("Published assembly statistics differ from source membership")
+                raise CohortUpdateError(
+                    "Published assembly statistics differ from source membership"
+                )
             assembly_rows.update(stats_index)
         source_index.update(source_samples)
         statuses.update(source_statuses)
         masters.update(source_masters)
         origins.update({accession: number for accession in source_samples})
-        source_identities.append({
-            "source_outdir": str(source),
-            "source_manifest_sha256": file_sha256(source / "tables/validated_samples.tsv"),
-            "source_versions_sha256": file_sha256(source / "tables/tool_and_db_versions.tsv"),
-        })
+        source_identities.append(
+            {
+                "source_outdir": str(source),
+                "source_manifest_sha256": file_sha256(
+                    source / "tables/validated_samples.tsv"
+                ),
+                "source_versions_sha256": file_sha256(
+                    source / "tables/tool_and_db_versions.tsv"
+                ),
+            }
+        )
         for row in source_versions:
             versions.append({**row, "notes": f"reused source {source}: {row['notes']}"})
     stage = json.loads(args.settings.read_text()).get("pipeline_stage", "full")
     if stage not in ("full", "qc", "clustering"):
         raise CohortUpdateError("Unknown pipeline stage")
     if stage == "clustering" and set(requested) - set(source_index):
-        raise CohortUpdateError("ANI-only stage requires completed QC publications for every requested sample")
-    if "qc_scope" in sample_header or any("qc_scope" in row for row in source_index.values()):
+        raise CohortUpdateError(
+            "ANI-only stage requires completed QC publications for every requested sample"
+        )
+    if "qc_scope" in sample_header or any(
+        "qc_scope" in row for row in source_index.values()
+    ):
         metadata_header, _ = validate_inputs.read_delimited_table(args.metadata)
         if "QC_Scope" in metadata_header:
             raise CohortUpdateError("Metadata overlaps resolved QC_Scope column")
         if "qc_scope" not in sample_header:
             sample_header.append("qc_scope")
         for sample in samples:
-            sample["qc_scope"] = sample_policy.qc_scope(source_index.get(sample["accession"], sample))
+            sample["qc_scope"] = sample_policy.qc_scope(
+                source_index.get(sample["accession"], sample)
+            )
     internal_ids = allocate_internal_ids(list(requested), source_index)
     candidates = sorted(args.genome_inputs.glob("genome*"))
     if len(candidates) != len(samples):
@@ -817,21 +924,43 @@ def run_prepare(args: argparse.Namespace) -> None:
     reused = []
     added = []
     from cohort_validation_pool import ordered_validation
+
     jobs = (
-        {"sample": dict(sample), "candidate": candidate, "source": source_index.get(sample["accession"]),
-         "status": statuses.get(sample["accession"]), "master": masters.get(sample["accession"]),
-         "native": publications[origins[sample["accession"]]].native_root(sample["accession"]) if sample["accession"] in origins else None,
-         "stage": stage, "lineages": args.busco_lineage, "gcode_rule": args.gcode_rule}
+        {
+            "sample": dict(sample),
+            "candidate": candidate,
+            "source": source_index.get(sample["accession"]),
+            "status": statuses.get(sample["accession"]),
+            "master": masters.get(sample["accession"]),
+            "native": publications[origins[sample["accession"]]].native_root(
+                sample["accession"]
+            )
+            if sample["accession"] in origins
+            else None,
+            "stage": stage,
+            "lineages": args.busco_lineage,
+            "gcode_rule": args.gcode_rule,
+        }
         for sample, candidate in zip(samples, candidates, strict=True)
     )
-    checked_samples = ordered_validation(validate_requested_sample, jobs,
-        workers=getattr(args, "workers", 1), total=len(samples), progress=getattr(args, "progress", None))
+    checked_samples = ordered_validation(
+        validate_requested_sample,
+        jobs,
+        workers=getattr(args, "workers", 1),
+        total=len(samples),
+        progress=getattr(args, "progress", None),
+    )
     for sample, fingerprint in zip(samples, checked_samples, strict=True):
         accession = sample["accession"]
         origin = origins.get(accession)
-        provenance = source_identities[origin] if origin is not None else (
-            source_identities[0] if len(sources) == 1 else
-            {key: "NA" for key in source_identities[0]}
+        provenance = (
+            source_identities[origin]
+            if origin is not None
+            else (
+                source_identities[0]
+                if len(sources) == 1
+                else {key: "NA" for key in source_identities[0]}
+            )
         )
         if accession in source_index:
             reused.append(
@@ -887,7 +1016,11 @@ def run_prepare(args: argparse.Namespace) -> None:
     for sample in reused:
         sample["internal_id"] = internal_ids[sample["accession"]]
     identity = {
-        **(source_identities[0] if len(sources) == 1 else {"sources": source_identities}),
+        **(
+            source_identities[0]
+            if len(sources) == 1
+            else {"sources": source_identities}
+        ),
         "metadata_sha256": file_sha256(args.metadata),
         "samples": samples,
         "genomes": {
@@ -917,9 +1050,11 @@ def run_prepare(args: argparse.Namespace) -> None:
         identity=identity,
     )
     if stage == "clustering":
-        write_table(args.outdir / "assembly_stats.tsv",
-                    ("accession", "n50", "scaffolds", "genome_size", "gc_content"),
-                    [assembly_rows[sample["accession"]] for sample in samples])
+        write_table(
+            args.outdir / "assembly_stats.tsv",
+            ("accession", "n50", "scaffolds", "genome_size", "gc_content"),
+            [assembly_rows[sample["accession"]] for sample in samples],
+        )
     LOGGER.info(
         "Cohort update validated: %d reused, %d added, %d removed.",
         len(reused),
@@ -946,7 +1081,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--source-results", type=Path, action="append", required=True)
     parser.add_argument("--busco-lineage", action="append", required=True)
     parser.add_argument(
-        "--gcode-rule", choices=summarise_checkm2.GCODE_RULE_CHOICES,
+        "--gcode-rule",
+        choices=summarise_checkm2.GCODE_RULE_CHOICES,
         default=summarise_checkm2.DEFAULT_GCODE_RULE,
     )
     parser.add_argument("--previous-update", type=Path)

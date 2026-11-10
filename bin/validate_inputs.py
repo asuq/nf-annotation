@@ -27,7 +27,12 @@ REQUIRED_SAMPLE_COLUMNS = (
     "assembly_level",
     "genome_fasta",
 )
-RESERVED_SAMPLE_COLUMNS = {"review_candidates_base64", "internal_id", "qc_scope", *sample_policy.DOMAIN_FIELDS}
+RESERVED_SAMPLE_COLUMNS = {
+    "review_candidates_base64",
+    "internal_id",
+    "qc_scope",
+    *sample_policy.DOMAIN_FIELDS,
+}
 ACCESSION_MAP_COLUMNS = (
     "accession",
     "internal_id",
@@ -115,8 +120,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             "the downstream workflow staging step."
         ),
     )
-    parser.add_argument("--genome-base-dir", type=Path, default=Path.cwd(),
-                        help="Resolve relative genome paths against this explicit launch directory.")
+    parser.add_argument(
+        "--genome-base-dir",
+        type=Path,
+        default=Path.cwd(),
+        help="Resolve relative genome paths against this explicit launch directory.",
+    )
     parser.add_argument("--sample-policy-base64")
     parser.add_argument("--qc-only", action="store_true")
     parser.add_argument("--reviewed-codes", type=Path)
@@ -227,7 +236,9 @@ def add_collision_suffixes(accessions: Sequence[str]) -> dict[str, str]:
             accession_map[accession] = f"{internal_base}_{suffix}"
 
     if len(set(accession_map.values())) != len(accession_map):
-        raise ValidationError("Unable to resolve internal-ID collisions deterministically.")
+        raise ValidationError(
+            "Unable to resolve internal-ID collisions deterministically."
+        )
     return accession_map
 
 
@@ -244,7 +255,9 @@ def sniff_delimiter(path: Path) -> str:
     return dialect.delimiter
 
 
-def read_delimited_table(path: Path, delimiter: str | None = None) -> tuple[list[str], list[dict[str, str]]]:
+def read_delimited_table(
+    path: Path, delimiter: str | None = None
+) -> tuple[list[str], list[dict[str, str]]]:
     """Read a CSV/TSV file into a header list and row dictionaries."""
     if not path.is_file():
         raise ValidationError(f"Missing input file: {path}")
@@ -312,13 +325,17 @@ def validate_sample_header(header: Sequence[str]) -> None:
             )
 
 
-def build_metadata_index(metadata_rows: Sequence[dict[str, str]], key_column: str) -> dict[str, dict[str, str]]:
+def build_metadata_index(
+    metadata_rows: Sequence[dict[str, str]], key_column: str
+) -> dict[str, dict[str, str]]:
     """Build a unique accession-keyed metadata index."""
     metadata_index: dict[str, dict[str, str]] = {}
     for row in metadata_rows:
         accession = row[key_column].strip()
         if is_missing(accession):
-            raise ValidationError("Metadata table contains a row with a missing accession.")
+            raise ValidationError(
+                "Metadata table contains a row with a missing accession."
+            )
         if accession in metadata_index:
             raise ValidationError(
                 f"Metadata table contains duplicate accession rows for {accession!r}."
@@ -342,10 +359,14 @@ def validate_samples(
     for row in sample_rows:
         accession = row["accession"].strip()
         if is_missing(accession):
-            raise ValidationError("Sample manifest contains a row with a missing accession.")
+            raise ValidationError(
+                "Sample manifest contains a row with a missing accession."
+            )
         ensure_path_safe_accession(accession)
         if accession in seen_accessions:
-            raise ValidationError(f"Sample manifest contains duplicate accession {accession!r}.")
+            raise ValidationError(
+                f"Sample manifest contains duplicate accession {accession!r}."
+            )
         seen_accessions.add(accession)
         accessions.append(accession)
 
@@ -413,8 +434,7 @@ def validate_samples(
             )
 
         validated_values = {
-            column: normalise_optional_value(value)
-            for column, value in row.items()
+            column: normalise_optional_value(value) for column, value in row.items()
         }
         validated_values["accession"] = accession
         validated_values["is_new"] = is_new
@@ -432,7 +452,9 @@ def validate_samples(
     return validated_records, warnings
 
 
-def write_tsv(path: Path, header: Sequence[str], rows: Sequence[dict[str, str]]) -> None:
+def write_tsv(
+    path: Path, header: Sequence[str], rows: Sequence[dict[str, str]]
+) -> None:
     """Write a sequence of dictionaries to a TSV file."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -522,9 +544,7 @@ def build_initial_sample_status_row(
     row["warnings"] = ";".join(
         dict.fromkeys(warning.warning_code for warning in warnings)
     )
-    row["notes"] = "; ".join(
-        dict.fromkeys(warning.message for warning in warnings)
-    )
+    row["notes"] = "; ".join(dict.fromkeys(warning.message for warning in warnings))
     return row
 
 
@@ -567,7 +587,9 @@ def run_validation(
 
     metadata_header, metadata_rows = read_delimited_table(metadata)
     try:
-        master_table_contract.build_master_table_columns(metadata_header, busco_lineages)
+        master_table_contract.build_master_table_columns(
+            metadata_header, busco_lineages
+        )
     except ValueError as error:
         raise ValidationError(str(error)) from error
     metadata_key_column = detect_metadata_key_column(metadata_header)
@@ -581,8 +603,11 @@ def run_validation(
         genome_base_dir=genome_base_dir,
     )
     from annotation_common import require_unique_protein_prefixes
+
     try:
-        require_unique_protein_prefixes(record.values["accession"] for record in validated_records)
+        require_unique_protein_prefixes(
+            record.values["accession"] for record in validated_records
+        )
     except ValueError as error:
         raise ValidationError(str(error)) from error
     if policy_settings is not None:
@@ -590,16 +615,22 @@ def run_validation(
         for record in validated_records:
             accession = record.values["accession"]
             try:
-                policies.append(sample_policy.resolve_sample(
-                    metadata_index.get(accession, {}), policy_settings
-                ))
+                policies.append(
+                    sample_policy.resolve_sample(
+                        metadata_index.get(accession, {}), policy_settings
+                    )
+                )
             except ValueError as error:
                 raise ValidationError(f"Sample {accession!r}: {error}") from error
         if any(policies):
             if set(sample_policy.PROVENANCE_COLUMNS[:4]) & set(metadata_header):
-                raise ValidationError("Metadata overlaps resolved domain-policy columns")
+                raise ValidationError(
+                    "Metadata overlaps resolved domain-policy columns"
+                )
             if not all(policies):
-                raise ValidationError("Domain-aware records cannot be mixed with implicit legacy records")
+                raise ValidationError(
+                    "Domain-aware records cannot be mixed with implicit legacy records"
+                )
             sample_header = [*sample_header, *sample_policy.DOMAIN_FIELDS]
             for record, policy in zip(validated_records, policies, strict=True):
                 record.values.update(policy)
@@ -610,13 +641,16 @@ def run_validation(
         for record in validated_records:
             record.values["qc_scope"] = "qc"
     from reviewed_codes import load_manifest, encode_candidates
+
     try:
         reviews = load_manifest(reviewed_codes)
     except (ValueError, OSError) as error:
         raise ValidationError(str(error)) from error
     sample_header = [*sample_header, "review_candidates_base64"]
     for record in validated_records:
-        record.values["review_candidates_base64"] = encode_candidates(reviews.get(record.values["accession"], []))
+        record.values["review_candidates_base64"] = encode_candidates(
+            reviews.get(record.values["accession"], [])
+        )
     sample_status_columns = resolve_sample_status_columns(
         sample_status_columns_path,
         busco_lineages=busco_lineages,
@@ -661,10 +695,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             busco_lineages=args.busco_lineage,
             defer_genome_fasta_check=args.defer_genome_fasta_check,
             genome_base_dir=args.genome_base_dir,
-            qc_only=args.qc_only, reviewed_codes=args.reviewed_codes,
+            qc_only=args.qc_only,
+            reviewed_codes=args.reviewed_codes,
             policy_settings=(
                 json.loads(base64.b64decode(args.sample_policy_base64))
-                if args.sample_policy_base64 else None
+                if args.sample_policy_base64
+                else None
             ),
         )
     except ValidationError as error:

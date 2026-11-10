@@ -23,9 +23,15 @@ from prepare_runtime_databases import (
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_COHORT_PLAN = ROOT_DIR / "assets" / "tables" / "acceptance" / "cohort_plan.tsv"
-DEFAULT_SOURCE_CATALOG = ROOT_DIR / "assets" / "tables" / "acceptance" / "source_catalog.tsv"
-DEFAULT_MEDIUM_COHORT_PLAN = ROOT_DIR / "assets" / "tables" / "medium" / "cohort_plan.tsv"
-DEFAULT_MEDIUM_SOURCE_CATALOG = ROOT_DIR / "assets" / "tables" / "medium" / "source_catalog.tsv"
+DEFAULT_SOURCE_CATALOG = (
+    ROOT_DIR / "assets" / "tables" / "acceptance" / "source_catalog.tsv"
+)
+DEFAULT_MEDIUM_COHORT_PLAN = (
+    ROOT_DIR / "assets" / "tables" / "medium" / "cohort_plan.tsv"
+)
+DEFAULT_MEDIUM_SOURCE_CATALOG = (
+    ROOT_DIR / "assets" / "tables" / "medium" / "source_catalog.tsv"
+)
 PIPELINE_INFO_OUTPUTS = ("trace.tsv", "report.html", "timeline.html", "dag.html")
 
 
@@ -188,7 +194,9 @@ def require_pipeline_info(outdir: Path) -> None:
     """Require the standard pipeline-info artefacts for one run."""
     pipeline_info_dir = outdir / "pipeline_info"
     missing = [
-        name for name in PIPELINE_INFO_OUTPUTS if not (pipeline_info_dir / name).is_file()
+        name
+        for name in PIPELINE_INFO_OUTPUTS
+        if not (pipeline_info_dir / name).is_file()
     ]
     if missing:
         raise ValidateHpcMatrixError(
@@ -231,7 +239,13 @@ def assert_expected_args(args_path: Path, expected_args: Sequence[str]) -> None:
     if not expected_args:
         return
     contents = args_path.read_text(encoding="utf-8")
-    db_flags = {"--taxdump", "--checkm2_db", "--codetta_db", "--busco_db", "--eggnog_db"}
+    db_flags = {
+        "--taxdump",
+        "--checkm2_db",
+        "--codetta_db",
+        "--busco_db",
+        "--eggnog_db",
+    }
     for flag in expected_args:
         if flag not in contents:
             raise ValidateHpcMatrixError(f"Missing expected flag {flag} in {args_path}")
@@ -251,7 +265,9 @@ def validate_dbprep_component(
     """Validate one prepared database destination and its ready marker."""
     destination = destination.resolve()
     if not (destination / MARKER_FILE_NAME).is_file():
-        raise ValidateHpcMatrixError(f"Missing ready marker for {component}: {destination}")
+        raise ValidateHpcMatrixError(
+            f"Missing ready marker for {component}: {destination}"
+        )
     if component == "taxdump":
         validate_taxdump(destination)
         return
@@ -318,9 +334,13 @@ def split_warning_tokens(value: str) -> set[str]:
 
 def primary_busco_status_column(configured_lineages: Sequence[str]) -> str:
     """Return the sample-status BUSCO column that drives ANI eligibility."""
-    lineages = tuple(lineage.strip() for lineage in configured_lineages if lineage.strip())
+    lineages = tuple(
+        lineage.strip() for lineage in configured_lineages if lineage.strip()
+    )
     if not lineages:
-        raise ValidateHpcMatrixError("At least one BUSCO lineage is required for validation.")
+        raise ValidateHpcMatrixError(
+            "At least one BUSCO lineage is required for validation."
+        )
     return f"busco_{lineages[0]}_status"
 
 
@@ -333,7 +353,9 @@ def assert_medium_statuses_allowed(sample_status_path: Path) -> None:
     bad_rows: list[str] = []
     for row in rows:
         failed_columns = [
-            column for column, value in row.items() if value is not None and value.strip() == "failed"
+            column
+            for column, value in row.items()
+            if value is not None and value.strip() == "failed"
         ]
         if not failed_columns:
             continue
@@ -353,7 +375,8 @@ def assert_medium_statuses_allowed(sample_status_path: Path) -> None:
 
     if bad_rows:
         raise ValidateHpcMatrixError(
-            "Found unexpected medium sample-status failures: " + ", ".join(sorted(bad_rows))
+            "Found unexpected medium sample-status failures: "
+            + ", ".join(sorted(bad_rows))
         )
 
 
@@ -382,12 +405,16 @@ def assert_versions_table_clean(versions_path: Path, db_root: Path) -> None:
         for row in database_rows
         if (
             (reported_path := normalise_reported_path(row["image_or_path"])) is None
-            or (reported_path != resolved_db_root and resolved_db_root not in reported_path.parents)
+            or (
+                reported_path != resolved_db_root
+                and resolved_db_root not in reported_path.parents
+            )
         )
     ]
     if bad_rows:
         raise ValidateHpcMatrixError(
-            "Database paths do not point at the HPC DB root: " + ", ".join(sorted(bad_rows))
+            "Database paths do not point at the HPC DB root: "
+            + ", ".join(sorted(bad_rows))
         )
 
 
@@ -433,8 +460,7 @@ def assert_medium_phyla_allowed(
     bad_na_accessions = sorted(
         accession
         for accession, row in master_rows.items()
-        if row["phylum"] == "NA"
-        and accession not in missing_metadata_case_accessions
+        if row["phylum"] == "NA" and accession not in missing_metadata_case_accessions
     )
     if bad_na_accessions:
         raise ValidateHpcMatrixError(
@@ -443,11 +469,11 @@ def assert_medium_phyla_allowed(
         )
 
     observed_allowed = {
-        row["phylum"]
-        for row in master_rows.values()
-        if row["phylum"] in allowed_phyla
+        row["phylum"] for row in master_rows.values() if row["phylum"] in allowed_phyla
     }
-    missing_allowed = sorted(phylum for phylum in allowed_phyla if phylum not in observed_allowed)
+    missing_allowed = sorted(
+        phylum for phylum in allowed_phyla if phylum not in observed_allowed
+    )
     if missing_allowed:
         raise ValidateHpcMatrixError(
             "Medium run is missing allowed phyla: " + ", ".join(missing_allowed)

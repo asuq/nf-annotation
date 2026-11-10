@@ -23,12 +23,16 @@ import validate_inputs
 LOGGER = logging.getLogger(__name__)
 ROOT_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_WORK_ROOT = ROOT_DIR / "assets" / "fixtures" / "local" / "acceptance"
-DEFAULT_SOURCE_CATALOG = ROOT_DIR / "assets" / "tables" / "acceptance" / "source_catalog.tsv"
+DEFAULT_SOURCE_CATALOG = (
+    ROOT_DIR / "assets" / "tables" / "acceptance" / "source_catalog.tsv"
+)
 DEFAULT_COHORT_PLAN = ROOT_DIR / "assets" / "tables" / "acceptance" / "cohort_plan.tsv"
 DEFAULT_MEDIUM_SOURCE_CATALOG = (
     ROOT_DIR / "assets" / "tables" / "medium" / "source_catalog.tsv"
 )
-DEFAULT_MEDIUM_COHORT_PLAN = ROOT_DIR / "assets" / "tables" / "medium" / "cohort_plan.tsv"
+DEFAULT_MEDIUM_COHORT_PLAN = (
+    ROOT_DIR / "assets" / "tables" / "medium" / "cohort_plan.tsv"
+)
 DEFAULT_LOCAL_PROFILE = "local,docker"
 DEFAULT_SLURM_PROFILE = "slurm,singularity"
 DEFAULT_DBPREP_PROFILE = "slurm,singularity"
@@ -193,7 +197,9 @@ def read_csv(path: Path) -> tuple[list[str], list[dict[str, str]]]:
         return reader.fieldnames, list(reader)
 
 
-def write_tsv(path: Path, header: Sequence[str], rows: Sequence[dict[str, str]]) -> None:
+def write_tsv(
+    path: Path, header: Sequence[str], rows: Sequence[dict[str, str]]
+) -> None:
     """Write rows to a TSV file."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -203,7 +209,9 @@ def write_tsv(path: Path, header: Sequence[str], rows: Sequence[dict[str, str]])
             writer.writerow(row)
 
 
-def write_csv(path: Path, header: Sequence[str], rows: Sequence[dict[str, str]]) -> None:
+def write_csv(
+    path: Path, header: Sequence[str], rows: Sequence[dict[str, str]]
+) -> None:
     """Write rows to a CSV file."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -216,7 +224,13 @@ def write_csv(path: Path, header: Sequence[str], rows: Sequence[dict[str, str]])
 def load_source_catalog(path: Path) -> dict[str, SourceRecord]:
     """Load the tracked source catalog."""
     header, rows = read_tsv(path)
-    required = ("source_accession", "organism_name", "tax_id", "assembly_level", "source_url")
+    required = (
+        "source_accession",
+        "organism_name",
+        "tax_id",
+        "assembly_level",
+        "source_url",
+    )
     missing = [column for column in required if column not in header]
     if missing:
         raise AcceptanceTestError(
@@ -227,7 +241,9 @@ def load_source_catalog(path: Path) -> dict[str, SourceRecord]:
     for row in rows:
         source_accession = row["source_accession"].strip()
         if not source_accession:
-            raise AcceptanceTestError("Source catalog contains an empty source_accession.")
+            raise AcceptanceTestError(
+                "Source catalog contains an empty source_accession."
+            )
         if source_accession in catalog:
             raise AcceptanceTestError(
                 f"Source catalog contains duplicate source_accession {source_accession!r}."
@@ -252,7 +268,9 @@ def parse_role_tags(token: str) -> tuple[str, ...]:
     return role_tags
 
 
-def load_cohort_plan(path: Path, catalog: dict[str, SourceRecord]) -> tuple[CohortRecord, ...]:
+def load_cohort_plan(
+    path: Path, catalog: dict[str, SourceRecord]
+) -> tuple[CohortRecord, ...]:
     """Load the tracked cohort plan."""
     header, rows = read_tsv(path)
     required = (
@@ -290,7 +308,9 @@ def load_cohort_plan(path: Path, catalog: dict[str, SourceRecord]) -> tuple[Coho
                 f"{source_accession!r}."
             )
 
-        is_new = "true" if normalise_boolean(row["is_new"], field_name="is_new") else "false"
+        is_new = (
+            "true" if normalise_boolean(row["is_new"], field_name="is_new") else "false"
+        )
         include_metadata = normalise_boolean(
             row["include_metadata"],
             field_name="include_metadata",
@@ -318,9 +338,13 @@ def load_cohort_plan(path: Path, catalog: dict[str, SourceRecord]) -> tuple[Coho
         raise AcceptanceTestError(
             "Cohort plan is missing required role tags: " + ", ".join(missing_roles)
         )
-    eggnog_smoke_candidates = [record for record in plan if "eggnog_smoke_candidate" in record.role_tags]
+    eggnog_smoke_candidates = [
+        record for record in plan if "eggnog_smoke_candidate" in record.role_tags
+    ]
     if len(eggnog_smoke_candidates) != 1:
-        raise AcceptanceTestError("Cohort plan must contain exactly one eggnog_smoke_candidate.")
+        raise AcceptanceTestError(
+            "Cohort plan must contain exactly one eggnog_smoke_candidate."
+        )
     return tuple(plan)
 
 
@@ -683,7 +707,9 @@ def validate_real_run_args(args: argparse.Namespace) -> None:
             "Missing required arguments for real-data runs: " + ", ".join(missing)
         )
     if not args.annotation_config.is_file():
-        raise AcceptanceTestError("--annotation-config must be an existing Nextflow configuration file")
+        raise AcceptanceTestError(
+            "--annotation-config must be an existing Nextflow configuration file"
+        )
 
 
 def validate_dbprep_run_args(args: argparse.Namespace) -> None:
@@ -750,7 +776,9 @@ def build_nextflow_command(
     maybe_add_parameter(command, "--slurm_qos", args.slurm_qos)
     maybe_add_parameter(command, "--slurm_cluster_options", args.slurm_cluster_options)
     maybe_add_parameter(command, "--singularity_cache_dir", args.singularity_cache_dir)
-    maybe_add_parameter(command, "--singularity_run_options", args.singularity_run_options)
+    maybe_add_parameter(
+        command, "--singularity_run_options", args.singularity_run_options
+    )
     return command
 
 
@@ -793,7 +821,9 @@ def build_dbprep_command(
     maybe_add_parameter(command, "--slurm_qos", args.slurm_qos)
     maybe_add_parameter(command, "--slurm_cluster_options", args.slurm_cluster_options)
     maybe_add_parameter(command, "--singularity_cache_dir", args.singularity_cache_dir)
-    maybe_add_parameter(command, "--singularity_run_options", args.singularity_run_options)
+    maybe_add_parameter(
+        command, "--singularity_run_options", args.singularity_run_options
+    )
     return command
 
 
@@ -811,9 +841,7 @@ def require_output_tables(outdir: Path) -> dict[str, Path]:
     table_dir = outdir / "tables"
     missing = [name for name in FINAL_TABLES if not (table_dir / name).is_file()]
     if missing:
-        raise AcceptanceTestError(
-            "missing_output_tables:" + ",".join(sorted(missing))
-        )
+        raise AcceptanceTestError("missing_output_tables:" + ",".join(sorted(missing)))
     return {name: table_dir / name for name in FINAL_TABLES}
 
 
@@ -853,7 +881,9 @@ def assert_dbprep_database_tree(
     if missing:
         raise AcceptanceTestError("missing_dbprep_paths:" + ",".join(sorted(missing)))
 
-    dmnd_candidates = sorted(path for path in checkm2_dir.glob("*.dmnd") if path.is_file())
+    dmnd_candidates = sorted(
+        path for path in checkm2_dir.glob("*.dmnd") if path.is_file()
+    )
     if len(dmnd_candidates) != 1:
         raise AcceptanceTestError("invalid_dbprep_checkm2_dmnd_count")
 
@@ -893,7 +923,9 @@ def read_rows_indexed_by(
     for row in rows:
         key = row.get(key_column, "").strip()
         if not key:
-            raise AcceptanceTestError(f"Table {path} contains an empty {key_column} value.")
+            raise AcceptanceTestError(
+                f"Table {path} contains an empty {key_column} value."
+            )
         if key in index:
             raise AcceptanceTestError(f"Table {path} contains duplicate key {key!r}.")
         index[key] = row
@@ -935,7 +967,9 @@ def status_contains_token(value: str, token: str) -> bool:
     return token in {part.strip() for part in value.split(";") if part.strip()}
 
 
-def records_with_role(plan: Sequence[CohortRecord], role_tag: str) -> list[CohortRecord]:
+def records_with_role(
+    plan: Sequence[CohortRecord], role_tag: str
+) -> list[CohortRecord]:
     """Return all cohort records carrying one role tag."""
     return [record for record in plan if role_tag in record.role_tags]
 
@@ -963,11 +997,15 @@ def assert_role_coverage(
 ) -> None:
     """Assert that the positive cohort proved all required acceptance roles."""
     gcode4_candidates = records_with_role(plan, "gcode4_candidate")
-    if not any(master_rows[record.accession]["Gcode"] == "4" for record in gcode4_candidates):
+    if not any(
+        master_rows[record.accession]["Gcode"] == "4" for record in gcode4_candidates
+    ):
         raise AcceptanceTestError("missing_gcode4_sample")
 
     gcode11_candidates = records_with_role(plan, "gcode11_candidate")
-    if not any(master_rows[record.accession]["Gcode"] == "11" for record in gcode11_candidates):
+    if not any(
+        master_rows[record.accession]["Gcode"] == "11" for record in gcode11_candidates
+    ):
         raise AcceptanceTestError("missing_gcode11_sample")
 
     crispr_positive_candidates = records_with_role(plan, "crispr_positive_candidate")
@@ -978,7 +1016,10 @@ def assert_role_coverage(
         raise AcceptanceTestError("missing_crispr_positive_sample")
 
     crispr_negative_candidates = records_with_role(plan, "crispr_negative_candidate")
-    if not any(master_rows[record.accession]["CRISPRS"] == "0" for record in crispr_negative_candidates):
+    if not any(
+        master_rows[record.accession]["CRISPRS"] == "0"
+        for record in crispr_negative_candidates
+    ):
         raise AcceptanceTestError("missing_crispr_negative_sample")
 
     ani_cluster_candidates = records_with_role(plan, "ani_cluster_candidate")
@@ -1015,7 +1056,9 @@ def assert_role_coverage(
     ):
         raise AcceptanceTestError("missing_low_quality_16s_manifest_inclusion")
 
-    atypical_excluded_candidates = records_with_role(plan, "atypical_excluded_candidate")
+    atypical_excluded_candidates = records_with_role(
+        plan, "atypical_excluded_candidate"
+    )
     if not any(
         status_rows[record.accession]["ani_included"] == "false"
         and "atypical" in status_rows[record.accession]["ani_exclusion_reason"]
@@ -1028,7 +1071,9 @@ def assert_role_coverage(
     ):
         raise AcceptanceTestError("unexpected_atypical_excluded_16s_inclusion")
 
-    atypical_exception_candidates = records_with_role(plan, "atypical_exception_candidate")
+    atypical_exception_candidates = records_with_role(
+        plan, "atypical_exception_candidate"
+    )
     if not any(
         status_rows[record.accession]["ani_included"] == "true"
         for record in atypical_exception_candidates
@@ -1055,7 +1100,9 @@ def assert_role_coverage(
 
     missing_metadata_candidates = records_with_role(plan, "missing_metadata_case")
     if not any(
-        status_contains_token(status_rows[record.accession]["warnings"], "missing_metadata_for_new_sample")
+        status_contains_token(
+            status_rows[record.accession]["warnings"], "missing_metadata_for_new_sample"
+        )
         and master_rows[record.accession]["Tax_ID"] == "NA"
         for record in missing_metadata_candidates
     ):
@@ -1067,8 +1114,7 @@ def assert_role_coverage(
         raise AcceptanceTestError("collision_candidate_underpopulated")
     internal_ids = {row["internal_id"] for row in collision_rows}
     bases = {
-        validate_inputs.sanitise_accession(row["accession"])
-        for row in collision_rows
+        validate_inputs.sanitise_accession(row["accession"]) for row in collision_rows
     }
     if len(internal_ids) != len(collision_rows):
         raise AcceptanceTestError("collision_candidate_internal_ids_not_unique")
@@ -1081,7 +1127,9 @@ def assert_role_coverage(
         raise AcceptanceTestError("missing_collision_warning")
 
 
-def assert_run_outputs(outdir: Path, plan: Sequence[CohortRecord], metadata_tsv: Path) -> dict[str, Path]:
+def assert_run_outputs(
+    outdir: Path, plan: Sequence[CohortRecord], metadata_tsv: Path
+) -> dict[str, Path]:
     """Assert the published outputs for one successful pipeline run."""
     tables = require_output_tables(outdir)
     assert_metadata_contract(tables["master_table.tsv"], metadata_tsv)
@@ -1135,9 +1183,11 @@ def assert_run_outputs(outdir: Path, plan: Sequence[CohortRecord], metadata_tsv:
         master_rows=master_rows,
         status_rows=status_rows,
         intact_manifest_accessions=intact_manifest_accessions,
-        standard_manifest_accessions=intact_manifest_accessions | partial_manifest_accessions,
+        standard_manifest_accessions=intact_manifest_accessions
+        | partial_manifest_accessions,
         low_quality_manifest_accessions=(
-            low_quality_best_manifest_accessions | low_quality_partial_manifest_accessions
+            low_quality_best_manifest_accessions
+            | low_quality_partial_manifest_accessions
         ),
     )
     return tables
@@ -1186,7 +1236,16 @@ def compare_versions_logically(local_path: Path, slurm_path: Path) -> None:
 def run_unit_tests() -> None:
     """Run the repository's Python unit-test suite."""
     run_command(
-        [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-p", "test_*.py"],
+        [
+            sys.executable,
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_*.py",
+        ],
         cwd=ROOT_DIR,
     )
 
@@ -1217,7 +1276,9 @@ def run_stub_smoke(args: argparse.Namespace) -> None:
     require_output_tables(outdir)
 
 
-def run_real_pipeline(args: argparse.Namespace, *, stage_name: str, profile: str) -> dict[str, Path]:
+def run_real_pipeline(
+    args: argparse.Namespace, *, stage_name: str, profile: str
+) -> dict[str, Path]:
     """Prepare the cohort, run the real pipeline, and assert outputs."""
     validate_real_run_args(args)
     require_command("nextflow")
@@ -1249,7 +1310,9 @@ def run_slurm_with_comparison(args: argparse.Namespace) -> None:
     local_tables_dir = args.work_root / "runs" / "local" / "results" / "tables"
     if not local_tables_dir.is_dir():
         raise AcceptanceTestError("missing_local_baseline")
-    slurm_tables = run_real_pipeline(args, stage_name="slurm", profile=args.slurm_profile)
+    slurm_tables = run_real_pipeline(
+        args, stage_name="slurm", profile=args.slurm_profile
+    )
     compare_files_exact(
         local_tables_dir / "master_table.tsv",
         slurm_tables["master_table.tsv"],
@@ -1332,11 +1395,17 @@ def build_real_run_parser() -> argparse.ArgumentParser:
     """Build the parent parser for real-data run arguments."""
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
-        "--annotation-config", type=Path, default=None,
+        "--annotation-config",
+        type=Path,
+        default=None,
         help="Nextflow configuration with immutable annotation runtimes and all enabled resource paths.",
     )
-    parser.add_argument("--taxdump", type=Path, default=None, help="Pinned taxdump directory.")
-    parser.add_argument("--checkm2-db", type=Path, default=None, help="CheckM2 database path.")
+    parser.add_argument(
+        "--taxdump", type=Path, default=None, help="Pinned taxdump directory."
+    )
+    parser.add_argument(
+        "--checkm2-db", type=Path, default=None, help="CheckM2 database path."
+    )
     parser.add_argument(
         "--codetta-db",
         type=Path,
@@ -1354,7 +1423,9 @@ def build_real_run_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Allow the pipeline to prepare BUSCO lineage datasets itself.",
     )
-    parser.add_argument("--eggnog-db", type=Path, default=None, help="eggNOG database path.")
+    parser.add_argument(
+        "--eggnog-db", type=Path, default=None, help="eggNOG database path."
+    )
     parser.add_argument(
         "--gcode-rule",
         choices=summarise_checkm2.GCODE_RULE_CHOICES,
@@ -1399,11 +1470,21 @@ def build_dbprep_run_parser() -> argparse.ArgumentParser:
         default=DEFAULT_DBPREP_PROFILE,
         help="Nextflow profile string for SLURM database prep runs.",
     )
-    parser.add_argument("--taxdump", type=Path, default=None, help="Pinned taxdump directory.")
-    parser.add_argument("--checkm2-db", type=Path, default=None, help="CheckM2 database path.")
-    parser.add_argument("--codetta-db", type=Path, default=None, help="Codetta profile database path.")
-    parser.add_argument("--busco-db", type=Path, default=None, help="BUSCO database root.")
-    parser.add_argument("--eggnog-db", type=Path, default=None, help="eggNOG database path.")
+    parser.add_argument(
+        "--taxdump", type=Path, default=None, help="Pinned taxdump directory."
+    )
+    parser.add_argument(
+        "--checkm2-db", type=Path, default=None, help="CheckM2 database path."
+    )
+    parser.add_argument(
+        "--codetta-db", type=Path, default=None, help="Codetta profile database path."
+    )
+    parser.add_argument(
+        "--busco-db", type=Path, default=None, help="BUSCO database root."
+    )
+    parser.add_argument(
+        "--eggnog-db", type=Path, default=None, help="eggNOG database path."
+    )
     parser.add_argument(
         "--force-runtime-database-rebuild",
         action="store_true",
@@ -1438,26 +1519,26 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
     dbprep_parser = build_dbprep_run_parser()
-    subparsers.add_parser("prepare", parents=[common_parser], help="Prepare the acceptance cohort.")
-    subparsers.add_parser("unit", parents=[common_parser], help="Run the Python unit-test layer.")
-    subparsers.add_parser("stub", parents=[common_parser], help="Run the stub Nextflow smoke test.")
+    subparsers.add_parser(
+        "prepare", parents=[common_parser], help="Prepare the acceptance cohort."
+    )
+    subparsers.add_parser(
+        "unit", parents=[common_parser], help="Run the Python unit-test layer."
+    )
+    subparsers.add_parser(
+        "stub", parents=[common_parser], help="Run the stub Nextflow smoke test."
+    )
     subparsers.add_parser(
         "local",
         parents=[common_parser, real_parser],
         help="Run the real-data local acceptance cohort.",
-        description=(
-            "Run the real-data local acceptance cohort. "
-            f"{REAL_RUN_NOTE}"
-        ),
+        description=(f"Run the real-data local acceptance cohort. {REAL_RUN_NOTE}"),
     )
     subparsers.add_parser(
         "slurm",
         parents=[common_parser, real_parser],
         help="Run the real-data SLURM acceptance cohort.",
-        description=(
-            "Run the real-data SLURM acceptance cohort. "
-            f"{REAL_RUN_NOTE}"
-        ),
+        description=(f"Run the real-data SLURM acceptance cohort. {REAL_RUN_NOTE}"),
     )
     subparsers.add_parser(
         "dbprep-slurm",

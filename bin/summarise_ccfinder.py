@@ -217,7 +217,9 @@ def extract_spacer_count(crispr_entry: dict[str, Any]) -> int | None:
     return parse_int(spacer_value)
 
 
-def parse_crispr_records(accession: str, payload: Any) -> tuple[list[CrisprRecord], list[ContigSummary], list[str]]:
+def parse_crispr_records(
+    accession: str, payload: Any
+) -> tuple[list[CrisprRecord], list[ContigSummary], list[str]]:
     """Parse retained CRISPR arrays plus contig summaries from the JSON payload."""
     sequence_records = find_sequence_records(payload)
     if not sequence_records:
@@ -301,7 +303,9 @@ def build_strain_row(
 ) -> dict[str, str]:
     """Build the strain-level summary row."""
     total_contig_length = sum(
-        summary.contig_length for summary in contig_summaries if summary.contig_length is not None
+        summary.contig_length
+        for summary in contig_summaries
+        if summary.contig_length is not None
     )
     total_crispr_length = sum(record.crispr_length for record in crispr_records)
 
@@ -317,7 +321,9 @@ def build_strain_row(
         "accession": accession,
         "CRISPRS": format_number(len(crispr_records) if status == "done" else None),
         "SPACERS_SUM": format_number(
-            sum(record.spacer_count for record in crispr_records) if status == "done" else None
+            sum(record.spacer_count for record in crispr_records)
+            if status == "done"
+            else None
         ),
         "CRISPR_FRAC": format_number(crispr_frac),
         "ccfinder_status": status,
@@ -325,7 +331,9 @@ def build_strain_row(
     }
 
 
-def build_contig_rows(contig_summaries: Sequence[ContigSummary]) -> list[dict[str, str]]:
+def build_contig_rows(
+    contig_summaries: Sequence[ContigSummary],
+) -> list[dict[str, str]]:
     """Build contig-level summary rows."""
     return [
         {
@@ -334,7 +342,9 @@ def build_contig_rows(contig_summaries: Sequence[ContigSummary]) -> list[dict[st
             "contig_length": format_number(summary.contig_length),
             "CRISPRS": format_number(summary.crisprs),
             "SPACERS_SUM": format_number(summary.spacers_sum),
-            "CRISPR_FRAC": format_number(summary.crispr_frac if summary.crisprs else 0.0),
+            "CRISPR_FRAC": format_number(
+                summary.crispr_frac if summary.crisprs else 0.0
+            ),
         }
         for summary in contig_summaries
     ]
@@ -357,7 +367,9 @@ def build_crispr_rows(crispr_records: Sequence[CrisprRecord]) -> list[dict[str, 
     ]
 
 
-def write_tsv(path: Path, header: Sequence[str], rows: Sequence[dict[str, str]]) -> None:
+def write_tsv(
+    path: Path, header: Sequence[str], rows: Sequence[dict[str, str]]
+) -> None:
     """Write a TSV file with a fixed header."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:

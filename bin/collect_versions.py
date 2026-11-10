@@ -281,9 +281,18 @@ def build_runtime_rows(args: argparse.Namespace) -> list[dict[str, str]]:
     """Build runtime and resource report rows from CLI arguments."""
     rows = [
         build_row("nextflow", "runtime", args.nextflow_version, notes="workflow"),
-        build_row("pipeline", "pipeline", args.pipeline_version, notes="workflow manifest"),
-        build_row("pipeline_git_commit", "pipeline", args.git_commit, notes="workflow revision"),
-        build_row("container_engine", "runtime", args.container_engine, notes="workflow"),
+        build_row(
+            "pipeline", "pipeline", args.pipeline_version, notes="workflow manifest"
+        ),
+        build_row(
+            "pipeline_git_commit",
+            "pipeline",
+            args.git_commit,
+            notes="workflow revision",
+        ),
+        build_row(
+            "container_engine", "runtime", args.container_engine, notes="workflow"
+        ),
         build_row(
             "checkm2_db",
             "database",
@@ -291,7 +300,9 @@ def build_runtime_rows(args: argparse.Namespace) -> list[dict[str, str]]:
             args.checkm2_db,
             "CheckM2 database",
         ),
-        build_row("taxdump", "database", args.taxdump_label, args.taxdump, "Pinned taxdump"),
+        build_row(
+            "taxdump", "database", args.taxdump_label, args.taxdump, "Pinned taxdump"
+        ),
         build_row(
             "codetta_db",
             "database",
@@ -345,12 +356,16 @@ def discover_version_files(
         if not version_dir.exists():
             raise CollectVersionsError(f"Missing versions directory: {version_dir}")
         if not version_dir.is_dir():
-            raise CollectVersionsError(f"Versions path is not a directory: {version_dir}")
+            raise CollectVersionsError(
+                f"Versions path is not a directory: {version_dir}"
+            )
         discovered.extend(sorted(version_dir.glob("*.yml")))
     return discovered
 
 
-def build_process_signature(rows: Sequence[dict[str, str]]) -> tuple[tuple[str, ...], ...]:
+def build_process_signature(
+    rows: Sequence[dict[str, str]],
+) -> tuple[tuple[str, ...], ...]:
     """Build a comparable signature for one process row set."""
     return tuple(
         (
@@ -364,7 +379,9 @@ def build_process_signature(rows: Sequence[dict[str, str]]) -> tuple[tuple[str, 
     )
 
 
-def collect_canonical_version_rows(version_files: Sequence[Path]) -> list[dict[str, str]]:
+def collect_canonical_version_rows(
+    version_files: Sequence[Path],
+) -> list[dict[str, str]]:
     """Keep one canonical parsed row set per process header."""
     canonical_rows: dict[str, list[dict[str, str]]] = {}
     canonical_sources: dict[str, Path] = {}

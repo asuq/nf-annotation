@@ -103,15 +103,31 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             "relying on system tmp."
         )
     )
-    parser.add_argument("--taxdump-source", type=Path, help="Pinned taxdump source path.")
+    parser.add_argument(
+        "--taxdump-source", type=Path, help="Pinned taxdump source path."
+    )
     parser.add_argument("--taxdump-dest", type=Path, help="Final taxdump destination.")
-    parser.add_argument("--taxdump-version", default=None, help="Pinned remote taxdump version.")
-    parser.add_argument("--checkm2-source", type=Path, help="CheckM2 database source path.")
+    parser.add_argument(
+        "--taxdump-version", default=None, help="Pinned remote taxdump version."
+    )
+    parser.add_argument(
+        "--checkm2-source", type=Path, help="CheckM2 database source path."
+    )
     parser.add_argument("--checkm2-dest", type=Path, help="Final CheckM2 destination.")
-    parser.add_argument("--checkm2-version", default=None, help="Pinned remote CheckM2 version.")
-    parser.add_argument("--codetta-source", type=Path, help="Codetta profile database source path.")
-    parser.add_argument("--codetta-dest", type=Path, help="Final Codetta profile database destination.")
-    parser.add_argument("--codetta-version", default=None, help="Pinned remote Codetta profile database version.")
+    parser.add_argument(
+        "--checkm2-version", default=None, help="Pinned remote CheckM2 version."
+    )
+    parser.add_argument(
+        "--codetta-source", type=Path, help="Codetta profile database source path."
+    )
+    parser.add_argument(
+        "--codetta-dest", type=Path, help="Final Codetta profile database destination."
+    )
+    parser.add_argument(
+        "--codetta-version",
+        default=None,
+        help="Pinned remote Codetta profile database version.",
+    )
     parser.add_argument(
         "--busco-lineage-source",
         action="append",
@@ -123,17 +139,39 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=Path,
         help="Final BUSCO lineage root directory.",
     )
-    parser.add_argument("--busco-version", default=None, help="Pinned remote BUSCO version.")
-    parser.add_argument("--eggnog-source", type=Path, help="eggNOG database source path.")
+    parser.add_argument(
+        "--busco-version", default=None, help="Pinned remote BUSCO version."
+    )
+    parser.add_argument(
+        "--eggnog-source", type=Path, help="eggNOG database source path."
+    )
     parser.add_argument("--eggnog-dest", type=Path, help="Final eggNOG destination.")
-    parser.add_argument("--eggnog-version", default=None, help="Pinned remote eggNOG version.")
+    parser.add_argument(
+        "--eggnog-version", default=None, help="Pinned remote eggNOG version."
+    )
     for component in ("cogclassifier", "pfam", "kofam"):
-        parser.add_argument(f"--{component}-source", type=Path, help=f"Acquired or prepared {component} resource directory.")
-        parser.add_argument(f"--{component}-dest", type=Path, help=f"Immutable {component} resource destination.")
-        parser.add_argument(f"--{component}-version", default=None, help=f"Pinned {component} source version.")
-    parser.add_argument("--padloc-source", type=Path, help="PADLOC database source path.")
+        parser.add_argument(
+            f"--{component}-source",
+            type=Path,
+            help=f"Acquired or prepared {component} resource directory.",
+        )
+        parser.add_argument(
+            f"--{component}-dest",
+            type=Path,
+            help=f"Immutable {component} resource destination.",
+        )
+        parser.add_argument(
+            f"--{component}-version",
+            default=None,
+            help=f"Pinned {component} source version.",
+        )
+    parser.add_argument(
+        "--padloc-source", type=Path, help="PADLOC database source path."
+    )
     parser.add_argument("--padloc-dest", type=Path, help="Final PADLOC destination.")
-    parser.add_argument("--padloc-version", default=None, help="Pinned remote PADLOC version.")
+    parser.add_argument(
+        "--padloc-version", default=None, help="Pinned remote PADLOC version."
+    )
     parser.add_argument(
         "--download",
         action="store_true",
@@ -315,10 +353,18 @@ def preparation_lock(destination: Path) -> Iterator[Path]:
     with handle:
         owner = os.fstat(handle.fileno())
         try:
-            handle.write(json.dumps({
-                "destination": str(destination), "pid": os.getpid(),
-                "created_at": datetime.now(UTC).isoformat(),
-            }, indent=2, sort_keys=True) + "\n")
+            handle.write(
+                json.dumps(
+                    {
+                        "destination": str(destination),
+                        "pid": os.getpid(),
+                        "created_at": datetime.now(UTC).isoformat(),
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n"
+            )
             handle.flush()
             yield sidecar
         finally:
@@ -339,7 +385,9 @@ def validate_taxdump(path: Path) -> ValidationResult:
         raise PrepareRuntimeDatabasesError(
             f"Taxdump directory is missing required files in {path}: {', '.join(missing)}"
         )
-    return ValidationResult(required_paths=required, details={"files": str(len(required))})
+    return ValidationResult(
+        required_paths=required, details={"files": str(len(required))}
+    )
 
 
 def validate_checkm2(path: Path) -> ValidationResult:
@@ -349,7 +397,9 @@ def validate_checkm2(path: Path) -> ValidationResult:
         raise PrepareRuntimeDatabasesError(
             f"CheckM2 destination must contain exactly one top-level .dmnd file: {path}"
         )
-    return ValidationResult(required_paths=(candidates[0],), details={"dmnd": candidates[0]})
+    return ValidationResult(
+        required_paths=(candidates[0],), details={"dmnd": candidates[0]}
+    )
 
 
 def validate_eggnog(path: Path) -> ValidationResult:
@@ -365,7 +415,10 @@ def validate_annotation_resource(path: Path, component: str) -> ValidationResult
         raise PrepareRuntimeDatabasesError(str(error)) from error
     return ValidationResult(
         required_paths=tuple(entry["path"] for entry in resource["contract"]["files"]),
-        details={"resource_id": resource["resource_id"], "version": resource["contract"]["version"]},
+        details={
+            "resource_id": resource["resource_id"],
+            "version": resource["contract"]["version"],
+        },
     )
 
 
@@ -396,7 +449,9 @@ def validate_padloc(path: Path) -> ValidationResult:
         raise PrepareRuntimeDatabasesError(
             f"PADLOC destination must contain hmm/padlocdb.hmm: {path}"
         )
-    return ValidationResult(required_paths=required, details={"hmm": "hmm/padlocdb.hmm"})
+    return ValidationResult(
+        required_paths=required, details={"hmm": "hmm/padlocdb.hmm"}
+    )
 
 
 def build_busco_lineage_validator(lineage: str) -> Validator:
@@ -517,7 +572,9 @@ def materialise_checkm2_file(source: Path, destination: Path, link_mode: str) ->
     os.symlink(source, target)
 
 
-def ensure_same_filesystem(scratch_root: Path, destination_parent: Path, component: str) -> None:
+def ensure_same_filesystem(
+    scratch_root: Path, destination_parent: Path, component: str
+) -> None:
     """Require archive scratch and destination to share one filesystem."""
     if scratch_root.stat().st_dev != destination_parent.stat().st_dev:
         raise PrepareRuntimeDatabasesError(
@@ -609,7 +666,9 @@ def describe_validation(
     details = dict(validation.details)
     if extras:
         details.update(extras)
-    rendered_details = ";".join(f"{key}={value}" for key, value in sorted(details.items()))
+    rendered_details = ";".join(
+        f"{key}={value}" for key, value in sorted(details.items())
+    )
     return f"required_paths={paths};{rendered_details}"
 
 
@@ -774,13 +833,17 @@ def resolve_expected_checksum(
         return None
     checksum_type = checksum_config.get("type")
     if not isinstance(checksum_type, str) or not checksum_type:
-        raise PrepareRuntimeDatabasesError("Remote checksum configuration is missing its type.")
+        raise PrepareRuntimeDatabasesError(
+            "Remote checksum configuration is missing its type."
+        )
     inline_value = checksum_config.get("value")
     if isinstance(inline_value, str) and inline_value:
         return checksum_type, inline_value
     checksum_url = checksum_config.get("url")
     if isinstance(checksum_url, str) and checksum_url:
-        checksum_name = infer_download_name(checksum_url, f"{expected_name}.{checksum_type}")
+        checksum_name = infer_download_name(
+            checksum_url, f"{expected_name}.{checksum_type}"
+        )
         checksum_path = scratch_dir / checksum_name
         download_with_aria2(checksum_url, checksum_path)
         return checksum_type, parse_checksum_file(
@@ -836,7 +899,10 @@ def download_with_checksum_retries(
                 scratch_dir=scratch_dir,
             )
         except ChecksumMismatchError as error:
-            if error.checksum_type.lower() != "md5" or attempt >= MAX_MD5_DOWNLOAD_ATTEMPTS:
+            if (
+                error.checksum_type.lower() != "md5"
+                or attempt >= MAX_MD5_DOWNLOAD_ATTEMPTS
+            ):
                 raise
             LOGGER.warning(
                 "Checksum mismatch for %s on attempt %s/%s; retrying download.",
@@ -852,7 +918,9 @@ def build_remote_scratch_dir(destination: Path, scratch_root: Path | None) -> Pa
     scratch_base.mkdir(parents=True, exist_ok=True)
     scratch_dir = scratch_base / f".download-{destination.name}-{timestamp_token()}"
     if scratch_dir.exists():
-        raise PrepareRuntimeDatabasesError(f"Download scratch directory already exists: {scratch_dir}")
+        raise PrepareRuntimeDatabasesError(
+            f"Download scratch directory already exists: {scratch_dir}"
+        )
     scratch_dir.mkdir(parents=True, exist_ok=False)
     return scratch_dir
 
@@ -932,7 +1000,9 @@ def prepare_remote_component(
             )
         archive_name = version_config.get("archive_name")
         if not isinstance(archive_name, str) or not archive_name:
-            archive_name = infer_download_name(url, f"{remote_component}-{version_key}.archive")
+            archive_name = infer_download_name(
+                url, f"{remote_component}-{version_key}.archive"
+            )
         validation, source, metadata = prepare_remote_archive_component(
             component=component_label,
             destination=destination,
@@ -1044,11 +1114,15 @@ def prepare_component(
     except PrepareRuntimeDatabasesError:
         if not destination.exists() or not force:
             raise
-        LOGGER.warning("Replacing existing %s destination at %s", component, destination)
+        LOGGER.warning(
+            "Replacing existing %s destination at %s", component, destination
+        )
         remove_path(destination)
 
     if local_source is None and original_source is not None and not download:
-        raise PrepareRuntimeDatabasesError(f"Missing {component} source: {original_source}")
+        raise PrepareRuntimeDatabasesError(
+            f"Missing {component} source: {original_source}"
+        )
     if local_source is None and original_source is not None and download:
         LOGGER.warning(
             "Local %s source does not exist and will be replaced by a remote download: %s",
@@ -1059,10 +1133,16 @@ def prepare_component(
     with preparation_lock(destination):
         if local_source is not None:
             if local_source.is_dir():
-                resolved_source = resolve_directory_source(local_source, validator, component)
+                resolved_source = resolve_directory_source(
+                    local_source, validator, component
+                )
                 materialise_directory(resolved_source, destination, link_mode)
                 validation = validator(destination)
-            elif allow_file_source and local_source.is_file() and local_source.suffix == ".dmnd":
+            elif (
+                allow_file_source
+                and local_source.is_file()
+                and local_source.suffix == ".dmnd"
+            ):
                 materialise_checkm2_file(local_source, destination, link_mode)
                 validation = validator(destination)
             else:
@@ -1123,12 +1203,16 @@ def prepare_annotation_component(
     """Prepare immutable annotation content through the existing resource API."""
     destination = normalise_path(destination)
     if manifest is None:
-        raise PrepareRuntimeDatabasesError("Annotation preparation requires the canonical source manifest")
+        raise PrepareRuntimeDatabasesError(
+            "Annotation preparation requires the canonical source manifest"
+        )
     version_key, config = resolve_remote_version(
         manifest=manifest, component=component, requested_version=version
     )
     if config.get("kind") != "annotation_bundle":
-        raise PrepareRuntimeDatabasesError(f"Unsupported annotation resource source kind for {component}")
+        raise PrepareRuntimeDatabasesError(
+            f"Unsupported annotation resource source kind for {component}"
+        )
     was_present = destination.exists()
     if source is None:
         if was_present:
@@ -1140,7 +1224,9 @@ def prepare_annotation_component(
             except (ResourceDownloadError, OSError, ValueError) as error:
                 raise PrepareRuntimeDatabasesError(str(error)) from error
         else:
-            raise PrepareRuntimeDatabasesError(f"Missing {component} source and download is disabled")
+            raise PrepareRuntimeDatabasesError(
+                f"Missing {component} source and download is disabled"
+            )
     source = normalise_path(source)
     try:
         resource = prepare_resource(component, version_key, source, destination)
@@ -1150,8 +1236,19 @@ def prepare_annotation_component(
         required_paths=tuple(entry["path"] for entry in resource["contract"]["files"]),
         details={"resource_id": resource["resource_id"], "version": version_key},
     )
-    write_marker(component=component, source=str(source), destination=destination, validation=validation)
-    return PreparationRecord(component, "present" if was_present else "prepared", str(source), destination, describe_validation(validation))
+    write_marker(
+        component=component,
+        source=str(source),
+        destination=destination,
+        validation=validation,
+    )
+    return PreparationRecord(
+        component,
+        "present" if was_present else "prepared",
+        str(source),
+        destination,
+        describe_validation(validation),
+    )
 
 
 def determine_busco_lineages(mapping: dict[str, Path]) -> tuple[str, ...]:
@@ -1214,8 +1311,14 @@ def prepare_busco_lineages(
 
 def build_component_records(args: argparse.Namespace) -> list[PreparationRecord]:
     """Prepare the requested database destinations and return report records."""
-    annotation_requested = any(getattr(args, component + "_dest") for component in RESOURCE_TOOLS)
-    manifest = load_remote_source_manifest(args.remote_source_manifest) if args.download or annotation_requested else None
+    annotation_requested = any(
+        getattr(args, component + "_dest") for component in RESOURCE_TOOLS
+    )
+    manifest = (
+        load_remote_source_manifest(args.remote_source_manifest)
+        if args.download or annotation_requested
+        else None
+    )
 
     if args.taxdump_source and not args.taxdump_dest:
         raise PrepareRuntimeDatabasesError("Taxdump source requires --taxdump-dest.")
@@ -1234,13 +1337,20 @@ def build_component_records(args: argparse.Namespace) -> list[PreparationRecord]
     if args.eggnog_version and not args.eggnog_dest:
         raise PrepareRuntimeDatabasesError("eggNOG version requires --eggnog-dest.")
     for component in ("cogclassifier", "pfam", "kofam"):
-        if (getattr(args, component + "_source") or getattr(args, component + "_version")) and not getattr(args, component + "_dest"):
-            raise PrepareRuntimeDatabasesError(f"{component} source/version requires --{component}-dest.")
+        if (
+            getattr(args, component + "_source")
+            or getattr(args, component + "_version")
+        ) and not getattr(args, component + "_dest"):
+            raise PrepareRuntimeDatabasesError(
+                f"{component} source/version requires --{component}-dest."
+            )
     if args.padloc_source and not args.padloc_dest:
         raise PrepareRuntimeDatabasesError("PADLOC source requires --padloc-dest.")
     if args.padloc_version and not args.padloc_dest:
         raise PrepareRuntimeDatabasesError("PADLOC version requires --padloc-dest.")
-    if args.busco_dest_root is None and (args.busco_lineage_source or args.busco_version):
+    if args.busco_dest_root is None and (
+        args.busco_lineage_source or args.busco_version
+    ):
         raise PrepareRuntimeDatabasesError(
             "BUSCO lineage sources or a BUSCO version require --busco-dest-root."
         )
@@ -1334,14 +1444,16 @@ def build_component_records(args: argparse.Namespace) -> list[PreparationRecord]
         )
     for component in ("cogclassifier", "pfam", "kofam"):
         if getattr(args, component + "_dest"):
-            records.append(prepare_annotation_component(
-                component=component,
-                source=getattr(args, component + "_source"),
-                destination=getattr(args, component + "_dest"),
-                download=args.download,
-                version=getattr(args, component + "_version"),
-                manifest=manifest,
-            ))
+            records.append(
+                prepare_annotation_component(
+                    component=component,
+                    source=getattr(args, component + "_source"),
+                    destination=getattr(args, component + "_dest"),
+                    download=args.download,
+                    version=getattr(args, component + "_version"),
+                    manifest=manifest,
+                )
+            )
     if args.padloc_dest:
         records.append(
             prepare_component(
@@ -1376,7 +1488,9 @@ def write_report(path: Path, records: Sequence[PreparationRecord]) -> None:
             writer.writerow(report_row(record))
 
 
-def build_nextflow_arguments(records: Sequence[PreparationRecord]) -> list[tuple[str, str]]:
+def build_nextflow_arguments(
+    records: Sequence[PreparationRecord],
+) -> list[tuple[str, str]]:
     """Build one copy-pastable Nextflow argument block."""
     mapping: dict[str, str] = {}
     for record in records:

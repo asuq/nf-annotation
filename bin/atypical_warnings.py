@@ -42,4 +42,3 @@ def is_unverified_source_only(value: str | None) -> bool:
     """Return True when the only atypical reason is unverified source organism."""
     _is_atypical, is_exception = classify_atypical_warnings(value)
     return is_exception
-

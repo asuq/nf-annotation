@@ -128,7 +128,9 @@ def busco_column_name(lineage: str) -> str:
 
 def primary_busco_column(configured_lineages: Sequence[str]) -> str:
     """Return the BUSCO column name used as the primary ANI-scoring lineage."""
-    lineages = tuple(lineage.strip() for lineage in configured_lineages if lineage.strip())
+    lineages = tuple(
+        lineage.strip() for lineage in configured_lineages if lineage.strip()
+    )
     if not lineages:
         raise ValueError("At least one BUSCO lineage is required.")
     return busco_column_name(lineages[0])
@@ -244,9 +246,7 @@ def build_compact_percentage_string(scalars: dict[str, list[Any]]) -> str | None
         return None
 
     percentages = {
-        key: value
-        for key, value in compact_values.items()
-        if value is not None
+        key: value for key, value in compact_values.items() if value is not None
     }
     if any(value < 0 or value > 100 for value in percentages.values()):
         return None
@@ -350,7 +350,13 @@ def write_output(
     with output.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(
             handle,
-            fieldnames=["accession", "lineage", busco_column, "busco_status", "warnings"],
+            fieldnames=[
+                "accession",
+                "lineage",
+                busco_column,
+                "busco_status",
+                "warnings",
+            ],
             delimiter="\t",
         )
         writer.writeheader()

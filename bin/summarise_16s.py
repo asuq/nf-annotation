@@ -223,7 +223,9 @@ def parse_gff_hits(path: Path) -> list[GffHit]:
                 start1 = int(fields[3])
                 end1 = int(fields[4])
             except ValueError as error:
-                raise ValueError(f"Could not parse GFF coordinates in {path}: {line}") from error
+                raise ValueError(
+                    f"Could not parse GFF coordinates in {path}: {line}"
+                ) from error
 
             parsed_hits.append(
                 GffHit(
@@ -313,7 +315,9 @@ def pair_16s_hits(
 
     matched_hits: list[RrnaHit] = []
     for hit in sixteen_s_gff_hits:
-        key = build_match_key(hit.rrna_name, hit.contig, hit.start0, hit.end0, hit.strand)
+        key = build_match_key(
+            hit.rrna_name, hit.contig, hit.start0, hit.end0, hit.strand
+        )
         record = fasta_by_key.get(key)
         if record is None:
             raise ValueError("Barrnap 16S GFF and FASTA outputs do not match.")

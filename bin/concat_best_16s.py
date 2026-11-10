@@ -142,7 +142,10 @@ def read_tsv(path: Path) -> tuple[list[str], list[dict[str, str]]]:
                 f"expected {len(header)}."
             )
         data_rows.append(
-            {column: value.strip() for column, value in zip(header, values, strict=True)}
+            {
+                column: value.strip()
+                for column, value in zip(header, values, strict=True)
+            }
         )
     return header, data_rows
 
@@ -174,7 +177,10 @@ def read_metadata_table(path: Path) -> tuple[list[str], list[dict[str, str]]]:
                 f"expected {len(header)}."
             )
         records.append(
-            {column: value.strip() for column, value in zip(header, values, strict=True)}
+            {
+                column: value.strip()
+                for column, value in zip(header, values, strict=True)
+            }
         )
     return header, records
 

@@ -42,7 +42,9 @@ def report(
         or plan.get("plan_id")
         != identity({k: v for k, v in plan.items() if k != "plan_id"})
     ):
-        raise AnnotationError("Genome reporting requires a valid disabled annotation plan")
+        raise AnnotationError(
+            "Genome reporting requires a valid disabled annotation plan"
+        )
     masters, statuses = read_tsv(master), read_tsv(status)
     master_key = detect_metadata_key_column(list(masters[0]))
     accessions = [row[master_key] for row in masters]
@@ -70,7 +72,9 @@ def report(
         accession = metadata.get("accession")
         if accession not in status_index or accession in records:
             raise AnnotationError("Duplicate or foreign genome bundle")
-        records[accession] = {key: metadata.get(key) for key in ("status", "protein_count")}
+        records[accession] = {
+            key: metadata.get(key) for key in ("status", "protein_count")
+        }
         bundle_manifest[accession] = dict(
             path=f"samples/{accession}/annotation/bundle", manifest_sha256=digest(path)
         )

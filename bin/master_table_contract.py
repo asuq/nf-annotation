@@ -43,7 +43,11 @@ GCODE_PROVENANCE_COLUMNS = (
     "Gcode_Selection_Reason",
 )
 GCODE_QC_COLUMNS = (
-    "Gcode", *GCODE_PROVENANCE_COLUMNS, *CODETTA_COLUMNS, "Low_quality", "16S"
+    "Gcode",
+    *GCODE_PROVENANCE_COLUMNS,
+    *CODETTA_COLUMNS,
+    "Low_quality",
+    "16S",
 )
 CRISPR_COLUMNS = ("CRISPRS", "SPACERS_SUM", "CRISPR_FRAC")
 ANI_COLUMNS = ("Cluster_ID", "Is_Representative", "ANI_to_Representative", "Score")
@@ -160,7 +164,8 @@ def build_sample_status_columns(
 ) -> list[str]:
     """Return the final sample-status columns in locked output order."""
     busco_columns = [
-        f"busco_{lineage}_status" for lineage in normalise_busco_lineages(busco_lineages)
+        f"busco_{lineage}_status"
+        for lineage in normalise_busco_lineages(busco_lineages)
     ]
     return [
         *SAMPLE_STATUS_PREFIX_COLUMNS,
@@ -200,18 +205,26 @@ def extract_busco_lineages_from_append_columns(
     if append_list[-len(suffix_columns) :] != suffix_columns:
         raise ValueError("Append-column contract has an unexpected non-BUSCO suffix.")
 
-    busco_columns = append_list[len(prefix_columns) : len(append_list) - len(suffix_columns)]
+    busco_columns = append_list[
+        len(prefix_columns) : len(append_list) - len(suffix_columns)
+    ]
     if not busco_columns:
-        raise ValueError("Append-column contract must contain at least one BUSCO column.")
+        raise ValueError(
+            "Append-column contract must contain at least one BUSCO column."
+        )
     if any(not column.startswith("BUSCO_") for column in busco_columns):
-        raise ValueError("Append-column contract contains a non-BUSCO column in the BUSCO block.")
+        raise ValueError(
+            "Append-column contract contains a non-BUSCO column in the BUSCO block."
+        )
 
     busco_lineages = normalise_busco_lineages(
         [column.removeprefix("BUSCO_") for column in busco_columns]
     )
     expected_columns = build_append_columns(busco_lineages)
     if append_list != expected_columns:
-        raise ValueError("Append-column contract does not match the BUSCO-aware contract.")
+        raise ValueError(
+            "Append-column contract does not match the BUSCO-aware contract."
+        )
     return busco_lineages
 
 
@@ -222,7 +235,9 @@ def extract_busco_lineages_from_sample_status_columns(
     status_list = [column.strip() for column in sample_status_columns]
     suffix_columns = [*SAMPLE_STATUS_SUFFIX_COLUMNS, *AAI_STATUS_COLUMNS]
 
-    if status_list[: len(SAMPLE_STATUS_PREFIX_COLUMNS)] != list(SAMPLE_STATUS_PREFIX_COLUMNS):
+    if status_list[: len(SAMPLE_STATUS_PREFIX_COLUMNS)] != list(
+        SAMPLE_STATUS_PREFIX_COLUMNS
+    ):
         raise ValueError("Sample-status contract has an unexpected non-BUSCO prefix.")
     if status_list[-len(suffix_columns) :] != suffix_columns:
         raise ValueError("Sample-status contract has an unexpected non-BUSCO suffix.")
@@ -231,7 +246,9 @@ def extract_busco_lineages_from_sample_status_columns(
         len(SAMPLE_STATUS_PREFIX_COLUMNS) : len(status_list) - len(suffix_columns)
     ]
     if not busco_columns:
-        raise ValueError("Sample-status contract must contain at least one BUSCO status column.")
+        raise ValueError(
+            "Sample-status contract must contain at least one BUSCO status column."
+        )
     if any(
         not column.startswith("busco_") or not column.endswith("_status")
         for column in busco_columns
@@ -248,7 +265,9 @@ def extract_busco_lineages_from_sample_status_columns(
     )
     expected_columns = build_sample_status_columns(busco_lineages)
     if status_list != expected_columns:
-        raise ValueError("Sample-status contract does not match the BUSCO-aware contract.")
+        raise ValueError(
+            "Sample-status contract does not match the BUSCO-aware contract."
+        )
     return busco_lineages
 
 
@@ -261,7 +280,9 @@ def resolve_append_columns(
         if not path.is_file():
             raise ValueError(f"Missing append-column contract: {path}")
         append_columns = read_append_columns_asset(path)
-        return append_columns, extract_busco_lineages_from_append_columns(append_columns)
+        return append_columns, extract_busco_lineages_from_append_columns(
+            append_columns
+        )
 
     if busco_lineages:
         resolved_lineages = normalise_busco_lineages(busco_lineages)

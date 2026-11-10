@@ -158,7 +158,9 @@ def split_notes(value: str | None) -> list[str]:
     return [note.strip() for note in value.split(";") if note.strip()]
 
 
-def write_tsv(path: Path, header: Sequence[str], rows: Sequence[dict[str, str]]) -> None:
+def write_tsv(
+    path: Path, header: Sequence[str], rows: Sequence[dict[str, str]]
+) -> None:
     """Write a TSV with a fixed header."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -196,9 +198,19 @@ def load_initial_status(
     """Load the seed sample-status table and validate its identity columns."""
     try:
         header, rows = table_helpers.read_table(path, delimiter="\t")
-        table_helpers.require_columns(header, [c for c in output_columns if c not in master_table_contract.AAI_STATUS_COLUMNS], "initial sample-status table")
+        table_helpers.require_columns(
+            header,
+            [
+                c
+                for c in output_columns
+                if c not in master_table_contract.AAI_STATUS_COLUMNS
+            ],
+            "initial sample-status table",
+        )
         accession_column = table_helpers.detect_key_column(header, ("accession",))
-        status_index = table_helpers.build_index(rows, accession_column, "initial sample-status table")
+        status_index = table_helpers.build_index(
+            rows, accession_column, "initial sample-status table"
+        )
     except table_helpers.MasterTableError as error:
         raise SampleStatusError(str(error)) from error
 
@@ -312,7 +324,9 @@ def derive_taxonomy_status(
     """Return taxonomy status and warning tokens for one sample."""
     if not taxonomy_requested:
         return "na", []
-    tax_id_column = table_helpers.find_column_by_normalised_name(tuple(metadata_row), "tax_id")
+    tax_id_column = table_helpers.find_column_by_normalised_name(
+        tuple(metadata_row), "tax_id"
+    )
     if tax_id_column is None:
         return "na", []
     tax_id = metadata_row.get(tax_id_column, "NA")
@@ -354,18 +368,35 @@ def derive_checkm2_statuses(
         return "failed", "failed", "failed", ["missing_checkm2_summary"], "NA", "NA"
 
     warnings = table_helpers.split_tokens(row.get("warnings", ""))
-    gcode4_columns = [column for column in table_helpers.CHECKM2_COLUMNS if column.endswith("_gcode4")]
-    gcode11_columns = [column for column in table_helpers.CHECKM2_COLUMNS if column.endswith("_gcode11")]
+    gcode4_columns = [
+        column for column in table_helpers.CHECKM2_COLUMNS if column.endswith("_gcode4")
+    ]
+    gcode11_columns = [
+        column
+        for column in table_helpers.CHECKM2_COLUMNS
+        if column.endswith("_gcode11")
+    ]
     has_gcode4 = has_non_na_values(row, gcode4_columns)
     has_gcode11 = has_non_na_values(row, gcode11_columns)
 
-    gcode4_status = "failed" if "checkm2_gcode4_failed" in warnings or not has_gcode4 else "done"
-    gcode11_status = "failed" if "checkm2_gcode11_failed" in warnings or not has_gcode11 else "done"
+    gcode4_status = (
+        "failed" if "checkm2_gcode4_failed" in warnings or not has_gcode4 else "done"
+    )
+    gcode11_status = (
+        "failed" if "checkm2_gcode11_failed" in warnings or not has_gcode11 else "done"
+    )
 
     gcode_value = row.get("Gcode", "NA") or "NA"
     low_quality_value = row.get("Low_quality", "NA") or "NA"
     gcode_status = "done" if gcode_value in {"4", "11"} else "failed"
-    return gcode4_status, gcode11_status, gcode_status, warnings, gcode_value, low_quality_value
+    return (
+        gcode4_status,
+        gcode11_status,
+        gcode_status,
+        warnings,
+        gcode_value,
+        low_quality_value,
+    )
 
 
 def derive_busco_statuses(
@@ -638,11 +669,13 @@ def build_status_row(
         accession=accession,
         busco_index=busco_index,
         provided_busco_columns=(
-            provided_busco_columns & {
+            provided_busco_columns
+            & {
                 "BUSCO_" + lineage
                 for lineage in sample_policy.sample_lineages(sample_row, [])
             }
-            if "annotation_domain" in sample_row else provided_busco_columns
+            if "annotation_domain" in sample_row
+            else provided_busco_columns
         ),
         output_columns=output_columns,
     )
@@ -660,7 +693,8 @@ def build_status_row(
     ccfinder_status, ccfinder_warnings = derive_ccfinder_status(
         accession=accession,
         ccfinder_index=ccfinder_index,
-        ccfinder_requested=ccfinder_requested and sample_policy.qc_scope(sample_row) == "full",
+        ccfinder_requested=ccfinder_requested
+        and sample_policy.qc_scope(sample_row) == "full",
         gcode_value=gcode_value,
     )
     row["ccfinder_status"] = ccfinder_status
@@ -682,7 +716,9 @@ def build_status_row(
 
     sixteen_s_value = sixteen_s_index.get(accession, {}).get("16S", "NA") or "NA"
     primary_busco_value = "NA"
-    selected_busco_column = sample_policy.primary_column(sample_row, primary_busco_column)
+    selected_busco_column = sample_policy.primary_column(
+        sample_row, primary_busco_column
+    )
     if selected_busco_column is not None:
         primary_busco_value = busco_values.get(selected_busco_column, "NA")
     assembly_level_value = table_helpers.choose_assembly_level(sample_row, metadata_row)
@@ -857,16 +893,27 @@ def run_build(args: argparse.Namespace) -> None:
         )
 
     from aai_common import AAI_STATUS_COLUMNS
+
     aai_path = getattr(args, "aai", None)
     aai_index = {}
     if aai_path is not None:
         from annotation_common import read_tsv
+
         aai_rows = read_tsv(aai_path, ("Accession", *AAI_STATUS_COLUMNS))
         aai_index = {r["Accession"]: r for r in aai_rows}
-        if len(aai_index) != len(aai_rows) or (aai_index and set(aai_index) != {r["accession"] for r in rows}):
+        if len(aai_index) != len(aai_rows) or (
+            aai_index and set(aai_index) != {r["accession"] for r in rows}
+        ):
             raise SampleStatusError("AAI summary membership differs from the cohort")
     for row in rows:
-        row.update({c: aai_index.get(row["accession"], {}).get(c, "not_requested" if c == "aai_status" else "NA") for c in AAI_STATUS_COLUMNS})
+        row.update(
+            {
+                c: aai_index.get(row["accession"], {}).get(
+                    c, "not_requested" if c == "aai_status" else "NA"
+                )
+                for c in AAI_STATUS_COLUMNS
+            }
+        )
     write_tsv(args.output, output_columns, rows)
 
 

@@ -133,7 +133,9 @@ def parse_log_genetic_code(log_path: Path) -> str:
                 f"Codetta log genetic code has length {len(code)}, expected 64."
             )
         return code
-    raise CodettaSummaryError(f"Codetta log is missing a 'Genetic code:' line: {log_path}")
+    raise CodettaSummaryError(
+        f"Codetta log is missing a 'Genetic code:' line: {log_path}"
+    )
 
 
 def resolve_genetic_code(codetta_dir: Path) -> str:
@@ -157,7 +159,9 @@ def build_ncbi_table_string(table: CodonTable.CodonTable) -> str:
     """Build one NCBI genetic-code string in Codetta's 64-codon order."""
     stop_codons = set(table.stop_codons)
     return "".join(
-        table.forward_table[codon] if codon in table.forward_table else "*"
+        table.forward_table[codon]
+        if codon in table.forward_table
+        else "*"
         if codon in stop_codons
         else "?"
         for codon in CODON_ORDER

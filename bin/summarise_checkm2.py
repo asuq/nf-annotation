@@ -22,7 +22,9 @@ MEAN_GENE_LENGTH_RATIO_RULE = "mean_gene_length_ratio"
 STRICT_DELTA_RULE = "strict_delta"
 DELTA_THEN_ELEVEN_RULE = "delta_then_11"
 GCODE_RULE_CHOICES = (
-    MEAN_GENE_LENGTH_RATIO_RULE, STRICT_DELTA_RULE, DELTA_THEN_ELEVEN_RULE,
+    MEAN_GENE_LENGTH_RATIO_RULE,
+    STRICT_DELTA_RULE,
+    DELTA_THEN_ELEVEN_RULE,
 )
 DEFAULT_GCODE_RULE = MEAN_GENE_LENGTH_RATIO_RULE
 LENGTH_RATIO_THRESHOLD = Decimal("1.5")
@@ -99,7 +101,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Path to the combined per-sample QC TSV.",
     )
     parser.add_argument(
-        "--gcode-rule", choices=GCODE_RULE_CHOICES, default=DEFAULT_GCODE_RULE,
+        "--gcode-rule",
+        choices=GCODE_RULE_CHOICES,
+        default=DEFAULT_GCODE_RULE,
         help="Genetic-code selection criterion (default: mean_gene_length_ratio).",
     )
     parser.add_argument("--genome", type=Path)
@@ -126,9 +130,7 @@ def read_report_rows(path: Path) -> list[dict[str, str]]:
     if not rows:
         raise ValueError(f"CheckM2 report is empty: {path}")
     if len(rows) != 1:
-        raise ValueError(
-            f"CheckM2 report must contain exactly one data row: {path}"
-        )
+        raise ValueError(f"CheckM2 report must contain exactly one data row: {path}")
     if None in rows[0] or None in rows[0].values():
         raise ValueError(f"Malformed CheckM2 report row: {path}")
     return rows
@@ -172,11 +174,16 @@ def parse_report(path: Path) -> ParsedCheckM2Report:
     if any(value < 0 for value in metrics.values()):
         raise ValueError(f"Negative CheckM2 metric in {path}.")
     if metrics["Completeness"] > 100 or metrics["Coding_Density"] > 1:
-        raise ValueError(f"CheckM2 completeness or coding density is out of range: {path}")
+        raise ValueError(
+            f"CheckM2 completeness or coding density is out of range: {path}"
+        )
     if metrics["Average_Gene_Length"] <= 0:
         raise ValueError(f"Average_Gene_Length must be strictly positive: {path}")
     coding_sequences = metrics["Total_Coding_Sequences"]
-    if coding_sequences <= 0 or coding_sequences != coding_sequences.to_integral_value():
+    if (
+        coding_sequences <= 0
+        or coding_sequences != coding_sequences.to_integral_value()
+    ):
         raise ValueError(f"Total_Coding_Sequences must be a positive integer: {path}")
 
     shared_stats: dict[str, Decimal | str] = {}
@@ -254,10 +261,16 @@ def assign_low_quality(
 ) -> None:
     """Populate Low_quality from the chosen report metrics."""
     with localcontext() as context:
-        context.prec = max(
-            len(value.as_tuple().digits) + abs(value.as_tuple().exponent)
-            for value in (report.metrics["Completeness"], report.metrics["Contamination"])
-        ) + 10
+        context.prec = (
+            max(
+                len(value.as_tuple().digits) + abs(value.as_tuple().exponent)
+                for value in (
+                    report.metrics["Completeness"],
+                    report.metrics["Contamination"],
+                )
+            )
+            + 10
+        )
         low_quality_score = (
             report.metrics["Completeness"] - 5 * report.metrics["Contamination"]
         )
@@ -278,24 +291,32 @@ def assign_gcode_from_valid_pair(
     # Compare decimal input values directly, so a binary-float division cannot
     # place an exact 1.5 boundary on the wrong side of the rule.
     with localcontext() as context:
-        context.prec = max(
-            len(length_four.as_tuple().digits), len(length_eleven.as_tuple().digits)
-        ) + 20
+        context.prec = (
+            max(
+                len(length_four.as_tuple().digits), len(length_eleven.as_tuple().digits)
+            )
+            + 20
+        )
         select_four = length_four > LENGTH_RATIO_THRESHOLD * length_eleven
         row["Gcode_Length_Ratio"] = str(length_four / length_eleven)
     if gcode_rule == MEAN_GENE_LENGTH_RATIO_RULE:
         row["Gcode"] = "4" if select_four else "11"
         row["Gcode_Selection_Reason"] = (
-            "length_ratio_above_threshold" if select_four else "length_ratio_at_or_below_threshold"
+            "length_ratio_above_threshold"
+            if select_four
+            else "length_ratio_at_or_below_threshold"
         )
     else:
         completeness_four = report_four.metrics["Completeness"]
         completeness_eleven = report_eleven.metrics["Completeness"]
         with localcontext() as context:
-            context.prec = max(
-                len(value.as_tuple().digits) + abs(value.as_tuple().exponent)
-                for value in (completeness_four, completeness_eleven)
-            ) + 10
+            context.prec = (
+                max(
+                    len(value.as_tuple().digits) + abs(value.as_tuple().exponent)
+                    for value in (completeness_four, completeness_eleven)
+                )
+                + 10
+            )
             delta = completeness_four - completeness_eleven
         if delta > COMPLETENESS_DELTA_THRESHOLD:
             row["Gcode"] = "4"
@@ -305,10 +326,14 @@ def assign_gcode_from_valid_pair(
             row["Gcode_Selection_Reason"] = "completeness_gcode11_advantage_above_10"
         elif gcode_rule == DELTA_THEN_ELEVEN_RULE:
             row["Gcode"] = "11"
-            row["Gcode_Selection_Reason"] = "completeness_difference_at_or_below_10_default_11"
+            row["Gcode_Selection_Reason"] = (
+                "completeness_difference_at_or_below_10_default_11"
+            )
         else:
             row["Gcode"] = "NA"
-            row["Gcode_Selection_Reason"] = "completeness_difference_at_or_below_10_unresolved"
+            row["Gcode_Selection_Reason"] = (
+                "completeness_difference_at_or_below_10_unresolved"
+            )
             warnings.append("gcode_na")
     if row["Gcode"] in {"4", "11"}:
         assign_low_quality(row, report_four if row["Gcode"] == "4" else report_eleven)
@@ -330,8 +355,12 @@ def build_output_row(
 
     if report_four is not None:
         row["Completeness_gcode4"] = format_metric(report_four.metrics["Completeness"])
-        row["Contamination_gcode4"] = format_metric(report_four.metrics["Contamination"])
-        row["Coding_Density_gcode4"] = format_metric(report_four.metrics["Coding_Density"])
+        row["Contamination_gcode4"] = format_metric(
+            report_four.metrics["Contamination"]
+        )
+        row["Coding_Density_gcode4"] = format_metric(
+            report_four.metrics["Coding_Density"]
+        )
         row["Average_Gene_Length_gcode4"] = format_metric(
             report_four.metrics["Average_Gene_Length"]
         )
@@ -394,11 +423,15 @@ def build_output_row(
     row["Gcode_Review"] = "NA"
     if review_candidates and row["checkm2_status"] != "done":
         raise ValueError("A reviewed code requires a valid paired CheckM2 result")
-    review = select_review(accession, genome, [] if review_candidates is None else review_candidates)
+    review = select_review(
+        accession, genome, [] if review_candidates is None else review_candidates
+    )
     if review is not None:
         row["Gcode"] = str(review["genetic_code"])
         row["Gcode_Selection_Reason"] = "reviewed_code_manifest"
-        row["Gcode_Review"] = json.dumps(review, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+        row["Gcode_Review"] = json.dumps(
+            review, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+        )
         assign_low_quality(row, report_four if row["Gcode"] == "4" else report_eleven)
     return row
 
@@ -457,7 +490,10 @@ def run_summary(
         report_four,
         report_eleven,
         warnings=warnings,
-        gcode_rule=gcode_rule, genome=genome, review_candidates=review_candidates, genome_id=genome_id,
+        gcode_rule=gcode_rule,
+        genome=genome,
+        review_candidates=review_candidates,
+        genome_id=genome_id,
     )
     write_output(output, row)
 
@@ -471,8 +507,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         gcode4_report=args.gcode4_report,
         gcode11_report=args.gcode11_report,
         output=args.output,
-        gcode_rule=args.gcode_rule, genome=args.genome, genome_id=args.genome_id,
-        review_candidates=recorded_candidates({"review_candidates_base64": args.review_candidates_base64}),
+        gcode_rule=args.gcode_rule,
+        genome=args.genome,
+        genome_id=args.genome_id,
+        review_candidates=recorded_candidates(
+            {"review_candidates_base64": args.review_candidates_base64}
+        ),
     )
     LOGGER.info("Wrote CheckM2 summary for %s.", args.accession)
     return 0

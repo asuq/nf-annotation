@@ -10,7 +10,11 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from build_master_table import detect_key_column, find_column_by_normalised_name, read_table
+from build_master_table import (
+    detect_key_column,
+    find_column_by_normalised_name,
+    read_table,
+)
 
 
 LOGGER = logging.getLogger(__name__)
@@ -171,7 +175,9 @@ def write_tsv(path: Path, rows: Sequence[dict[str, str]]) -> None:
     """Write expanded taxonomy rows to a TSV."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(LINEAGE_COLUMNS), delimiter="\t")
+        writer = csv.DictWriter(
+            handle, fieldnames=list(LINEAGE_COLUMNS), delimiter="\t"
+        )
         writer.writeheader()
         for row in rows:
             writer.writerow(row)

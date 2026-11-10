@@ -144,8 +144,14 @@ class FingerprintScanner:
                 except StopIteration:
                     exhausted = True
                     break
-                pending[self.pool.submit(checked_digest, path, before)] = (index, path, before)
-                self.metrics["peak_pending_reads"] = max(self.metrics["peak_pending_reads"], len(pending))
+                pending[self.pool.submit(checked_digest, path, before)] = (
+                    index,
+                    path,
+                    before,
+                )
+                self.metrics["peak_pending_reads"] = max(
+                    self.metrics["peak_pending_reads"], len(pending)
+                )
             if not pending:
                 break
             done, _ = wait(pending, timeout=1, return_when=FIRST_COMPLETED)
@@ -167,10 +173,16 @@ class FingerprintScanner:
 
     def export_checksums(self, path: Path) -> None:
         """Carry fresh checks across workers; device/inode IDs are mount-local."""
-        with path.open('w') as handle:
-            json.dump({str(name): (record[0][2:], record[1]) for name, record in self.file_digests.items()}, handle,
-                      separators=(',', ':'))
-            handle.write('\n')
+        with path.open("w") as handle:
+            json.dump(
+                {
+                    str(name): (record[0][2:], record[1])
+                    for name, record in self.file_digests.items()
+                },
+                handle,
+                separators=(",", ":"),
+            )
+            handle.write("\n")
 
     def fingerprint(self, root: Path, *, active=()) -> dict:
         root = root.resolve(strict=True)
@@ -215,9 +227,29 @@ class FingerprintScanner:
         self.report(force=True)
         start = time.monotonic()
         links, directories, pending = [], [], []
-        for name in ("tables", "samples", "annotation_batches", "cohort/assembly_stats", "cohort/fastaai", "cohort/aai_clusters", "cohort/fastani", "cohort/ani_clusters"):
+        for name in (
+            "tables",
+            "samples",
+            "annotation_batches",
+            "cohort/assembly_stats",
+            "cohort/fastaai",
+            "cohort/aai_clusters",
+            "cohort/fastani",
+            "cohort/ani_clusters",
+        ):
             directory = root / name
-            if name in ("annotation_batches", "cohort/assembly_stats", "cohort/fastaai", "cohort/aai_clusters", "cohort/fastani", "cohort/ani_clusters") and not directory.exists():
+            if (
+                name
+                in (
+                    "annotation_batches",
+                    "cohort/assembly_stats",
+                    "cohort/fastaai",
+                    "cohort/aai_clusters",
+                    "cohort/fastani",
+                    "cohort/ani_clusters",
+                )
+                and not directory.exists()
+            ):
                 continue
             if directory.is_symlink() or not directory.is_dir():
                 raise AnnotationError(f"Invalid publication directory: {directory}")
