@@ -100,7 +100,7 @@ run_seqtk_comp() {
     local fasta_path="$1"
 
     SEQTK_BINARY="${seqtk_binary}" FASTA_PATH="${fasta_path}" \
-        bash -lc 'eval "set -- $SEQTK_BINARY"; "$@" comp "$FASTA_PATH"'
+        bash -c 'eval "set -- $SEQTK_BINARY"; "$@" comp "$FASTA_PATH"'
 }
 
 compute_gc_content() {
@@ -321,7 +321,7 @@ main() {
         return 1
     fi
 
-    if ! bash -lc 'command -v "$1" >/dev/null 2>&1' _ "${seqtk_binary%% *}"; then
+    if ! bash -c 'command -v "$1" >/dev/null 2>&1' _ "${seqtk_binary%% *}"; then
         if [[ "${seqtk_binary}" != *" "* ]]; then
             log_error "seqtk is required to backfill gc_content."
             return 1
