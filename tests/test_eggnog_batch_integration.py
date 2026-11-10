@@ -35,7 +35,7 @@ from annotation_result import validate_result
 from annotation_source import validate_source
 from annotation_workflow_fixture import hold_bundle_until_search, publish_disabled
 
-NEXTFLOW = shutil.which("nextflow")
+NEXTFLOW = shutil.which("nextflow") or ""
 
 EMAPPER = r"""import csv
 import json
@@ -170,20 +170,20 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
             "eggnog.taxa.db.traverse.pkl",
         ):
             (self.database / name).write_bytes(b"Synthetic orchestration resource\n")
-        contract = dict(
-            component="eggnog",
-            version="synthetic-v7",
-            settings={"fixture": True},
-            files=file_records(self.database),
-        )
+        contract = {
+            "component": "eggnog",
+            "version": "synthetic-v7",
+            "settings": {"fixture": True},
+            "files": file_records(self.database),
+        }
         write_json(
             self.database / "annotation_resource.json",
-            dict(
-                schema_version=2,
-                component="eggnog",
-                resource_id=identity(contract),
-                contract=contract,
-            ),
+            {
+                "schema_version": 2,
+                "component": "eggnog",
+                "resource_id": identity(contract),
+                "contract": contract,
+            },
         )
         self.ledger = self.root / "native-calls.jsonl"
         self.fail_native = self.root / "fail-native"
@@ -276,6 +276,7 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
             capture_output=True,
             timeout=120,
             env=self.fixture.environment,
+            check=False,
         )
         (self.root / f"{name}.log").write_text(result.stdout + result.stderr)
         self.assertEqual(
@@ -365,7 +366,7 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
         if succeeds:
             self.assertEqual(
                 read_tsv(output / "tables/functional_matrices/eggnog_ko_counts.tsv"),
-                [dict(accession=accession, K00001="1") for accession in accessions],
+                [{"accession": accession, "K00001": "1"} for accession in accessions],
             )
             search = native.root / "raw/search/eggnog.emapper.seed_orthologs"
             self.assertTrue(
@@ -396,17 +397,17 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
         write_tsv(
             source / "tables/master_table.tsv",
             ("Accession", "Gcode"),
-            [dict(Accession=acc, Gcode=4) for acc in accessions],
+            [{"Accession": acc, "Gcode": 4} for acc in accessions],
         )
         write_tsv(
             source / "tables/sample_status.tsv",
             ("accession", "gcode_status"),
-            [dict(accession=acc, gcode_status="done") for acc in accessions],
+            [{"accession": acc, "gcode_status": "done"} for acc in accessions],
         )
         write_tsv(
             source / "tables/validated_samples.tsv",
             ("accession",),
-            [dict(accession=acc) for acc in accessions],
+            [{"accession": acc} for acc in accessions],
         )
         publish_disabled(source, accessions, bundles)
         return source
@@ -661,17 +662,17 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
         write_tsv(
             source / "tables/master_table.tsv",
             ("Accession", "Gcode"),
-            [dict(Accession=acc, Gcode=4) for acc in accessions],
+            [{"Accession": acc, "Gcode": 4} for acc in accessions],
         )
         write_tsv(
             source / "tables/sample_status.tsv",
             ("accession", "gcode_status"),
-            [dict(accession=acc, gcode_status="done") for acc in accessions],
+            [{"accession": acc, "gcode_status": "done"} for acc in accessions],
         )
         write_tsv(
             source / "tables/validated_samples.tsv",
             ("accession",),
-            [dict(accession=acc) for acc in accessions],
+            [{"accession": acc} for acc in accessions],
         )
         publish_disabled(source, accessions, bundles)
         first = self.run_pipeline("encoded-first", source)

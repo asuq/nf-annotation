@@ -16,8 +16,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
 from annotation_common import (
     AnnotationError,
     bundle_proteins,
-    read_tsv,
     protein_query_id,
+    read_tsv,
 )
 from prepare_annotation_bundle import build_bundle
 

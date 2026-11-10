@@ -12,7 +12,6 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
 import aggregate_annotations
-from annotation_workflow_fixture import aggregate_fixture, indexed_results
 import test_annotation_tasks as task_fixture
 from annotation_common import (
     COORDINATE_COLUMNS,
@@ -29,6 +28,7 @@ from annotation_common import (
 )
 from annotation_result import inventory
 from annotation_summary import FIELDS
+from annotation_workflow_fixture import aggregate_fixture, indexed_results
 
 
 class AnnotationAggregationScalingTests(unittest.TestCase):
@@ -56,7 +56,9 @@ class AnnotationAggregationScalingTests(unittest.TestCase):
         with self.assertRaises(AnnotationError):
             aggregate_annotations.aggregate(*args[:4], bad, self.root / "wrong-key")
 
-    def cohort(self, accessions, tools=("kofam",), error_size=0):
+    def cohort(
+        self, accessions, tools=("kofam",), error_size=0
+    ) -> tuple[Path, Path, Path, list[Path], list[Path]]:
         """Create valid one-protein bundles and explicit synthetic tool evidence."""
         bundles, results, tasks = [], [], []
         for accession in accessions:
@@ -65,24 +67,24 @@ class AnnotationAggregationScalingTests(unittest.TestCase):
             self.fixture.metadata, self.fixture.proteins = bundle_proteins(bundle)
             gene = self.fixture.proteins[0]["gene_id"]
             for tool in TOOLS:
-                intended = dict(
-                    accession=accession,
-                    tool=tool,
-                    action="run" if tool in tools else "skip",
-                    status="planned" if tool in tools else "skipped_disabled",
-                    reason="fixture",
-                    input_proteins=1,
-                )
+                intended = {
+                    "accession": accession,
+                    "tool": tool,
+                    "action": "run" if tool in tools else "skip",
+                    "status": "planned" if tool in tools else "skipped_disabled",
+                    "reason": "fixture",
+                    "input_proteins": 1,
+                }
                 if tool in tools:
                     field = FIELDS[tool][0]
                     errors = (
                         [
-                            dict(
-                                gene_id=gene,
-                                field=field,
-                                raw_value="x" * error_size,
-                                reason="invalid",
-                            )
+                            {
+                                "gene_id": gene,
+                                "field": field,
+                                "raw_value": "x" * error_size,
+                                "reason": "invalid",
+                            }
                         ]
                         if error_size
                         else []
@@ -98,16 +100,16 @@ class AnnotationAggregationScalingTests(unittest.TestCase):
                         directory / "normalized/evidence.tsv",
                         ("accession", "gene_id", "marker"),
                         [
-                            dict(
-                                accession=accession,
-                                gene_id=gene,
-                                marker=f"{tool}:second",
-                            ),
-                            dict(
-                                accession=accession,
-                                gene_id=gene,
-                                marker=f"{tool}:first",
-                            ),
+                            {
+                                "accession": accession,
+                                "gene_id": gene,
+                                "marker": f"{tool}:second",
+                            },
+                            {
+                                "accession": accession,
+                                "gene_id": gene,
+                                "marker": f"{tool}:first",
+                            },
                         ],
                     )
                     self.reidentify(directory)
@@ -126,18 +128,18 @@ class AnnotationAggregationScalingTests(unittest.TestCase):
         master, status, plan_path = [
             self.root / name for name in ("master.tsv", "status.tsv", "plan.json")
         ]
-        write_tsv(master, ("Accession",), [dict(Accession=acc) for acc in accessions])
+        write_tsv(master, ("Accession",), [{"Accession": acc} for acc in accessions])
         write_tsv(
             status,
             ("accession",),
-            [dict(accession=acc) for acc in reversed(accessions)],
+            [{"accession": acc} for acc in reversed(accessions)],
         )
-        plan = dict(
-            schema_version=1,
-            accessions=accessions,
-            enabled_tools=list(tools),
-            tasks=tasks,
-        )
+        plan = {
+            "schema_version": 1,
+            "accessions": accessions,
+            "enabled_tools": list(tools),
+            "tasks": tasks,
+        }
         plan["plan_id"] = identity(plan)
         write_json(plan_path, plan)
         return plan_path, master, status, bundles, results
@@ -156,19 +158,19 @@ class AnnotationAggregationScalingTests(unittest.TestCase):
         metadata["files"] = {name: digest(bundle / name) for name in metadata["files"]}
         metadata["coordinate_id"] = metadata["files"]["gene_coordinates.tsv"]
         metadata["input_id"] = identity(
-            dict(
-                accession=metadata["accession"],
-                genetic_code=metadata["genetic_code"],
-                proteins=[
+            {
+                "accession": metadata["accession"],
+                "genetic_code": metadata["genetic_code"],
+                "proteins": [
                     {name: row[name] for name in ("gene_id", "tool_id", "sha256")}
                     for row in rows
                 ],
-            )
+            }
         )
         write_json(bundle / "bundle.json", metadata)
 
     def test_stable_source_order_and_single_bundle_validation(self):
-        args = list(self.cohort(["C", "A", "B"], ("kofam", "pfam")))
+        args = self.cohort(["C", "A", "B"], ("kofam", "pfam"))
         args[3].reverse()
         args[4].reverse()
         output = self.root / "ordered"
@@ -330,8 +332,8 @@ class AnnotationAggregationScalingTests(unittest.TestCase):
         plan.pop("plan_id")
         plan["plan_id"] = identity(plan)
         write_json(args[0], plan)
-        write_tsv(args[1], ("Accession",), [dict(Accession="S00")])
-        write_tsv(args[2], ("accession",), [dict(accession="S00")])
+        write_tsv(args[1], ("Accession",), [{"Accession": "S00"}])
+        write_tsv(args[2], ("accession",), [{"accession": "S00"}])
         gc.collect()
         tracemalloc.start()
         try:

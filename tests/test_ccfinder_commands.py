@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-@unittest.skipUnless(shutil.which("nextflow"), "Nextflow is required")
+@unittest.skipUnless((shutil.which("nextflow") or ""), "Nextflow is required")
 class CcfinderCommandTests(unittest.TestCase):
     def test_uniform_staging_and_failure_preservation(self):
         with tempfile.TemporaryDirectory(
@@ -60,7 +60,13 @@ print {$out} encode_json({Sequences=>\@rows});
                 f"params {{ outdir='{root}/results'; soft_fail_attempts=1; ccfinder_extra_args=''; annotation_cleanup='success' }}\nprocess.cpus=2\n"
             )
             result = subprocess.run(
-                [shutil.which("nextflow"), "run", "main.nf", "-ansi-log", "false"],
+                [
+                    (shutil.which("nextflow") or ""),
+                    "run",
+                    "main.nf",
+                    "-ansi-log",
+                    "false",
+                ],
                 cwd=root,
                 env=dict(os.environ, NXF_DISABLE_CHECK_LATEST="true"),
                 capture_output=True,

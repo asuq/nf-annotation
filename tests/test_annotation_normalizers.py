@@ -29,13 +29,13 @@ class NormalizerTests(unittest.TestCase):
         for path in (self.raw, self.resource, self.bundle):
             path.mkdir()
         self.proteins = [
-            dict(
-                accession="genome.1",
-                gene_id=f"genome.1::gene{i}",
-                protein_id=f"gene{i}",
-                tool_id=f"p{i}",
-                length="200",
-            )
+            {
+                "accession": "genome.1",
+                "gene_id": f"genome.1::gene{i}",
+                "protein_id": f"gene{i}",
+                "tool_id": f"p{i}",
+                "length": "200",
+            }
             for i in range(1, 4)
         ]
 
@@ -69,15 +69,15 @@ class NormalizerTests(unittest.TestCase):
             rows = [row]
         if go_rows is None:
             go_rows = [
-                dict(
-                    query="p1",
-                    gos_mf="GO:0000001",
-                    gos_mf_confidence="high",
-                    gos_bp="GO:0000002",
-                    gos_bp_confidence="medium",
-                    gos_cc="GO:0000003",
-                    gos_cc_confidence="low",
-                )
+                {
+                    "query": "p1",
+                    "gos_mf": "GO:0000001",
+                    "gos_mf_confidence": "high",
+                    "gos_bp": "GO:0000002",
+                    "gos_bp_confidence": "medium",
+                    "gos_cc": "GO:0000003",
+                    "gos_cc_confidence": "low",
+                }
             ]
         with (self.raw / "eggnog.emapper.annotations").open("w", newline="") as handle:
             handle.write("## confidence codes: h=high m=medium l=low -=not annotated\n")
@@ -244,17 +244,17 @@ class NormalizerTests(unittest.TestCase):
             self.raw / "cogclassifier.native.tsv",
             cog.NATIVE_COLUMNS,
             [
-                dict(
-                    QUERY_ID="p1",
-                    COG_ID="COG0001",
-                    CDD_ID="1",
-                    COG_LETTER=category[0],
-                    EVALUE="0",
-                    IDENTITY="90",
-                    GENE_NAME="x",
-                    COG_NAME="Definition one",
-                    COG_DESCRIPTION="native description",
-                )
+                {
+                    "QUERY_ID": "p1",
+                    "COG_ID": "COG0001",
+                    "CDD_ID": "1",
+                    "COG_LETTER": category[0],
+                    "EVALUE": "0",
+                    "IDENTITY": "90",
+                    "GENE_NAME": "x",
+                    "COG_NAME": "Definition one",
+                    "COG_DESCRIPTION": "native description",
+                }
             ],
         )
 
@@ -370,14 +370,14 @@ class NormalizerTests(unittest.TestCase):
 
     def write_padloc(self, *, positive=True):
         coords = [
-            dict(
-                gene_id=protein["gene_id"],
-                contig_id="contig",
-                start=str(i * 600 + 1),
-                end=str(i * 600 + 600),
-                strand="+",
-                segment="1",
-            )
+            {
+                "gene_id": protein["gene_id"],
+                "contig_id": "contig",
+                "start": str(i * 600 + 1),
+                "end": str(i * 600 + 600),
+                "strand": "+",
+                "segment": "1",
+            }
             for i, protein in enumerate(self.proteins)
         ]
         write_tsv(self.bundle / "gene_coordinates.tsv", tuple(coords[0]), coords)

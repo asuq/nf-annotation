@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Any
 
 SCRIPT = Path(__file__).resolve().parents[1] / "bin/ccfinder_contigs.pl"
 sys.path.insert(0, str(SCRIPT.parent))
@@ -109,7 +110,7 @@ class ContigInputTests(unittest.TestCase):
 
     def test_changed_mapping_or_sequence_fails(self):
         mapping = self.stage()
-        rows = [
+        rows: list[dict[str, Any]] = [
             {"Id": r["tool_id"], "Length": r["length"], "Crisprs": [], "Cas": []}
             for r in mapping["contigs"]
         ]
@@ -148,7 +149,7 @@ class ContigInputTests(unittest.TestCase):
 
     def test_nested_identifiers_order_and_publication_replay(self):
         self.stage()
-        rows = [
+        rows: list[dict[str, Any]] = [
             {
                 "Id": f"ctg{i:08d}",
                 "Length": 5,

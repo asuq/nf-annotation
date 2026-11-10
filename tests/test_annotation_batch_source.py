@@ -55,31 +55,31 @@ class AnnotationBatchSourceTests(unittest.TestCase):
         write_tsv(
             self.source / "tables/master_table.tsv",
             ("accession", "Gcode"),
-            [dict(accession=accession, Gcode=4) for accession in self.accessions],
+            [{"accession": accession, "Gcode": 4} for accession in self.accessions],
         )
         for name in ("sample_status", "validated_samples"):
             write_tsv(
                 self.source / "tables" / (name + ".tsv"),
                 ("accession",),
-                [dict(accession=accession) for accession in self.accessions],
+                [{"accession": accession} for accession in self.accessions],
             )
         publish_disabled(self.source, self.accessions, bundles)
         self.manifest = read_json(self.source / "annotation_results.json")
         self.manifest.update(
             enabled_tools=["eggnog"],
             native_batches={
-                self.batch_id: dict(
-                    path="annotation_batches/" + self.batch_id,
-                    batch_result_id=self.packet["batch_result_id"],
-                )
+                self.batch_id: {
+                    "path": "annotation_batches/" + self.batch_id,
+                    "batch_result_id": self.packet["batch_result_id"],
+                }
             },
         )
         self.manifest["results"] = {
             accession: {
-                "eggnog": dict(
-                    path=f"samples/{accession}/annotation/eggnog",
-                    result_id=record["result_id"],
-                )
+                "eggnog": {
+                    "path": f"samples/{accession}/annotation/eggnog",
+                    "result_id": record["result_id"],
+                }
             }
             for accession, (_, record) in self.results.items()
         }
@@ -219,11 +219,13 @@ class AnnotationBatchSourceTests(unittest.TestCase):
         moved = self.root / "linked_packet.json"
         packet.rename(moved)
         packet.symlink_to(moved)
-        with patch(
-            "annotation_result.validate_native_batch", wraps=validate_native_batch
-        ) as validate:
-            with self.assertRaisesRegex(AnnotationError, "symlink"):
-                validate_source(self.source)
+        with (
+            patch(
+                "annotation_result.validate_native_batch", wraps=validate_native_batch
+            ) as validate,
+            self.assertRaisesRegex(AnnotationError, "symlink"),
+        ):
+            validate_source(self.source)
         validate.assert_not_called()
 
     def test_unused_and_missing_member_references_fail(self):
@@ -263,19 +265,19 @@ class AnnotationBatchSourceTests(unittest.TestCase):
         native.mkdir()
         shutil.copytree(inputs, native / "inputs")
         phased_raw(native / "inputs", native / "raw")
-        packet = dict(
-            schema_version=1,
-            kind="eggnog_native_batch",
-            batch=batch,
-            exit_code=0,
-            raw_files=inventory(native / "raw"),
-        )
+        packet = {
+            "schema_version": 1,
+            "kind": "eggnog_native_batch",
+            "batch": batch,
+            "exit_code": 0,
+            "raw_files": inventory(native / "raw"),
+        }
         packet["batch_result_id"] = identity(packet)
         write_json(native / "batch_result.json", packet)
-        self.manifest["native_batches"][batch["batch_id"]] = dict(
-            path="annotation_batches/" + batch["batch_id"],
-            batch_result_id=packet["batch_result_id"],
-        )
+        self.manifest["native_batches"][batch["batch_id"]] = {
+            "path": "annotation_batches/" + batch["batch_id"],
+            "batch_result_id": packet["batch_result_id"],
+        }
         self.save_manifest()
         with self.assertRaisesRegex(AnnotationError, "foreign accession"):
             validate_source(self.source)
@@ -318,9 +320,10 @@ class AnnotationBatchSourceTests(unittest.TestCase):
                 status="failed",
                 exit_code=17,
                 raw_files=packet["raw_files"],
-                native_batch=dict(
-                    batch_id=self.batch_id, batch_result_id=packet["batch_result_id"]
-                ),
+                native_batch={
+                    "batch_id": self.batch_id,
+                    "batch_result_id": packet["batch_result_id"],
+                },
             )
             self.save_result(accession, record)
         self.set_statuses({accession: "failed" for accession in self.accessions})

@@ -7,6 +7,7 @@ import shutil
 import sys
 import unittest
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
@@ -48,7 +49,7 @@ class AnnotationBatchResultTests(unittest.TestCase):
         }
         self.native_record["batch_result_id"] = identity(self.native_record)
         write_json(self.native / "batch_result.json", self.native_record)
-        self.results = []
+        self.results: list[tuple[Path, dict[str, Any]]] = []
         for member in self.batch["members"]:
             result = (
                 self.root

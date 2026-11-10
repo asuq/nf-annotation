@@ -35,7 +35,7 @@ from annotation_workflow_fixture import (
     publish_disabled,
 )
 
-NEXTFLOW = shutil.which("nextflow")
+NEXTFLOW = shutil.which("nextflow") or ""
 
 
 @unittest.skipUnless(NEXTFLOW, "Nextflow is required for annotation integration")
@@ -75,17 +75,20 @@ class FunctionalAnnotationIntegrationTests(unittest.TestCase):
         write_tsv(
             self.source / "tables/master_table.tsv",
             ("Accession", "Gcode", "upstream_fixture"),
-            [dict(Accession=acc, Gcode=4, upstream_fixture=acc) for acc in ("B", "A")],
+            [
+                {"Accession": acc, "Gcode": 4, "upstream_fixture": acc}
+                for acc in ("B", "A")
+            ],
         )
         write_tsv(
             self.source / "tables/sample_status.tsv",
             ("accession", "gcode_status"),
-            [dict(accession=acc, gcode_status="done") for acc in ("B", "A")],
+            [{"accession": acc, "gcode_status": "done"} for acc in ("B", "A")],
         )
         write_tsv(
             self.source / "tables/validated_samples.tsv",
             ("accession",),
-            [dict(accession=acc) for acc in ("B", "A")],
+            [{"accession": acc} for acc in ("B", "A")],
         )
         publish_disabled(self.source, ["B", "A"], bundles)
         self.database = self.root / "kofam"
@@ -94,24 +97,24 @@ class FunctionalAnnotationIntegrationTests(unittest.TestCase):
             self.database / "ko_list",
             ("knum", "threshold", "score_type", "definition"),
             [
-                dict(
-                    knum="K00001",
-                    threshold="100",
-                    score_type="full",
-                    definition="Synthetic control",
-                )
+                {
+                    "knum": "K00001",
+                    "threshold": "100",
+                    "score_type": "full",
+                    "definition": "Synthetic control",
+                }
             ],
         )
         write_tsv(
             self.database / "prokaryote_profiles.tsv",
             ("ko", "profile", "threshold", "score_type"),
             [
-                dict(
-                    ko="K00001",
-                    profile="K00001.hmm",
-                    threshold="100",
-                    score_type="full",
-                )
+                {
+                    "ko": "K00001",
+                    "profile": "K00001.hmm",
+                    "threshold": "100",
+                    "score_type": "full",
+                }
             ],
         )
         (self.database / "profiles").mkdir()
@@ -144,20 +147,20 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
         hmmsearch.chmod(0o755)
 
     def resource(self, version):
-        contract = dict(
-            component="kofam",
-            version=version,
-            settings={"fixture": True},
-            files=file_records(self.database),
-        )
+        contract = {
+            "component": "kofam",
+            "version": version,
+            "settings": {"fixture": True},
+            "files": file_records(self.database),
+        }
         write_json(
             self.database / "annotation_resource.json",
-            dict(
-                schema_version=2,
-                component="kofam",
-                contract=contract,
-                resource_id=identity(contract),
-            ),
+            {
+                "schema_version": 2,
+                "component": "kofam",
+                "contract": contract,
+                "resource_id": identity(contract),
+            },
         )
 
     def run_pipeline(
@@ -209,6 +212,7 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
             capture_output=True,
             timeout=120,
             env=self.environment,
+            check=False,
         )
         (self.root / f"{name}.log").write_text(result.stdout + result.stderr)
         self.assertEqual(
@@ -230,9 +234,9 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
         ]
 
     def test_enabled_annotation_accepts_reference_input_and_materialises_output(self):
+        from annotation_source import validate_source
         from publication_references import REFERENCE_CONTRACT, REFERENCE_FILE
         from reuse_source_validation import fingerprint
-        from annotation_source import validate_source
 
         view = self.root / "reference-input"
         shutil.copytree(self.source / "tables", view / "tables")
@@ -370,7 +374,10 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
         output = self.run_pipeline(
             "scratch-storage",
             self.source,
-            extra_config="process { withName: ANNOTATION_SEARCH { scratch = true; stageOutMode = 'copy' } }\ntrace.fields = 'task_id,hash,name,status,exit,workdir'\n",
+            extra_config=(
+                "process { withName: ANNOTATION_SEARCH { scratch = true; stageOutMode = 'copy' } }\n"
+                "trace.fields = 'task_id,hash,name,status,exit,workdir'\n"
+            ),
         )
         trace = [
             row
@@ -496,13 +503,17 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
 
     def test_padloc_stages_the_bundle_without_an_external_resource(self):
         entry = preflight(
-            dict(
-                annotation_tools="padloc",
-                helper_container="sha256:" + "2" * 64,
-                tools=dict(
-                    padloc=dict(container="sha256:" + "1" * 64, cpus=1, memory_gib=1)
-                ),
-            )
+            {
+                "annotation_tools": "padloc",
+                "helper_container": "sha256:" + "2" * 64,
+                "tools": {
+                    "padloc": {
+                        "container": "sha256:" + "1" * 64,
+                        "cpus": 1,
+                        "memory_gib": 1,
+                    }
+                },
+            }
         )["tools"]["padloc"]
         bundle = self.source / "samples/A/annotation/bundle"
         directory = self.root / "padloc-task"
@@ -555,6 +566,7 @@ workflow {
             capture_output=True,
             timeout=120,
             env=self.environment,
+            check=False,
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         record = read_json(output / "samples/A/annotation/padloc/result.json")
@@ -571,7 +583,7 @@ workflow {
         self.assertEqual(self.actions(run), ["run", "run"])
         self.assertEqual(
             read_tsv(run / "tables/functional_matrices/kofam_ko_counts.tsv"),
-            [dict(accession="B", K00001="0"), dict(accession="A", K00001="1")],
+            [{"accession": "B", "K00001": "0"}, {"accession": "A", "K00001": "1"}],
         )
         for _ in range(3):
             self.run_pipeline("initial", self.source, resume=True)
@@ -602,10 +614,10 @@ workflow {
             for row in read_tsv(failed / "tables/annotation_status.tsv")
             if row["tool"] == "kofam"
         }
-        self.assertEqual(states, dict(A="success", B="failed"))
+        self.assertEqual(states, {"A": "success", "B": "failed"})
         self.assertEqual(
             read_tsv(failed / "tables/functional_matrices/kofam_ko_counts.tsv"),
-            [dict(accession="B", K00001="NA"), dict(accession="A", K00001="1")],
+            [{"accession": "B", "K00001": "NA"}, {"accession": "A", "K00001": "1"}],
         )
         self.assertEqual(
             read_json(failed / "samples/B/annotation/kofam/result.json")["exit_code"], 4
@@ -614,7 +626,7 @@ workflow {
         self.assertEqual(self.actions(disabled), ["skip", "skip"])
         self.assertEqual(
             read_tsv(disabled / "tables/functional_matrices/kofam_ko_counts.tsv"),
-            [dict(accession="B"), dict(accession="A")],
+            [{"accession": "B"}, {"accession": "A"}],
         )
         self.assertEqual(
             len(read_tsv(disabled / "tables/protein_function_summary.tsv")), 2
@@ -680,6 +692,7 @@ workflow { VALIDATE_INPUTS() }
             text=True,
             timeout=120,
             env=self.environment,
+            check=False,
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual((output / "runtime.txt").read_text().strip(), runtime)
@@ -749,6 +762,7 @@ exit """
                     text=True,
                     timeout=120,
                     env=self.environment,
+                    check=False,
                 )
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 tasks = [
@@ -837,6 +851,7 @@ workflow {
             text=True,
             timeout=120,
             env=self.environment,
+            check=False,
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         published = output / "samples/A/prokka"

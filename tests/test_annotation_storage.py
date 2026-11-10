@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
-import sys
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -28,13 +28,15 @@ def finalize(args):
         "policy",
     ):
         command.extend(["--" + name.replace("_", "-"), str(getattr(args, name))])
-    result = subprocess.run(command, text=True, capture_output=True)
+    result = subprocess.run(command, text=True, capture_output=True, check=False)
     if result.returncode:
         raise RuntimeError(result.stderr)
     return result.returncode
 
 
 class Args:
+    execution_root: Path
+    durable_work: Path
     command = "finalize"
     task_directory = "task00000001"
     tool = "kofam"

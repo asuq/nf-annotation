@@ -7,6 +7,7 @@ import shutil
 import sys
 import unittest
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
@@ -69,32 +70,34 @@ class AnnotationBatchTaskTests(unittest.TestCase):
             path = self.resource / name
             if not path.exists():
                 path.write_bytes(b"Synthetic resource control\n")
-        contract = dict(
-            component="eggnog",
-            version="synthetic-v7",
-            settings=dict(fixture=True),
-            files=file_records(self.resource),
-        )
-        self.resource_record = dict(
-            schema_version=2,
-            component="eggnog",
-            resource_id=identity(contract),
-            contract=contract,
-        )
+        contract = {
+            "component": "eggnog",
+            "version": "synthetic-v7",
+            "settings": {"fixture": True},
+            "files": file_records(self.resource),
+        }
+        self.resource_record = {
+            "schema_version": 2,
+            "component": "eggnog",
+            "resource_id": identity(contract),
+            "contract": contract,
+        }
         write_json(self.resource / RESOURCE_FILE, self.resource_record)
         method = copy.deepcopy(self.fixture.method)
         method["resource_id"] = self.resource_record["resource_id"]
-        interpretation = dict(
-            schema_version=1, code=code_identity("eggnog"), policy=POLICY["eggnog"]
-        )
-        self.entry = dict(
-            search_method=method,
-            interpretation=interpretation,
-            method_id=identity(dict(search=method, interpretation=interpretation)),
-            container="sha256:" + "1" * 64,
-            resource=self.resource_record,
-            resource_manifest_sha256=digest(self.resource / RESOURCE_FILE),
-        )
+        interpretation = {
+            "schema_version": 1,
+            "code": code_identity("eggnog"),
+            "policy": POLICY["eggnog"],
+        }
+        self.entry: dict[str, Any] = {
+            "search_method": method,
+            "interpretation": interpretation,
+            "method_id": identity({"search": method, "interpretation": interpretation}),
+            "container": "sha256:" + "1" * 64,
+            "resource": self.resource_record,
+            "resource_manifest_sha256": digest(self.resource / RESOURCE_FILE),
+        }
         self.batchdir, self.batch = prepare_batches(
             self.fixture.bundles,
             method,
@@ -281,10 +284,10 @@ class AnnotationBatchTaskTests(unittest.TestCase):
         changed = copy.deepcopy(self.entry)
         changed["interpretation"]["fixture_revision"] = 2
         changed["method_id"] = identity(
-            dict(
-                search=changed["search_method"],
-                interpretation=changed["interpretation"],
-            )
+            {
+                "search": changed["search_method"],
+                "interpretation": changed["interpretation"],
+            }
         )
         for name, entry, previous_results in (
             ("changed", changed, paths),
@@ -323,10 +326,10 @@ class AnnotationBatchTaskTests(unittest.TestCase):
             if name == "method":
                 entry["search_method"]["command"] = commands("eggnog", 8, 64)
                 entry["method_id"] = identity(
-                    dict(
-                        search=entry["search_method"],
-                        interpretation=entry["interpretation"],
-                    )
+                    {
+                        "search": entry["search_method"],
+                        "interpretation": entry["interpretation"],
+                    }
                 )
             path, batch = prepare_batches(
                 bundles,
@@ -392,9 +395,11 @@ class AnnotationBatchTaskTests(unittest.TestCase):
         with self.assertRaisesRegex(AnnotationError, "Task member differs"):
             self.complete("member-changed")
         write_json(task_path, task)
-        with patch.object(engine, "code_identity", return_value={}):
-            with self.assertRaisesRegex(AnnotationError, "method/code"):
-                self.complete("code-changed")
+        with (
+            patch.object(engine, "code_identity", return_value={}),
+            self.assertRaisesRegex(AnnotationError, "method/code"),
+        ):
+            self.complete("code-changed")
         resource_path = self.resource / RESOURCE_FILE
         resource_bytes = resource_path.read_bytes()
         resource_path.write_bytes(resource_bytes + b" ")

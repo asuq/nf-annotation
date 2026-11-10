@@ -7,7 +7,6 @@ import subprocess
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 DOCKER_DIR = ROOT / "docker" / "ccfinder"
 DOCKERFILE = DOCKER_DIR / "Dockerfile"

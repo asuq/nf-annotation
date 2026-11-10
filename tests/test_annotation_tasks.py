@@ -7,11 +7,11 @@ import subprocess
 import sys
 import unittest
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
 import test_annotation_bundle as bundle_fixture
-from annotation_workflow_fixture import aggregate_fixture as aggregate
 from annotation_commands import commands, shell_script
 from annotation_common import (
     TOOLS,
@@ -38,12 +38,13 @@ from annotation_tasks import (
     runtime_identity,
     task_identity,
 )
+from annotation_workflow_fixture import aggregate_fixture as aggregate
 from prepare_annotation_tasks import (
     execution_groups,
     merge_plans,
     plan,
-    plan_part,
     plan_disabled,
+    plan_part,
 )
 
 
@@ -58,6 +59,7 @@ class AnnotationTaskTests(unittest.TestCase):
 
     def test_normalisation_reads_only_tables_bound_to_the_planned_bundle(self):
         import hashlib
+
         from annotation_tasks import normalize_task
 
         task = self.root / "scoped-task"
@@ -168,27 +170,30 @@ class AnnotationTaskTests(unittest.TestCase):
                 self.root / "report",
             )
 
-    def entry(self, tool="kofam"):
-        search = dict(
-            tool=tool,
-            runtime_id="sha256:" + "1" * 64,
-            resource_id="resource1",
-            command=commands(tool, 2, 32),
-            native_code={},
-        )
-        interpretation = dict(
-            schema_version=1, code=code_identity(tool), policy=POLICY[tool]
-        )
-        return dict(
-            search_method=search,
-            interpretation=interpretation,
-            method_id=identity(dict(search=search, interpretation=interpretation)),
-            resource=dict(
-                resource_id="resource1", contract=dict(version="fixture", settings={})
-            ),
-            resource_manifest_sha256="resource_manifest",
-            container="sha256:" + "1" * 64,
-        )
+    def entry(self, tool="kofam") -> dict[str, Any]:
+        search = {
+            "tool": tool,
+            "runtime_id": "sha256:" + "1" * 64,
+            "resource_id": "resource1",
+            "command": commands(tool, 2, 32),
+            "native_code": {},
+        }
+        interpretation = {
+            "schema_version": 1,
+            "code": code_identity(tool),
+            "policy": POLICY[tool],
+        }
+        return {
+            "search_method": search,
+            "interpretation": interpretation,
+            "method_id": identity({"search": search, "interpretation": interpretation}),
+            "resource": {
+                "resource_id": "resource1",
+                "contract": {"version": "fixture", "settings": {}},
+            },
+            "resource_manifest_sha256": "resource_manifest",
+            "container": "sha256:" + "1" * 64,
+        }
 
     def result(self, tool="kofam", features=None, errors=None):
         record = task_identity(self.metadata, tool, self.entry(tool))
@@ -200,13 +205,13 @@ class AnnotationTaskTests(unittest.TestCase):
             exit_code=0,
             reported_hits=2,
             accepted_proteins=1,
-            evidence=dict(
-                features=features or {"ko": {gene: ["K00001", "K00001", "K00002"]}},
-                definitions={},
-                mapped_genes=[gene],
-                accepted_genes=[gene],
-                field_errors=errors or [],
-            ),
+            evidence={
+                "features": features or {"ko": {gene: ["K00001", "K00001", "K00002"]}},
+                "definitions": {},
+                "mapped_genes": [gene],
+                "accepted_genes": [gene],
+                "field_errors": errors or [],
+            },
         )
         return record
 
@@ -218,7 +223,12 @@ class AnnotationTaskTests(unittest.TestCase):
         write_tsv(
             root / "normalized" / "evidence.tsv",
             ("accession", "gene_id"),
-            [dict(accession=record["accession"], gene_id=self.proteins[0]["gene_id"])],
+            [
+                {
+                    "accession": record["accession"],
+                    "gene_id": self.proteins[0]["gene_id"],
+                }
+            ],
         )
         record["raw_files"] = inventory(root / "raw")
         record["normalized_files"] = inventory(root / "normalized")
@@ -290,6 +300,7 @@ class AnnotationTaskTests(unittest.TestCase):
                 """
 import tempfile
 from pathlib import Path
+from typing import Any
 with tempfile.NamedTemporaryFile() as temporary:
     assert Path(temporary.name).parent == (Path.cwd() / 'scratch').resolve()
 """,
@@ -356,10 +367,10 @@ with tempfile.NamedTemporaryFile() as temporary:
             Path(__file__).resolve().parents[1] / "bin/annotation_commands.py"
         )
         current["method_id"] = identity(
-            dict(
-                search=current["search_method"],
-                interpretation=current["interpretation"],
-            )
+            {
+                "search": current["search_method"],
+                "interpretation": current["interpretation"],
+            }
         )
         planned = plan_task(
             self.bundle,
@@ -409,12 +420,14 @@ with tempfile.NamedTemporaryFile() as temporary:
         entry["resource_path"] = str(self.root / "resource")
         write_json(
             receipt,
-            dict(
-                enabled_tools=["kofam"], preflight_id="fixture", tools={"kofam": entry}
-            ),
+            {
+                "enabled_tools": ["kofam"],
+                "preflight_id": "fixture",
+                "tools": {"kofam": entry},
+            },
         )
         members = self.root / "members.json"
-        write_json(members, dict(accessions=["A"]))
+        write_json(members, {"accessions": ["A"]})
         with patch("prepare_annotation_tasks.validate_preflight"):
             plan_part(
                 members, [self.bundle], receipt, self.root / "part", None, "individual"
@@ -444,12 +457,14 @@ with tempfile.NamedTemporaryFile() as temporary:
         entry["resource_path"] = str(self.root / "resource")
         write_json(
             receipt,
-            dict(
-                enabled_tools=["kofam"], preflight_id="fixture", tools={"kofam": entry}
-            ),
+            {
+                "enabled_tools": ["kofam"],
+                "preflight_id": "fixture",
+                "tools": {"kofam": entry},
+            },
         )
         members = self.root / "multi-members.json"
-        write_json(members, dict(accessions=["A"]))
+        write_json(members, {"accessions": ["A"]})
         with patch("prepare_annotation_tasks.validate_preflight"):
             record = plan_part(
                 members,
@@ -468,7 +483,7 @@ with tempfile.NamedTemporaryFile() as temporary:
     def test_readiness_groups_do_not_depend_on_manifest_order(self):
         samples = self.root / "grouping-samples.tsv"
         receipt = self.root / "grouping-preflight.json"
-        write_json(receipt, dict(enabled_tools=["eggnog"], preflight_id="fixture"))
+        write_json(receipt, {"enabled_tools": ["eggnog"], "preflight_id": "fixture"})
         with patch("prepare_annotation_tasks.validate_preflight"):
             write_tsv(
                 samples, ("accession",), [{"accession": a} for a in ("C", "A", "B")]
@@ -490,16 +505,19 @@ with tempfile.NamedTemporaryFile() as temporary:
         for field in FIELDS["eggnog"]:
             with self.subTest(field=field):
                 features = {name: {gene: ["feature"]} for name in FIELDS["eggnog"]}
-                error = dict(
-                    gene_id=gene, field=field, raw_value="bad", reason="invalid"
-                )
+                error = {
+                    "gene_id": gene,
+                    "field": field,
+                    "raw_value": "bad",
+                    "reason": "invalid",
+                }
                 record = self.result("eggnog", features, [error])
                 self.assertIsNone(feature_counts(record, field))
                 self.assertIsNone(accepted_count(record))
                 other = "go" if field != "go" else "ko"
                 self.assertEqual(feature_counts(record, other), {"feature": 1})
                 group = {
-                    tool: dict(tool=tool, status="skipped_disabled") for tool in TOOLS
+                    tool: {"tool": tool, "status": "skipped_disabled"} for tool in TOOLS
                 }
                 group["eggnog"] = record
                 summary = genome_summary(group, 1, True)
@@ -512,7 +530,7 @@ with tempfile.NamedTemporaryFile() as temporary:
 
     def test_category_fraction_and_system_totals_are_not_member_counts(self):
         gene = self.proteins[0]["gene_id"]
-        group = {tool: dict(tool=tool, status="skipped_disabled") for tool in TOOLS}
+        group = {tool: {"tool": tool, "status": "skipped_disabled"} for tool in TOOLS}
         group["cogclassifier"] = self.result(
             "cogclassifier",
             {"cog": {gene: ["COG0001"]}, "categories": {gene: ["R", "S"]}},
@@ -524,7 +542,7 @@ with tempfile.NamedTemporaryFile() as temporary:
         self.assertEqual(summary["cog_category_R_gene_count"], 1)
         self.assertEqual(summary["cog_category_S_fractional_gene_count"], "0.5")
         self.assertEqual(summary["padloc_systems"], 1)
-        group["cogclassifier"]["evidence"]["field_errors"] = [dict(field="categories")]
+        group["cogclassifier"]["evidence"]["field_errors"] = [{"field": "categories"}]
         summary = genome_summary(group, 2, True)
         self.assertIsNone(summary["cog_category_R_gene_count"])
         self.assertIsNone(summary["cog_category_S_fractional_gene_count"])
@@ -540,14 +558,14 @@ with tempfile.NamedTemporaryFile() as temporary:
         write_tsv(
             master,
             ("Accession", "Gcode"),
-            [dict(Accession="B", Gcode="11"), dict(Accession="A", Gcode="4")],
+            [{"Accession": "B", "Gcode": "11"}, {"Accession": "A", "Gcode": "4"}],
         )
         write_tsv(
             status,
             ("accession", "gcode_status"),
             [
-                dict(accession="A", gcode_status="done"),
-                dict(accession="B", gcode_status="failed"),
+                {"accession": "A", "gcode_status": "done"},
+                {"accession": "B", "gcode_status": "failed"},
             ],
         )
         tasks = []
@@ -555,25 +573,25 @@ with tempfile.NamedTemporaryFile() as temporary:
             for tool in TOOLS:
                 selected = tool == "kofam"
                 tasks.append(
-                    dict(
-                        accession=accession,
-                        tool=tool,
-                        action="run" if selected and accession == "A" else "skip",
-                        status="planned"
+                    {
+                        "accession": accession,
+                        "tool": tool,
+                        "action": "run" if selected and accession == "A" else "skip",
+                        "status": "planned"
                         if selected and accession == "A"
                         else "upstream_failed"
                         if selected
                         else "skipped_disabled",
-                        reason="fixture",
-                        input_proteins=1 if accession == "A" else None,
-                    )
+                        "reason": "fixture",
+                        "input_proteins": 1 if accession == "A" else None,
+                    }
                 )
-        plan = dict(
-            schema_version=1,
-            accessions=["A", "B"],
-            enabled_tools=["kofam"],
-            tasks=tasks,
-        )
+        plan = {
+            "schema_version": 1,
+            "accessions": ["A", "B"],
+            "enabled_tools": ["kofam"],
+            "tasks": tasks,
+        }
         for row in tasks:
             if row["action"] == "run":
                 row.update(
@@ -597,8 +615,8 @@ with tempfile.NamedTemporaryFile() as temporary:
         self.assertEqual(
             matrix,
             [
-                dict(accession="B", K00001="NA", K00002="NA"),
-                dict(accession="A", K00001="1", K00002="1"),
+                {"accession": "B", "K00001": "NA", "K00002": "NA"},
+                {"accession": "A", "K00001": "1", "K00002": "1"},
             ],
         )
         masters = read_tsv(output / "tables/master_table.tsv")

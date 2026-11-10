@@ -12,7 +12,6 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
 import aggregate_annotations
-from annotation_workflow_fixture import indexed_results
 import annotation_result
 import test_annotation_batch_results as batch_fixture
 from annotation_common import (
@@ -26,6 +25,7 @@ from annotation_common import (
     write_tsv,
 )
 from annotation_result import batch_search_identity, inventory
+from annotation_workflow_fixture import indexed_results
 
 
 class AnnotationAggregationBatchTests(unittest.TestCase):
@@ -55,13 +55,13 @@ class AnnotationAggregationBatchTests(unittest.TestCase):
                 reason="validated_native_output",
                 action="run",
                 reported_hits=int(hit),
-                evidence=dict(
-                    mapped_genes=[gene] if hit else [],
-                    accepted_genes=[gene] if hit else [],
-                    features={"ko": {gene: ["K00001"]}} if hit else {},
-                    definitions={},
-                    field_errors=[],
-                ),
+                evidence={
+                    "mapped_genes": [gene] if hit else [],
+                    "accepted_genes": [gene] if hit else [],
+                    "features": {"ko": {gene: ["K00001"]}} if hit else {},
+                    "definitions": {},
+                    "field_errors": [],
+                },
             )
             self.save_result(path, record)
         # A third sample retains individual native evidence alongside the batch.
@@ -72,35 +72,35 @@ class AnnotationAggregationBatchTests(unittest.TestCase):
         (path / "normalized").mkdir()
         (path / "normalized/evidence.tsv").write_text("gene_id\n")
         gene = proteins[0]["gene_id"]
-        record = dict(
-            schema_version=1,
-            tool="eggnog",
-            status="success",
-            accession="C",
-            input_id=bundle["input_id"],
-            input_proteins=1,
-            search={
+        record = {
+            "schema_version": 1,
+            "tool": "eggnog",
+            "status": "success",
+            "accession": "C",
+            "input_id": bundle["input_id"],
+            "input_proteins": 1,
+            "search": {
                 **{
                     key: bundle[key]
                     for key in ("input_id", "genetic_code", "source_genome_sha256")
                 },
                 "method": self.batch["search_method"],
             },
-            exit_code=0,
-            raw_files=inventory(path / "raw"),
-            normalized_files=inventory(path / "normalized"),
-            interpretation=interpretation,
-            reason="validated_native_output",
-            action="run",
-            reported_hits=1,
-            evidence=dict(
-                mapped_genes=[gene],
-                accepted_genes=[gene],
-                features={"ko": {gene: ["K00002"]}},
-                definitions={},
-                field_errors=[],
-            ),
-        )
+            "exit_code": 0,
+            "raw_files": inventory(path / "raw"),
+            "normalized_files": inventory(path / "normalized"),
+            "interpretation": interpretation,
+            "reason": "validated_native_output",
+            "action": "run",
+            "reported_hits": 1,
+            "evidence": {
+                "mapped_genes": [gene],
+                "accepted_genes": [gene],
+                "features": {"ko": {gene: ["K00002"]}},
+                "definitions": {},
+                "field_errors": [],
+            },
+        }
         self.save_result(path, record)
         self.results.append(path)
         self.save_plan()
@@ -108,16 +108,16 @@ class AnnotationAggregationBatchTests(unittest.TestCase):
     def save_result(self, path, record):
         record["search_fingerprint"] = identity(record["search"])
         record["normalization_fingerprint"] = identity(
-            dict(
-                search_fingerprint=record["search_fingerprint"],
-                interpretation=record["interpretation"],
-            )
+            {
+                "search_fingerprint": record["search_fingerprint"],
+                "interpretation": record["interpretation"],
+            }
         )
         record["method_id"] = identity(
-            dict(
-                search=record["search"]["method"],
-                interpretation=record["interpretation"],
-            )
+            {
+                "search": record["search"]["method"],
+                "interpretation": record["interpretation"],
+            }
         )
         self.fixture.save_result(path, record)
 
@@ -131,14 +131,14 @@ class AnnotationAggregationBatchTests(unittest.TestCase):
         tasks = []
         for accession in self.accessions:
             for tool in TOOLS:
-                task = dict(
-                    accession=accession,
-                    tool=tool,
-                    input_proteins=1,
-                    action="run" if tool == "eggnog" else "skip",
-                    status="planned" if tool == "eggnog" else "skipped_disabled",
-                    reason="fixture",
-                )
+                task = {
+                    "accession": accession,
+                    "tool": tool,
+                    "input_proteins": 1,
+                    "action": "run" if tool == "eggnog" else "skip",
+                    "status": "planned" if tool == "eggnog" else "skipped_disabled",
+                    "reason": "fixture",
+                }
                 if tool == "eggnog":
                     task.update(
                         {
@@ -151,23 +151,23 @@ class AnnotationAggregationBatchTests(unittest.TestCase):
                         }
                     )
                 tasks.append(task)
-        plan = dict(
-            schema_version=1,
-            accessions=self.accessions,
-            enabled_tools=["eggnog"],
-            tasks=tasks,
-        )
+        plan = {
+            "schema_version": 1,
+            "accessions": self.accessions,
+            "enabled_tools": ["eggnog"],
+            "tasks": tasks,
+        }
         plan["plan_id"] = identity(plan)
         write_json(self.plan_path, plan)
         write_tsv(
             self.master,
             ("Accession",),
-            [dict(Accession=acc) for acc in self.accessions],
+            [{"Accession": acc} for acc in self.accessions],
         )
         write_tsv(
             self.status,
             ("accession",),
-            [dict(accession=acc) for acc in reversed(self.accessions)],
+            [{"accession": acc} for acc in reversed(self.accessions)],
         )
 
     def aggregate(self, name, *, results=None, batches=None):
@@ -200,10 +200,10 @@ class AnnotationAggregationBatchTests(unittest.TestCase):
         self.assertEqual(
             manifest["native_batches"],
             {
-                batch_id: dict(
-                    path=f"annotation_batches/{batch_id}",
-                    batch_result_id=self.fixture.native_record["batch_result_id"],
-                ),
+                batch_id: {
+                    "path": f"annotation_batches/{batch_id}",
+                    "batch_result_id": self.fixture.native_record["batch_result_id"],
+                },
             },
         )
         self.assertNotIn(
@@ -242,7 +242,7 @@ class AnnotationAggregationBatchTests(unittest.TestCase):
         self.assertNotIn("native_batches", self.aggregate("individual", batches=[]))
         command = self.cli("individual-cli")
         write_json(self.root / "batch-list with spaces.json", [])
-        result = subprocess.run(command, capture_output=True, text=True)
+        result = subprocess.run(command, capture_output=True, text=True, check=False)
         self.assertEqual(result.returncode, 0, result.stderr)
         for path in (self.root / "individual").rglob("*"):
             if path.is_file():
@@ -316,7 +316,7 @@ class AnnotationAggregationBatchTests(unittest.TestCase):
         rows = read_tsv(
             self.root / "failed/tables/functional_matrices/eggnog_ko_counts.tsv"
         )
-        self.assertEqual(rows[0], dict(accession="B", K00001="NA", K00002="NA"))
+        self.assertEqual(rows[0], {"accession": "B", "K00001": "NA", "K00002": "NA"})
 
     def cli(self, output="cli"):
         command = [
@@ -349,7 +349,7 @@ class AnnotationAggregationBatchTests(unittest.TestCase):
     def test_cli_explicit_lists_match_api_and_reject_legacy_or_invalid_lists(self):
         self.aggregate("api")
         command = self.cli()
-        result = subprocess.run(command, capture_output=True, text=True)
+        result = subprocess.run(command, capture_output=True, text=True, check=False)
         self.assertEqual(result.returncode, 0, result.stderr)
         for path in (self.root / "api").rglob("*"):
             if path.is_file():
@@ -362,7 +362,10 @@ class AnnotationAggregationBatchTests(unittest.TestCase):
         for flag in ("--bundle", "--result", "--batch"):
             with self.subTest(flag=flag):
                 result = subprocess.run(
-                    command + [flag, "unused"], capture_output=True, text=True
+                    command + [flag, "unused"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
                 )
                 self.assertEqual(result.returncode, 2)
                 self.assertIn("unrecognized arguments", result.stderr)
@@ -370,14 +373,14 @@ class AnnotationAggregationBatchTests(unittest.TestCase):
         write_json(
             self.root / "batch-list with spaces.json", {"paths": [str(self.native)]}
         )
-        result = subprocess.run(command, capture_output=True, text=True)
+        result = subprocess.run(command, capture_output=True, text=True, check=False)
         self.assertEqual(result.returncode, 1)
         self.assertIn("Expected a JSON array", result.stderr)
         self.assertFalse((self.root / "invalid").exists())
         command = self.cli("required")
         index = command.index("--batch-list")
         del command[index : index + 2]
-        result = subprocess.run(command, capture_output=True, text=True)
+        result = subprocess.run(command, capture_output=True, text=True, check=False)
         self.assertEqual(result.returncode, 2)
         self.assertIn("--batch-list", result.stderr)
         self.assertFalse((self.root / "required").exists())

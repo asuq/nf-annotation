@@ -16,7 +16,7 @@ from annotation_common import digest, identity, read_json, write_json
 from annotation_resources import RESOURCE_FILE, file_records
 from annotation_result import inventory
 from eggnog_batches import prepare_batches
-from recover_eggnog_batch import ANNOTATION_FILES
+from eggnog_database import ANNOTATION_FILES
 
 
 class EggnogRecoveryTests(unittest.TestCase):

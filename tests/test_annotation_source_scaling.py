@@ -13,7 +13,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
 import test_annotation_aggregation_scaling as aggregation_fixture
 import test_annotation_source as source_fixture
-from annotation_workflow_fixture import aggregate_fixture as aggregate
 from annotation_common import (
     AnnotationError,
     identity,
@@ -23,6 +22,7 @@ from annotation_common import (
     write_tsv,
 )
 from annotation_source import source_rows, validate_source
+from annotation_workflow_fixture import aggregate_fixture as aggregate
 from annotation_workflow_fixture import refresh_tables
 
 
@@ -37,12 +37,12 @@ class AnnotationSourceScalingTests(unittest.TestCase):
         previous_limit = csv.field_size_limit()
         path = self.root / "quoted.tsv"
         expected = [
-            dict(
-                accession="A",
-                tool="eggnog",
-                status="success",
-                field_errors='A "quoted" field\twith tabs\nand newlines\n' * 6000,
-            )
+            {
+                "accession": "A",
+                "tool": "eggnog",
+                "status": "success",
+                "field_errors": 'A "quoted" field\twith tabs\nand newlines\n' * 6000,
+            }
         ]
         write_tsv(path, expected[0], expected)
         self.assertGreater(len(expected[0]["field_errors"]), previous_limit)
@@ -57,9 +57,12 @@ class AnnotationSourceScalingTests(unittest.TestCase):
             "accession\ttool\tstatus\t\n",
         ):
             path.write_text(value)
-            with self.subTest(value=value), self.assertRaises(AnnotationError):
-                with source_rows(path, ("accession", "tool", "status")) as (_, rows):
-                    list(rows)
+            with (
+                self.subTest(value=value),
+                self.assertRaises(AnnotationError),
+                source_rows(path, ("accession", "tool", "status")) as (_, rows),
+            ):
+                list(rows)
             self.assertEqual(csv.field_size_limit(), previous_limit)
 
     def test_duplicate_missing_foreign_and_malformed_status_grid_fail(self):
@@ -129,8 +132,8 @@ class AnnotationSourceScalingTests(unittest.TestCase):
             )
         # Both optional metadata tables can carry large quoted notes as well.
         note = 'Quoted "native" metadata\twith a\nsecond line\n' * 6000
-        for name in ("master_table.tsv", "sample_status.tsv"):
-            path = output / "tables" / name
+        for table_name in ("master_table.tsv", "sample_status.tsv"):
+            path = output / "tables" / table_name
             rows = read_tsv(path)
             for row in rows:
                 row["analysis_note"] = note
@@ -171,8 +174,8 @@ class AnnotationSourceScalingTests(unittest.TestCase):
         plan.pop("plan_id")
         plan["plan_id"] = identity(plan)
         write_json(args[0], plan)
-        write_tsv(args[1], ("Accession", "Gcode"), [dict(Accession="S00", Gcode=4)])
-        write_tsv(args[2], ("accession",), [dict(accession="S00")])
+        write_tsv(args[1], ("Accession", "Gcode"), [{"Accession": "S00", "Gcode": 4}])
+        write_tsv(args[2], ("accession",), [{"accession": "S00"}])
         one = self.publish((*args[:3], args[3][:1], args[4][:1]), "one-source")
         one_peak = self.peak_validation(one)
         many_peak = self.peak_validation(many)

@@ -10,8 +10,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
 from annotation_resources import AnnotationResourceError, prepare_eggnog, run
-from eggnogmapper.annotator.e7.annotate import AnnotationEngine
-from eggnogmapper.annotator.e7.db import EggnogDB
+from eggnogmapper.annotator.e7.annotate import (  # ty: ignore[unresolved-import]  # Provided by the pinned native image.
+    AnnotationEngine,
+)
+from eggnogmapper.annotator.e7.db import (  # ty: ignore[unresolved-import]  # Provided by the pinned native image.
+    EggnogDB,
+)
 
 
 def main():
