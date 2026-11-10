@@ -5,9 +5,10 @@ import hashlib
 import json
 import shutil
 from pathlib import Path
-import fastaai.fastaai as native
+
+import fastaai.fastaai as native  # ty: ignore[unresolved-import]  # Provided by the pinned native image.
 import numpy
-import pyhmmer
+import pyhmmer  # ty: ignore[unresolved-import]  # Provided by the pinned native image.
 
 path = Path(native.__file__)
 original = path.read_text()
@@ -45,21 +46,21 @@ path.write_text("".join(lines))
 writer = Path("/opt/nf-annotation/provenance/native_binary_export.py")
 shutil.copyfile(writer, path.with_name("binary_export.py"))
 models = Path(native.find_hmm())
-record = dict(
-    upstream_commit="3b4904a223590f8227e9c791b6b7ed6a09c67757",
-    native_version="0.1.17",
-    environment_sha256=hashlib.sha256(
+record = {
+    "upstream_commit": "3b4904a223590f8227e9c791b6b7ed6a09c67757",
+    "native_version": "0.1.17",
+    "environment_sha256": hashlib.sha256(
         Path("/opt/nf-annotation/fastaai/pixi.lock").read_bytes()
     ).hexdigest(),
-    numpy=numpy.__version__,
-    pyhmmer=pyhmmer.__version__,
-    source_sha256=hashlib.sha256(original.encode()).hexdigest(),
-    export_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
-    export_writer_sha256=hashlib.sha256(writer.read_bytes()).hexdigest(),
-    hmm_sha256=hashlib.sha256(models.read_bytes()).hexdigest(),
-    models=str(models),
-    export="native_condensed_v1",
-)
+    "numpy": numpy.__version__,
+    "pyhmmer": pyhmmer.__version__,
+    "source_sha256": hashlib.sha256(original.encode()).hexdigest(),
+    "export_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+    "export_writer_sha256": hashlib.sha256(writer.read_bytes()).hexdigest(),
+    "hmm_sha256": hashlib.sha256(models.read_bytes()).hexdigest(),
+    "models": str(models),
+    "export": "native_condensed_v1",
+}
 Path("/opt/nf-annotation/provenance/fastaai.json").write_text(
     json.dumps(record, sort_keys=True, indent=2) + "\n"
 )

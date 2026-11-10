@@ -11,15 +11,24 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from eggnogmapper.annotation import output
-from eggnogmapper.annotator.e7 import annotate
-from eggnogmapper.go_namespace_export import FIELDS, KEY, write_row
+from eggnogmapper.annotation import (  # ty: ignore[unresolved-import]  # Provided by the pinned native image.
+    output,
+)
+from eggnogmapper.annotator.e7 import (  # ty: ignore[unresolved-import]  # Provided by the pinned native image.
+    annotate,
+)
+from eggnogmapper.go_namespace_export import (  # ty: ignore[unresolved-import]  # Provided by the pinned native image.
+    FIELDS,
+    KEY,
+    write_row,
+)
 
 
 def load_original(name, filename):
     spec = importlib.util.spec_from_file_location(
         name, Path("/opt/nf-annotation/provenance") / filename
     )
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
     spec.loader.exec_module(module)

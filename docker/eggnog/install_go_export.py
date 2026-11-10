@@ -6,7 +6,7 @@ import json
 import shutil
 from pathlib import Path
 
-import eggnogmapper
+import eggnogmapper  # ty: ignore[unresolved-import]  # Provided by the pinned native image.
 
 
 def replace_once(source: str, old: str, new: str) -> str:

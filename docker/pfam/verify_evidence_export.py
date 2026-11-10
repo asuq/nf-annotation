@@ -11,7 +11,9 @@ from pathlib import Path
 
 
 def run(command, **kwargs):
-    result = subprocess.run(command, text=True, capture_output=True, **kwargs)
+    result = subprocess.run(
+        command, text=True, capture_output=True, **kwargs, check=False
+    )
     if result.returncode:
         raise RuntimeError(
             f"Command failed ({result.returncode}): {command}\n{result.stdout}\n{result.stderr}"

@@ -1,6 +1,7 @@
 """Serialize native all-versus-all results without text or duplicate pair records."""
 
 from pathlib import Path
+
 import numpy as np
 
 
