@@ -7,7 +7,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "bin"))
 
@@ -16,6 +15,27 @@ import finalise_runtime_database as finalise_module
 
 class FinaliseRuntimeDatabaseTestCase(unittest.TestCase):
     """Lock the runtime database finaliser contract."""
+
+    def test_reuse_of_missing_database_fails_explicitly(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            args = finalise_module.parse_args(
+                [
+                    "--component",
+                    "padloc",
+                    "--destination",
+                    str(root / "missing"),
+                    "--report",
+                    str(root / "report.tsv"),
+                    "--mode",
+                    "reuse",
+                ]
+            )
+            with self.assertRaisesRegex(
+                finalise_module.PrepareRuntimeDatabasesError, "valid prepared database"
+            ):
+                finalise_module.finalise_runtime_database(args)
+            self.assertFalse((root / "missing").exists())
 
     def test_prepared_mode_alias_writes_one_new_marker(self) -> None:
         """Accept the native download prep-mode token and treat it as a fresh write."""

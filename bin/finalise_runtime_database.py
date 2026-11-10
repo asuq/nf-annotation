@@ -6,8 +6,8 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from prepare_runtime_databases import (
     PreparationRecord,
@@ -23,7 +23,6 @@ from prepare_runtime_databases import (
     write_marker,
     write_report,
 )
-
 
 LOGGER = logging.getLogger(__name__)
 
@@ -110,6 +109,10 @@ def finalise_runtime_database(args: argparse.Namespace) -> PreparationRecord:
             destination=destination,
             validator=validator,
         )
+        if validation is None:
+            raise PrepareRuntimeDatabasesError(
+                "Reuse requires a valid prepared database"
+            )
         return PreparationRecord(
             component=args.component,
             status="present",
