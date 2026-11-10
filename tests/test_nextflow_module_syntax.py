@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MODULES_DIR = ROOT / "modules" / "local"
 SUBWORKFLOWS_DIR = ROOT / "subworkflows" / "local"
-RAW_COMMAND_SUBSTITUTION = re.compile(r'(?<!\\)\$\(')
+RAW_COMMAND_SUBSTITUTION = re.compile(r"(?<!\\)\$\(")
 ARITY_SENSITIVE_OPERATOR_CLOSURE = re.compile(
     r"\.(?:map|flatMap|filter)\s*\{\s*[A-Za-z_][A-Za-z0-9_]*\s*,"
 )
@@ -30,7 +30,9 @@ SOFT_FAIL_RETRY_MARKERS = {
 def find_raw_command_substitutions(path: Path) -> list[str]:
     """Return line-numbered raw shell substitutions that would break parsing."""
     matches: list[str] = []
-    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+    for line_number, line in enumerate(
+        path.read_text(encoding="utf-8").splitlines(), start=1
+    ):
         if RAW_COMMAND_SUBSTITUTION.search(line):
             matches.append(f"{path.relative_to(ROOT)}:{line_number}:{line.strip()}")
     return matches
@@ -92,8 +94,13 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         workflow_path = ROOT / "subworkflows" / "local" / "per_sample_qc.nf"
         workflow_text = workflow_path.read_text(encoding="utf-8")
 
-        self.assertIn("checkm2_gcode4_reports = CHECKM2_GCODE4.out.quality_report", workflow_text)
-        self.assertIn("checkm2_gcode11_reports = CHECKM2_GCODE11.out.quality_report", workflow_text)
+        self.assertIn(
+            "checkm2_gcode4_reports = CHECKM2_GCODE4.out.quality_report", workflow_text
+        )
+        self.assertIn(
+            "checkm2_gcode11_reports = CHECKM2_GCODE11.out.quality_report",
+            workflow_text,
+        )
         self.assertIn("tuple(meta.accession, meta, report)", workflow_text)
         self.assertIn("tuple(meta.accession, report)", workflow_text)
         self.assertIn(".join(checkm2_gcode11_reports)", workflow_text)
@@ -109,10 +116,12 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertIn('dmnd_candidates=("\\${database_path}"/*.dmnd)', module_text)
         self.assertIn('--database_path "\\${database_path}"', module_text)
         self.assertIn('max_attempts="${params.soft_fail_attempts}"', module_text)
-        self.assertIn('while (( attempt <= max_attempts ))', module_text)
+        self.assertIn("while (( attempt <= max_attempts ))", module_text)
         self.assertIn("retrying_checkm2", module_text)
 
-    def test_runtime_database_dirs_are_staged_into_checkm2_codetta_and_eggnog(self) -> None:
+    def test_runtime_database_dirs_are_staged_into_checkm2_codetta_and_eggnog(
+        self,
+    ) -> None:
         """Require external database directories to enter runtime modules as path inputs."""
         main_text = (ROOT / "main.nf").read_text(encoding="utf-8")
         per_sample_qc_text = (
@@ -130,24 +139,39 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertIn("checkm2Db,", main_text)
         self.assertIn("PER_SAMPLE_ANNOTATION(", main_text)
         self.assertIn("codettaDb,", main_text)
-        self.assertIn("take:\n    sample_genomes\n    checkm2_db\n    busco_datasets", per_sample_qc_text)
+        self.assertIn(
+            "take:\n    sample_genomes\n    checkm2_db\n    busco_datasets",
+            per_sample_qc_text,
+        )
         self.assertIn(".combine(checkm2_db)", per_sample_qc_text)
         self.assertIn(
             "take:\n    sample_genomes\n    gcode_summaries\n    codetta_db",
             per_sample_annotation_text,
         )
-        self.assertIn("CODETTA(sample_genomes.combine(codetta_db))", per_sample_annotation_text)
-        self.assertIn("SUMMARISE_CODETTA(CODETTA.out.summary_input)", per_sample_annotation_text)
-        self.assertIn("tuple val(meta), path(genome), path(codetta_db, name: 'codetta_db')", codetta_text)
+        self.assertIn(
+            "CODETTA(sample_genomes.combine(codetta_db))", per_sample_annotation_text
+        )
+        self.assertIn(
+            "SUMMARISE_CODETTA(CODETTA.out.summary_input)", per_sample_annotation_text
+        )
+        self.assertIn(
+            "tuple val(meta), path(genome), path(codetta_db, name: 'codetta_db')",
+            codetta_text,
+        )
         self.assertIn('{ "${params.outdir}/samples/${meta.accession}" }', codetta_text)
-        self.assertIn('cp -R "${codetta_db}/". "\\${resource_directory}/"', codetta_text)
+        self.assertIn(
+            'cp -R "${codetta_db}/". "\\${resource_directory}/"', codetta_text
+        )
 
     def test_summarise_busco_emits_lineage_specific_summary_names(self) -> None:
         """Require unique BUSCO summary filenames per lineage."""
         module_path = MODULES_DIR / "summarise_busco.nf"
         module_text = module_path.read_text(encoding="utf-8")
 
-        self.assertIn('{ "${params.outdir}/samples/${meta.accession}/busco/${lineage}" }', module_text)
+        self.assertIn(
+            '{ "${params.outdir}/samples/${meta.accession}/busco/${lineage}" }',
+            module_text,
+        )
         self.assertIn('path("busco_summary_${lineage}.tsv")', module_text)
         self.assertIn('--output "busco_summary_${lineage}.tsv"', module_text)
 
@@ -170,11 +194,15 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
             "tuple val(lineage), path(download_parent), val(download_name)",
             module_text,
         )
-        self.assertIn('download_root="${download_parent}/${download_name}"', module_text)
+        self.assertIn(
+            'download_root="${download_parent}/${download_name}"', module_text
+        )
         self.assertIn('mkdir -p "\\${download_root}"', module_text)
         self.assertIn('--download_path "\\${download_root}"', module_text)
         self.assertIn('dataset_dir="\\${download_root}/${lineage}"', module_text)
-        self.assertIn('dataset_dir="\\${download_root}/lineages/${lineage}"', module_text)
+        self.assertIn(
+            'dataset_dir="\\${download_root}/lineages/${lineage}"', module_text
+        )
 
     def test_busco_dataset_prep_reuses_stub_datasets_for_custom_lineages(self) -> None:
         """Require stub runs to tolerate custom BUSCO lineage names."""
@@ -187,7 +215,9 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertIn("&& !new File(datasetPath).exists()", workflow_text)
         self.assertIn("datasetPath = stubDatasetFallback", workflow_text)
 
-    def test_busco_dataset_prep_downloads_only_missing_lineages_when_enabled(self) -> None:
+    def test_busco_dataset_prep_downloads_only_missing_lineages_when_enabled(
+        self,
+    ) -> None:
         """Require main BUSCO prep to mix reused and downloaded lineage datasets."""
         workflow_text = (
             ROOT / "subworkflows" / "local" / "busco_dataset_prep.nf"
@@ -201,8 +231,14 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertIn("def buildMountedDownloadTarget = { rawRoot ->", workflow_text)
         self.assertIn("parentFile.mkdirs()", workflow_text)
         self.assertIn("file(parentFile.absolutePath)", workflow_text)
-        self.assertIn('def downloadRootValue = params.busco_db ?: "${params.outdir}/resources/busco"', workflow_text)
-        self.assertIn("def mountedDownloadTarget = buildMountedDownloadTarget.call(downloadRootValue)", workflow_text)
+        self.assertIn(
+            'def downloadRootValue = params.busco_db ?: "${params.outdir}/resources/busco"',
+            workflow_text,
+        )
+        self.assertIn(
+            "def mountedDownloadTarget = buildMountedDownloadTarget.call(downloadRootValue)",
+            workflow_text,
+        )
         self.assertIn("reusableLineages = lineages.filter { lineage ->", workflow_text)
         self.assertIn("downloadLineages = lineages.filter { lineage ->", workflow_text)
         self.assertIn(
@@ -233,8 +269,12 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         """Require Barrnap to stay tool-only and publish just its raw outputs."""
         module_text = (MODULES_DIR / "barrnap.nf").read_text(encoding="utf-8")
 
-        self.assertIn('{ "${params.outdir}/samples/${meta.accession}/barrnap" }', module_text)
-        self.assertNotIn('{ "${params.outdir}/samples/${meta.accession}/16s" }', module_text)
+        self.assertIn(
+            '{ "${params.outdir}/samples/${meta.accession}/barrnap" }', module_text
+        )
+        self.assertNotIn(
+            '{ "${params.outdir}/samples/${meta.accession}/16s" }', module_text
+        )
         self.assertNotIn("filename in ['16S_status.tsv', 'best_16S.fna']", module_text)
         self.assertNotIn("emit: sixteen_s_summaries", module_text)
         self.assertNotIn("summarise_16s.py", module_text)
@@ -244,20 +284,31 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         """Require the Python helper module to publish the 16S summary artefacts."""
         module_text = (MODULES_DIR / "summarise_16s.nf").read_text(encoding="utf-8")
 
-        self.assertIn('{ "${params.outdir}/samples/${meta.accession}/16s" }', module_text)
-        self.assertIn("tuple val(meta), path(rrna_gff), path(rrna_fasta), path(barrnap_log)", module_text)
+        self.assertIn(
+            '{ "${params.outdir}/samples/${meta.accession}/16s" }', module_text
+        )
+        self.assertIn(
+            "tuple val(meta), path(rrna_gff), path(rrna_fasta), path(barrnap_log)",
+            module_text,
+        )
         self.assertIn(
             'tuple val(meta), path("${meta.internal_id}_best_16S.fna"), path("${meta.internal_id}_16S_status.tsv"), emit: summaries',
             module_text,
         )
-        self.assertIn('if (filename == "${meta.internal_id}_best_16S.fna") {', module_text)
+        self.assertIn(
+            'if (filename == "${meta.internal_id}_best_16S.fna") {', module_text
+        )
         self.assertIn("return 'best_16S.fna'", module_text)
-        self.assertIn('if (filename == "${meta.internal_id}_16S_status.tsv") {', module_text)
+        self.assertIn(
+            'if (filename == "${meta.internal_id}_16S_status.tsv") {', module_text
+        )
         self.assertIn("return '16S_status.tsv'", module_text)
         self.assertIn("return null", module_text)
-        self.assertIn('summarise_16s.py \\', module_text)
+        self.assertIn("summarise_16s.py \\", module_text)
         self.assertIn('cp best_16S.fna "${meta.internal_id}_best_16S.fna"', module_text)
-        self.assertIn('cp 16S_status.tsv "${meta.internal_id}_16S_status.tsv"', module_text)
+        self.assertIn(
+            'cp 16S_status.tsv "${meta.internal_id}_16S_status.tsv"', module_text
+        )
 
     def test_build_cohort_16s_exposes_stable_cohort_outputs(self) -> None:
         """Require the cohort 16S builder to emit the design-spec artefacts."""
@@ -268,14 +319,18 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertIn("path status_tables, stageAs: 'summaries/*'", module_text)
         self.assertIn("path qc_tables, stageAs: 'qc/*'", module_text)
         self.assertIn("path metadata", module_text)
-        self.assertIn('build_all_cohort_16s.py', module_text)
-        self.assertIn('--statuses status_paths.list0 --qc-dir qc', module_text)
+        self.assertIn("build_all_cohort_16s.py", module_text)
+        self.assertIn("--statuses status_paths.list0 --qc-dir qc", module_text)
         self.assertIn('--metadata "${metadata}"', module_text)
-        self.assertNotIn('for status_table', module_text)
+        self.assertNotIn("for status_table", module_text)
         self.assertIn("path 'all_best_16S.fna', emit: best_fasta", module_text)
-        self.assertIn("path 'all_best_16S_manifest.tsv', emit: best_manifest", module_text)
+        self.assertIn(
+            "path 'all_best_16S_manifest.tsv', emit: best_manifest", module_text
+        )
         self.assertIn("path 'all_partial_16S.fna', emit: partial_fasta", module_text)
-        self.assertIn("path 'all_partial_16S_manifest.tsv', emit: partial_manifest", module_text)
+        self.assertIn(
+            "path 'all_partial_16S_manifest.tsv', emit: partial_manifest", module_text
+        )
         self.assertIn(
             "path 'low_quality_best_16S.fna', emit: low_quality_best_fasta",
             module_text,
@@ -295,21 +350,28 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
             ),
             module_text,
         )
-        self.assertIn('python_version="\\$(python3 --version 2>&1 | sed \'s/^Python //\')"', module_text)
-        self.assertIn("printf '\"%s\":\\n  python: \"%s\"\\n  script: \"%s\"\\n' \\", module_text)
-        self.assertNotIn('cat <<EOF > versions.yml', module_text)
+        self.assertIn(
+            "python_version=\"\\$(python3 --version 2>&1 | sed 's/^Python //')\"",
+            module_text,
+        )
+        self.assertIn(
+            'printf \'"%s":\\n  python: "%s"\\n  script: "%s"\\n\' \\', module_text
+        )
+        self.assertNotIn("cat <<EOF > versions.yml", module_text)
 
     def test_cohort_16s_builds_outputs_from_per_sample_summaries(self) -> None:
         """Require the cohort 16S workflow to collect per-sample summaries."""
         workflow_text = (ROOT / "subworkflows" / "local" / "cohort_16s.nf").read_text(
             encoding="utf-8"
         )
-        per_sample_qc_text = (ROOT / "subworkflows" / "local" / "per_sample_qc.nf").read_text(
-            encoding="utf-8"
-        )
+        per_sample_qc_text = (
+            ROOT / "subworkflows" / "local" / "per_sample_qc.nf"
+        ).read_text(encoding="utf-8")
         main_text = (ROOT / "main.nf").read_text(encoding="utf-8")
 
-        self.assertIn("take:\n    sixteen_s_summaries\n    gcode_qc\n    metadata", workflow_text)
+        self.assertIn(
+            "take:\n    sixteen_s_summaries\n    gcode_qc\n    metadata", workflow_text
+        )
         self.assertIn("include { BUILD_COHORT_16S }", workflow_text)
         self.assertIn("collected_best_16s = sixteen_s_summaries", workflow_text)
         self.assertIn("collected_status_tables = sixteen_s_summaries", workflow_text)
@@ -320,13 +382,15 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertIn("BUILD_COHORT_16S(", workflow_text)
         self.assertIn("include { SUMMARISE_16S }", per_sample_qc_text)
         self.assertIn("SUMMARISE_16S(BARRNAP.out.results)", per_sample_qc_text)
-        self.assertIn("sixteen_s_summaries = SUMMARISE_16S.out.summaries", per_sample_qc_text)
+        self.assertIn(
+            "sixteen_s_summaries = SUMMARISE_16S.out.summaries", per_sample_qc_text
+        )
         self.assertIn(
             "gcode_qc_for_cohort_16s = ASSIGN_GCODE_AND_QC.out.cohort_summary",
             per_sample_qc_text,
         )
         self.assertIn(
-            'metadata = Channel.value(file(params.metadata, checkIfExists: true))',
+            "metadata = Channel.value(file(params.metadata, checkIfExists: true))",
             main_text,
         )
         self.assertIn("COHORT_16S(", main_text)
@@ -344,7 +408,9 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         module_path = MODULES_DIR / "download_busco_dataset.nf"
         module_text = module_path.read_text(encoding="utf-8")
 
-        self.assertIn('tuple val(lineage), path("${lineage}"), emit: dataset', module_text)
+        self.assertIn(
+            'tuple val(lineage), path("${lineage}"), emit: dataset', module_text
+        )
         self.assertIn('ln -s "\\${dataset_dir}" "${lineage}"', module_text)
 
     def test_busco_stages_offline_datasets_under_download_root(self) -> None:
@@ -353,24 +419,33 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         module_text = module_path.read_text(encoding="utf-8")
 
         self.assertIn('busco_download_root="busco_downloads"', module_text)
-        self.assertIn('staged_lineage_dir="\\${busco_download_root}/lineages/${lineage}"', module_text)
+        self.assertIn(
+            'staged_lineage_dir="\\${busco_download_root}/lineages/${lineage}"',
+            module_text,
+        )
         self.assertIn('dataset_source="\\$(cd "${dataset_dir}" && pwd)"', module_text)
-        self.assertIn('ln -s "\\${dataset_source}" "\\${staged_lineage_dir}"', module_text)
+        self.assertIn(
+            'ln -s "\\${dataset_source}" "\\${staged_lineage_dir}"', module_text
+        )
         self.assertIn('--download_path "\\${busco_download_root}"', module_text)
         self.assertIn('--lineage_dataset "${lineage}"', module_text)
-        self.assertIn('--offline', module_text)
-        self.assertNotRegex(module_text, r'--(?:download|update-data)(?:\s|=)')
+        self.assertIn("--offline", module_text)
+        self.assertNotRegex(module_text, r"--(?:download|update-data)(?:\s|=)")
         self.assertIn('max_attempts="${params.soft_fail_attempts}"', module_text)
-        self.assertIn('while (( attempt <= max_attempts ))', module_text)
-        self.assertIn('retrying_busco', module_text)
+        self.assertIn("while (( attempt <= max_attempts ))", module_text)
+        self.assertIn("retrying_busco", module_text)
 
     def test_soft_fail_modules_use_internal_retry_knob(self) -> None:
         """Require soft-fail runtime modules to use the shared internal retry knob."""
         for module_name, retry_marker in SOFT_FAIL_RETRY_MARKERS.items():
             module_text = (MODULES_DIR / module_name).read_text(encoding="utf-8")
 
-            self.assertIn('max_attempts="${params.soft_fail_attempts}"', module_text, module_name)
-            self.assertIn('while (( attempt <= max_attempts ))', module_text, module_name)
+            self.assertIn(
+                'max_attempts="${params.soft_fail_attempts}"', module_text, module_name
+            )
+            self.assertIn(
+                "while (( attempt <= max_attempts ))", module_text, module_name
+            )
             self.assertIn(retry_marker, module_text, module_name)
 
     def test_busco_consumers_stage_unique_summary_names(self) -> None:
@@ -403,14 +478,17 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
             encoding="utf-8"
         )
 
-        self.assertIn("CALCULATE_ASSEMBLY_STATS(staged_manifest, staged_fasta_files)", cohort_workflow)
+        self.assertIn(
+            "CALCULATE_ASSEMBLY_STATS(staged_manifest, staged_fasta_files)",
+            cohort_workflow,
+        )
         self.assertIn("CALCULATE_ASSEMBLY_STATS.out.stats", cohort_workflow)
         self.assertIn("path assembly_stats", build_fastani_module)
-        self.assertIn("--assembly-stats \"${assembly_stats}\"", build_fastani_module)
+        self.assertIn('--assembly-stats "${assembly_stats}"', build_fastani_module)
         self.assertIn("path assembly_stats", build_master_module)
-        self.assertIn("--assembly-stats \"${assembly_stats}\"", build_master_module)
+        self.assertIn('--assembly-stats "${assembly_stats}"', build_master_module)
         self.assertIn("path assembly_stats", write_status_module)
-        self.assertIn("--assembly-stats \"${assembly_stats}\"", write_status_module)
+        self.assertIn('--assembly-stats "${assembly_stats}"', write_status_module)
         self.assertIn("assembly_stats", final_outputs_workflow)
 
     def test_write_sample_status_runs_helper_via_python3(self) -> None:
@@ -419,12 +497,16 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         module_text = module_path.read_text(encoding="utf-8")
 
         self.assertIn("path initial_status, name: 'initial_status.tsv'", module_text)
-        self.assertIn('script_path="\\$(command -v build_sample_status.py)"', module_text)
+        self.assertIn(
+            'script_path="\\$(command -v build_sample_status.py)"', module_text
+        )
         self.assertIn('python3 "\\${script_path}"', module_text)
 
     def test_resume_safe_collectors_and_consumers_use_stable_inputs(self) -> None:
         """Require resume-sensitive collectors and consumers to avoid hash drift."""
-        stage_inputs_text = (MODULES_DIR / "stage_inputs.nf").read_text(encoding="utf-8")
+        stage_inputs_text = (MODULES_DIR / "stage_inputs.nf").read_text(
+            encoding="utf-8"
+        )
         assembly_stats_text = (MODULES_DIR / "calculate_assembly_stats.nf").read_text(
             encoding="utf-8"
         )
@@ -458,7 +540,9 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
             self.assertIn("cache 'deep'", module_text)
 
         self.assertNotIn("import java.nio.file.Path", input_staging_text)
-        self.assertIn("java.nio.file.Path.of(row.genome_fasta).toRealPath()", input_staging_text)
+        self.assertIn(
+            "java.nio.file.Path.of(row.genome_fasta).toRealPath()", input_staging_text
+        )
         self.assertIn("finalOutputsCollectDir = file(", final_outputs_text)
         self.assertIn("workflow.sessionId", final_outputs_text)
         self.assertIn("storeDir: finalOutputsCollectDir", final_outputs_text)
@@ -466,7 +550,9 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
             "files.toList().sort { versionFile -> versionFile.toString() }",
             final_outputs_text,
         )
-        self.assertIn("unpackTuple.call(item, 'checkm2_summaries', 2)", final_outputs_text)
+        self.assertIn(
+            "unpackTuple.call(item, 'checkm2_summaries', 2)", final_outputs_text
+        )
         self.assertIn("unpackTuple.call(item, 'prokka_results', 6)", final_outputs_text)
         self.assertIn("def log = values[5]", final_outputs_text)
         self.assertIn(
@@ -484,7 +570,9 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         module_path = MODULES_DIR / "collect_versions.nf"
         module_text = module_path.read_text(encoding="utf-8")
 
-        self.assertIn("path version_files, stageAs: 'version_files/versions??.yml'", module_text)
+        self.assertIn(
+            "path version_files, stageAs: 'version_files/versions??.yml'", module_text
+        )
         self.assertIn('script_path="\\$(command -v collect_versions.py)"', module_text)
         self.assertIn('python3 "\\${script_path}"', module_text)
         self.assertIn("--version-dir version_files", module_text)
@@ -498,7 +586,9 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertIn('script_path="\\$(command -v summarise_codetta.py)"', module_text)
         self.assertIn('python3 "\\${script_path}"', module_text)
 
-    def test_validate_inputs_derives_sample_status_columns_from_busco_lineages(self) -> None:
+    def test_validate_inputs_derives_sample_status_columns_from_busco_lineages(
+        self,
+    ) -> None:
         """Require input validation to pass BUSCO lineages directly to the CLI."""
         module_text = (MODULES_DIR / "validate_inputs.nf").read_text(encoding="utf-8")
         workflow_text = (
@@ -510,20 +600,25 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertIn('--busco-lineage \\"${it}\\"', module_text)
         self.assertNotIn("--sample-status-columns", module_text)
         self.assertIn("--defer-genome-fasta-check", module_text)
-        self.assertIn('--genome-base-dir=${Shell.quote(workflow.launchDir)}', module_text)
+        self.assertIn(
+            "--genome-base-dir=${Shell.quote(workflow.launchDir)}", module_text
+        )
         self.assertIn("busco_lineages", workflow_text)
         self.assertNotIn("sample_status_columns", workflow_text)
         self.assertNotIn("BUILD_OUTPUT_CONTRACTS", main_text)
         self.assertIn("def normaliseBuscoLineages = { rawValue ->", main_text)
         self.assertIn("collectMany { it.toString().split(',') as List }", main_text)
-        self.assertIn("buscoLineagesList = SamplePolicy.lineages(params, params.busco_domain_lineages ? [] : normaliseBuscoLineages.call(params.busco_lineages))", main_text)
+        self.assertIn(
+            "buscoLineagesList = SamplePolicy.lineages(params, params.busco_domain_lineages ? [] : normaliseBuscoLineages.call(params.busco_lineages))",
+            main_text,
+        )
         self.assertIn("Channel.value(buscoLineagesList)", main_text)
 
     def test_final_outputs_pass_busco_lineages_to_reporting_modules(self) -> None:
         """Require final reporting to derive BUSCO contracts inside existing CLIs."""
-        workflow_text = (ROOT / "subworkflows" / "local" / "final_outputs.nf").read_text(
-            encoding="utf-8"
-        )
+        workflow_text = (
+            ROOT / "subworkflows" / "local" / "final_outputs.nf"
+        ).read_text(encoding="utf-8")
         main_text = (ROOT / "main.nf").read_text(encoding="utf-8")
         build_master_module = (MODULES_DIR / "build_master_table.nf").read_text(
             encoding="utf-8"
@@ -568,7 +663,9 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
 
     def test_build_fastani_inputs_uses_canonical_primary_busco_column(self) -> None:
         """Require ANI prep and its stub to use the normalised primary BUSCO column."""
-        module_text = (MODULES_DIR / "build_fastani_inputs.nf").read_text(encoding="utf-8")
+        module_text = (MODULES_DIR / "build_fastani_inputs.nf").read_text(
+            encoding="utf-8"
+        )
         workflow_text = (ROOT / "subworkflows" / "local" / "cohort_ani.nf").read_text(
             encoding="utf-8"
         )
@@ -632,7 +729,9 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertIn("/^Version:/ { print \\$2; exit }", module_text)
         self.assertIn('seqtk_version="\\${seqtk_version:-NA}"', module_text)
 
-    def test_calculate_assembly_stats_extracts_seqtk_version_from_version_line(self) -> None:
+    def test_calculate_assembly_stats_extracts_seqtk_version_from_version_line(
+        self,
+    ) -> None:
         """Require assembly-stats provenance to use the same stable seqtk probe."""
         module_text = (MODULES_DIR / "calculate_assembly_stats.nf").read_text(
             encoding="utf-8"
@@ -647,46 +746,63 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         """Require the Barrnap probe to avoid its leading program-name line."""
         module_text = (MODULES_DIR / "barrnap.nf").read_text(encoding="utf-8")
 
-        self.assertIn("awk 'NF { value=\\$0 } END { if (value) print value }'", module_text)
+        self.assertIn(
+            "awk 'NF { value=\\$0 } END { if (value) print value }'", module_text
+        )
 
     def test_busco_uses_the_last_non_blank_version_line(self) -> None:
         """Require the BUSCO probe to avoid its leading program-name line."""
         module_text = (MODULES_DIR / "busco.nf").read_text(encoding="utf-8")
 
-        self.assertIn("awk 'NF { value=\\$0 } END { if (value) print value }'", module_text)
+        self.assertIn(
+            "awk 'NF { value=\\$0 } END { if (value) print value }'", module_text
+        )
         self.assertIn('busco_version="\\${busco_version:-NA}"', module_text)
 
     def test_prokka_uses_the_last_non_blank_version_line(self) -> None:
         """Require the Prokka probe to avoid its leading program-name line."""
         module_text = (MODULES_DIR / "prokka.nf").read_text(encoding="utf-8")
 
-        self.assertIn("awk 'NF { value=\\$0 } END { if (value) print value }'", module_text)
+        self.assertIn(
+            "awk 'NF { value=\\$0 } END { if (value) print value }'", module_text
+        )
         self.assertIn('prokka_version="\\${prokka_version:-NA}"', module_text)
 
-    def test_fastani_fails_early_on_empty_matrix_without_module_level_stage_copy(self) -> None:
+    def test_fastani_fails_early_on_empty_matrix_without_module_level_stage_copy(
+        self,
+    ) -> None:
         """Require FastANI to keep the early matrix guards and defer stage-copy policy to config."""
         module_text = (MODULES_DIR / "fastani.nf").read_text(encoding="utf-8")
 
         self.assertNotIn("stageInMode 'copy'", module_text)
         self.assertIn("grep -q 'Could not open ' fastani.log", module_text)
-        self.assertIn('if [[ -s "${fastani_paths}" && ! -s fastani.matrix ]]; then', module_text)
-        self.assertIn('FastANI did not produce a matrix for a non-empty input list.', module_text)
+        self.assertIn(
+            'if [[ -s "${fastani_paths}" && ! -s fastani.matrix ]]; then', module_text
+        )
+        self.assertIn(
+            "FastANI did not produce a matrix for a non-empty input list.", module_text
+        )
 
     def test_build_fastani_inputs_publishes_only_metadata_side_products(self) -> None:
         """Require the ANI prep publisher to exclude the staged FASTA directory."""
-        module_text = (MODULES_DIR / "build_fastani_inputs.nf").read_text(encoding="utf-8")
+        module_text = (MODULES_DIR / "build_fastani_inputs.nf").read_text(
+            encoding="utf-8"
+        )
 
-        self.assertIn("filename in ['ani_metadata.tsv', 'ani_exclusions.tsv', 'fastani_paths.txt']", module_text)
+        self.assertIn(
+            "filename in ['ani_metadata.tsv', 'ani_exclusions.tsv', 'fastani_paths.txt']",
+            module_text,
+        )
         self.assertNotIn("filename == 'fastani_inputs'", module_text)
 
     def test_select_ani_representatives_publishes_ani_summary(self) -> None:
         """Require the final ANI summary table to be published for master-table joins."""
-        module_text = (MODULES_DIR / "cluster_ani.nf").read_text(
-            encoding="utf-8"
-        )
+        module_text = (MODULES_DIR / "cluster_ani.nf").read_text(encoding="utf-8")
 
         self.assertIn("path 'ani_summary.tsv', emit: summary", module_text)
-        self.assertIn("path 'ani_representatives.tsv', emit: representatives", module_text)
+        self.assertIn(
+            "path 'ani_representatives.tsv', emit: representatives", module_text
+        )
 
     def test_ccfinder_extracts_a_numeric_version_from_verbose_output(self) -> None:
         """Require CRISPRCasFinder provenance to store a clean version token."""
@@ -704,7 +820,9 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         module_text = module_path.read_text(encoding="utf-8")
 
         self.assertNotIn('-cf "\\${ccfinder_root}/CasFinder-2.0.3" \\', module_text)
-        self.assertNotIn('-CASFinder "\\${ccfinder_root}/CasFinder-2.0.3" \\', module_text)
+        self.assertNotIn(
+            '-CASFinder "\\${ccfinder_root}/CasFinder-2.0.3" \\', module_text
+        )
 
     def test_ccfinder_relies_on_image_provided_tool_compatibility(self) -> None:
         """Require the module to rely on the container's bundled tool compatibility."""
@@ -734,20 +852,26 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         """Require the isolated run to reopen the staged FASTA by local basename."""
         module_text = (MODULES_DIR / "ccfinder.nf").read_text(encoding="utf-8")
 
-        self.assertIn('genome_path="\\$(cd "\\$(dirname "${genome}")" && pwd)/\\$(basename "${genome}")"', module_text)
+        self.assertIn(
+            'genome_path="\\$(cd "\\$(dirname "${genome}")" && pwd)/\\$(basename "${genome}")"',
+            module_text,
+        )
         self.assertIn('genome_name="\\$(basename "${genome}")"', module_text)
-        self.assertIn('ccfinder_generated_contigs.txt', module_text)
-        self.assertIn("awk -v output_root=\"\\${task_root}\" '", module_text)
+        self.assertIn("ccfinder_generated_contigs.txt", module_text)
+        self.assertIn('awk -v output_root="\\${task_root}" \'', module_text)
         self.assertIn('output_path = output_root "/" contig_id ".fna"', module_text)
         self.assertIn('sub(/\\\\.[0-9]+\\$/, "", contig_id)', module_text)
-        self.assertIn('print \\$0 > output_path', module_text)
-        self.assertIn('while (length(sequence_line) > 60) {', module_text)
-        self.assertIn('print substr(sequence_line, 1, 60) >> output_path', module_text)
+        self.assertIn("print \\$0 > output_path", module_text)
+        self.assertIn("while (length(sequence_line) > 60) {", module_text)
+        self.assertIn("print substr(sequence_line, 1, 60) >> output_path", module_text)
         self.assertIn('cp "\\${genome_path}" "\\${genome_name}"', module_text)
-        self.assertIn(': > index.html', module_text)
-        self.assertIn('perl "\\${ccfinder_root}/CRISPRCasFinder.pl" -in "\\${genome_name}" \\', module_text)
+        self.assertIn(": > index.html", module_text)
         self.assertIn(
-            "result_json_path=\\$(find \"\\${tool_output_root}\" \"\\${run_root}\" -type f -name 'result.json' | head -n 1 || true)",
+            'perl "\\${ccfinder_root}/CRISPRCasFinder.pl" -in "\\${genome_name}" \\',
+            module_text,
+        )
+        self.assertIn(
+            'result_json_path=\\$(find "\\${tool_output_root}" "\\${run_root}" -type f -name \'result.json\' | head -n 1 || true)',
             module_text,
         )
         self.assertIn(
@@ -781,13 +905,16 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
 
         self.assertNotIn("mktemp", prokka_text)
         self.assertIn("cp prokka.faa prokka/", prokka_text)
-        self.assertIn('cleanup-legacy', prokka_text)
+        self.assertIn("cleanup-legacy", prokka_text)
 
         self.assertIn("rm -rf ccfinder", ccfinder_text)
         self.assertIn("cp result.json ccfinder/", ccfinder_text)
 
-        self.assertIn("rm -rf \"\\${resource_directory}\"", codetta_text)
-        self.assertIn("rm -f codetta/*.alignment_output.txt codetta/*.alignment_output.txt.gz codetta/*.genetic_code.out", codetta_text)
+        self.assertIn('rm -rf "\\${resource_directory}"', codetta_text)
+        self.assertIn(
+            "rm -f codetta/*.alignment_output.txt codetta/*.alignment_output.txt.gz codetta/*.genetic_code.out",
+            codetta_text,
+        )
 
     def test_pruned_tool_publish_filters_keep_flat_curated_outputs(self) -> None:
         """Publish only the flat curated tool files, not duplicate nested raw directories."""
@@ -798,28 +925,47 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
 
         self.assertIn("filename in ['quality_report.tsv', 'checkm2.log']", checkm2_text)
         self.assertNotIn("filename == 'versions.yml' ? null : filename", checkm2_text)
-        self.assertNotIn("filename == 'checkm2_gcode${translation_table}'", checkm2_text)
+        self.assertNotIn(
+            "filename == 'checkm2_gcode${translation_table}'", checkm2_text
+        )
 
         self.assertIn("filename in ['short_summary.json', 'busco.log']", busco_text)
         self.assertNotIn("filename == 'versions.yml' ? null : filename", busco_text)
         self.assertNotIn("filename == 'busco_${lineage}'", busco_text)
 
-        self.assertIn("filename in ['prokka.gff', 'prokka.faa', 'prokka.gbk', 'prokka.log', 'prokka_storage.json']", prokka_text)
+        self.assertIn(
+            "filename in ['prokka.gff', 'prokka.faa', 'prokka.gbk', 'prokka.log', 'prokka_storage.json']",
+            prokka_text,
+        )
         self.assertNotIn("filename == 'versions.yml' ? null : filename", prokka_text)
         self.assertNotIn("filename == 'prokka'", prokka_text)
-        self.assertIn("tuple val(meta), path('prokka'), path('prokka.gff'), path('prokka.faa'), path('prokka.gbk'), path('prokka.log'), emit: results", prokka_text)
-        self.assertIn("prokka_gbk=\\$(find prokka -maxdepth 1 -type f -name '*.gbk' | head -n 1 || true)", prokka_text)
+        self.assertIn(
+            "tuple val(meta), path('prokka'), path('prokka.gff'), path('prokka.faa'), path('prokka.gbk'), path('prokka.log'), emit: results",
+            prokka_text,
+        )
+        self.assertIn(
+            "prokka_gbk=\\$(find prokka -maxdepth 1 -type f -name '*.gbk' | head -n 1 || true)",
+            prokka_text,
+        )
         self.assertIn('cp "\\${prokka_gbk}" prokka.gbk', prokka_text)
-        self.assertIn('if [[ "\\${exit_code}" -eq 0 && -s prokka.gff && -s prokka.faa && -s prokka.gbk ]]; then', prokka_text)
-        self.assertIn('cp prokka.gbk prokka/', prokka_text)
+        self.assertIn(
+            'if [[ "\\${exit_code}" -eq 0 && -s prokka.gff && -s prokka.faa && -s prokka.gbk ]]; then',
+            prokka_text,
+        )
+        self.assertIn("cp prokka.gbk prokka/", prokka_text)
 
-        self.assertIn("filename in ['result.json', 'ccfinder.log', 'ccfinder_storage.json']", ccfinder_text)
+        self.assertIn(
+            "filename in ['result.json', 'ccfinder.log', 'ccfinder_storage.json']",
+            ccfinder_text,
+        )
         self.assertNotIn("filename == 'versions.yml' ? null : filename", ccfinder_text)
         self.assertNotIn("filename == 'ccfinder'", ccfinder_text)
 
     def test_summarise_ccfinder_consumes_strict_json_only(self) -> None:
         """Require CRISPR summarisation to depend only on the emitted JSON artefact."""
-        module_text = (MODULES_DIR / "summarise_ccfinder.nf").read_text(encoding="utf-8")
+        module_text = (MODULES_DIR / "summarise_ccfinder.nf").read_text(
+            encoding="utf-8"
+        )
         workflow_text = (
             ROOT / "subworkflows" / "local" / "per_sample_annotation.nf"
         ).read_text(encoding="utf-8")
@@ -843,7 +989,10 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         workflow_path = ROOT / "subworkflows" / "local" / "cohort_ani.nf"
         workflow_text = workflow_path.read_text(encoding="utf-8")
 
-        self.assertIn("collectFile(name: 'staged_genomes.tsv', newLine: true, sort: false)", workflow_text)
+        self.assertIn(
+            "collectFile(name: 'staged_genomes.tsv', newLine: true, sort: false)",
+            workflow_text,
+        )
 
     def test_final_outputs_consumes_combined_busco_tables(self) -> None:
         """Require final outputs to consume combined BUSCO lineage tables directly."""
@@ -876,20 +1025,30 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
             encoding="utf-8"
         )
 
-        self.assertIn('script_path="\\$(command -v merge_runtime_database_reports.py)"', module_text)
+        self.assertIn(
+            'script_path="\\$(command -v merge_runtime_database_reports.py)"',
+            module_text,
+        )
         self.assertIn('python_path="\\$(command -v python3)"', module_text)
-        self.assertNotIn('script_path="/usr/local/bin/merge_runtime_database_reports.py"', module_text)
-        self.assertNotIn('/usr/local/bin/python3', module_text)
+        self.assertNotIn(
+            'script_path="/usr/local/bin/merge_runtime_database_reports.py"',
+            module_text,
+        )
+        self.assertNotIn("/usr/local/bin/python3", module_text)
 
     def test_collect_versions_stages_version_files_in_a_directory(self) -> None:
         """Require collected version files to be staged into one directory input."""
         module_path = MODULES_DIR / "collect_versions.nf"
         module_text = module_path.read_text(encoding="utf-8")
 
-        self.assertIn("path version_files, stageAs: 'version_files/versions??.yml'", module_text)
+        self.assertIn(
+            "path version_files, stageAs: 'version_files/versions??.yml'", module_text
+        )
         self.assertNotIn("name: 'version_files/versions??.yml'", module_text)
 
-    def test_runtime_database_prep_modules_escape_shell_command_substitutions(self) -> None:
+    def test_runtime_database_prep_modules_escape_shell_command_substitutions(
+        self,
+    ) -> None:
         """Require parser-safe escaping in the new runtime DB prep modules."""
         matches: list[str] = []
         for path in (
@@ -904,18 +1063,32 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
 
         self.assertEqual(matches, [])
 
-    def test_prepare_databases_requires_a_database_destination_and_busco_lineages(self) -> None:
+    def test_prepare_databases_requires_a_database_destination_and_busco_lineages(
+        self,
+    ) -> None:
         """Require the separate prep entry point to validate its core params."""
         workflow_text = (ROOT / "prepare_databases.nf").read_text(encoding="utf-8")
 
-        self.assertIn("At least one database destination must be set for prepare_databases.nf.", workflow_text)
+        self.assertIn(
+            "At least one database destination must be set for prepare_databases.nf.",
+            workflow_text,
+        )
         self.assertIn("def normaliseBuscoLineages = { rawValue ->", workflow_text)
         self.assertIn("collectMany { it.toString().split(',') as List }", workflow_text)
-        self.assertIn("params.busco_lineages must resolve to one or more lineage names.", workflow_text)
-        self.assertIn("params.busco_lineages must resolve to unique lineage names:", workflow_text)
-        self.assertNotIn("nextflow.enable.configProcessNamesValidation = false", workflow_text)
+        self.assertIn(
+            "params.busco_lineages must resolve to one or more lineage names.",
+            workflow_text,
+        )
+        self.assertIn(
+            "params.busco_lineages must resolve to unique lineage names:", workflow_text
+        )
+        self.assertNotIn(
+            "nextflow.enable.configProcessNamesValidation = false", workflow_text
+        )
 
-    def test_prepare_databases_registers_main_subworkflows_for_shared_config_selectors(self) -> None:
+    def test_prepare_databases_registers_main_subworkflows_for_shared_config_selectors(
+        self,
+    ) -> None:
         """Require the prep entry point to register main workflow process names."""
         workflow_text = (ROOT / "prepare_databases.nf").read_text(encoding="utf-8")
 
@@ -929,7 +1102,9 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
             "include { COHORT_TAXONOMY as UNUSED_COHORT_TAXONOMY }",
             workflow_text,
         )
-        self.assertIn("include { FINAL_OUTPUTS as UNUSED_FINAL_OUTPUTS }", workflow_text)
+        self.assertIn(
+            "include { FINAL_OUTPUTS as UNUSED_FINAL_OUTPUTS }", workflow_text
+        )
         self.assertIn(
             "include { INPUT_VALIDATION_AND_STAGING as UNUSED_INPUT_VALIDATION_AND_STAGING }",
             workflow_text,
@@ -938,35 +1113,61 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
             "include { PER_SAMPLE_ANNOTATION as UNUSED_PER_SAMPLE_ANNOTATION }",
             workflow_text,
         )
-        self.assertIn("include { PER_SAMPLE_QC as UNUSED_PER_SAMPLE_QC }", workflow_text)
+        self.assertIn(
+            "include { PER_SAMPLE_QC as UNUSED_PER_SAMPLE_QC }", workflow_text
+        )
 
     def test_prepare_databases_uses_main_database_params_directly(self) -> None:
         """Require the prep workflow to reuse the main DB params directly."""
         workflow_text = (ROOT / "prepare_databases.nf").read_text(encoding="utf-8")
-        merge_module_text = (MODULES_DIR / "merge_runtime_database_reports.nf").read_text(
-            encoding="utf-8"
-        )
+        merge_module_text = (
+            MODULES_DIR / "merge_runtime_database_reports.nf"
+        ).read_text(encoding="utf-8")
 
-        self.assertIn("taxdump   : normaliseDestination.call(params.taxdump)", workflow_text)
-        self.assertIn("checkm2   : normaliseDestination.call(params.checkm2_db)", workflow_text)
-        self.assertIn("busco_root: normaliseDestination.call(params.busco_db)", workflow_text)
-        self.assertIn("codetta   : normaliseDestination.call(params.codetta_db)", workflow_text)
-        self.assertIn("eggnog    : normaliseDestination.call(params.eggnog_db)", workflow_text)
+        self.assertIn(
+            "taxdump   : normaliseDestination.call(params.taxdump)", workflow_text
+        )
+        self.assertIn(
+            "checkm2   : normaliseDestination.call(params.checkm2_db)", workflow_text
+        )
+        self.assertIn(
+            "busco_root: normaliseDestination.call(params.busco_db)", workflow_text
+        )
+        self.assertIn(
+            "codetta   : normaliseDestination.call(params.codetta_db)", workflow_text
+        )
+        self.assertIn(
+            "eggnog    : normaliseDestination.call(params.eggnog_db)", workflow_text
+        )
         self.assertIn("canonicalFile.absolutePath", workflow_text)
         self.assertIn("def buildMountedDestination = { destination ->", workflow_text)
-        self.assertIn("def buildMountedScratchRoot = { destinationParent ->", workflow_text)
-        self.assertIn("def destinationParentPath = new File(destinationParent.toString()).canonicalFile.absolutePath", workflow_text)
-        self.assertIn("scratchRoot != null && scratchRoot != destinationParentPath", workflow_text)
+        self.assertIn(
+            "def buildMountedScratchRoot = { destinationParent ->", workflow_text
+        )
+        self.assertIn(
+            "def destinationParentPath = new File(destinationParent.toString()).canonicalFile.absolutePath",
+            workflow_text,
+        )
+        self.assertIn(
+            "scratchRoot != null && scratchRoot != destinationParentPath", workflow_text
+        )
         self.assertIn("'.nf_myco_runtime_db_scratch'", workflow_text)
         self.assertIn("file(parentFile.absolutePath)", workflow_text)
-        self.assertIn("def mountedDestinations = destinations.collectEntries", workflow_text)
+        self.assertIn(
+            "def mountedDestinations = destinations.collectEntries", workflow_text
+        )
         self.assertIn("taxdumpRequest = destinations.taxdump", workflow_text)
         self.assertIn("checkm2Request = destinations.checkm2", workflow_text)
         self.assertIn("buscoRequest = destinations.busco_root", workflow_text)
         self.assertIn("codettaRequest = destinations.codetta", workflow_text)
-        self.assertIn("annotationRequest = Channel.fromList(annotationRequests)", workflow_text)
+        self.assertIn(
+            "annotationRequest = Channel.fromList(annotationRequests)", workflow_text
+        )
         self.assertNotIn("params.padloc_db", workflow_text)
-        self.assertIn('script_path="\\$(command -v merge_runtime_database_reports.py)"', merge_module_text)
+        self.assertIn(
+            'script_path="\\$(command -v merge_runtime_database_reports.py)"',
+            merge_module_text,
+        )
         self.assertIn('python_path="\\$(command -v python3)"', merge_module_text)
         self.assertIn('"\\${python_path}" "\\${script_path}" \\', merge_module_text)
 
@@ -987,62 +1188,114 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         finalise_module_text = (MODULES_DIR / "finalise_runtime_database.nf").read_text(
             encoding="utf-8"
         )
-        merge_module_text = (MODULES_DIR / "merge_runtime_database_reports.nf").read_text(
-            encoding="utf-8"
-        )
+        merge_module_text = (
+            MODULES_DIR / "merge_runtime_database_reports.nf"
+        ).read_text(encoding="utf-8")
 
         self.assertIn("stageInMode 'symlink'", prepare_module_text)
         self.assertIn(
             "tuple val(destination), path(destination_parent), val(destination_name), val(download_enabled), val(version), path(scratch_root_path), val(force)",
             prepare_module_text,
         )
-        self.assertIn('script_path="\\$(command -v prepare_runtime_databases.py)"', prepare_module_text)
+        self.assertIn(
+            'script_path="\\$(command -v prepare_runtime_databases.py)"',
+            prepare_module_text,
+        )
         self.assertIn('python_path="\\$(command -v python3)"', prepare_module_text)
-        self.assertIn('destination_path="${destination_parent}/${destination_name}"', prepare_module_text)
+        self.assertIn(
+            'destination_path="${destination_parent}/${destination_name}"',
+            prepare_module_text,
+        )
         self.assertIn("--taxdump-dest", prepare_module_text)
         self.assertIn("--codetta-dest", prepare_module_text)
-        self.assertIn('helper_args+=(--scratch-root "${scratch_root_path}")', prepare_module_text)
-        self.assertIn('python_version="\\$("\\${python_path}" --version 2>&1 | sed \'s/^Python //\')"', prepare_module_text)
-        self.assertIn('"\\${python_path}" "\\${script_path}" "\\${helper_args[@]}"', prepare_module_text)
+        self.assertIn(
+            'helper_args+=(--scratch-root "${scratch_root_path}")', prepare_module_text
+        )
+        self.assertIn(
+            'python_version="\\$("\\${python_path}" --version 2>&1 | sed \'s/^Python //\')"',
+            prepare_module_text,
+        )
+        self.assertIn(
+            '"\\${python_path}" "\\${script_path}" "\\${helper_args[@]}"',
+            prepare_module_text,
+        )
         self.assertIn("stageInMode 'symlink'", checkm2_module_text)
         self.assertIn(
             "tuple val(destination), path(destination_parent), val(destination_name), val(download_enabled), val(force)",
             checkm2_module_text,
         )
-        self.assertIn('destination_path="${destination_parent}/${destination_name}"', checkm2_module_text)
-        self.assertIn('retry_marker="${destination_parent}/.nf_myco_checkm2_download_in_progress"', checkm2_module_text)
-        self.assertIn('if [[ "${force}" != "true" && ! -f "\\${retry_marker}" ]]; then', checkm2_module_text)
+        self.assertIn(
+            'destination_path="${destination_parent}/${destination_name}"',
+            checkm2_module_text,
+        )
+        self.assertIn(
+            'retry_marker="${destination_parent}/.nf_myco_checkm2_download_in_progress"',
+            checkm2_module_text,
+        )
+        self.assertIn(
+            'if [[ "${force}" != "true" && ! -f "\\${retry_marker}" ]]; then',
+            checkm2_module_text,
+        )
         self.assertIn(': > "\\${retry_marker}"', checkm2_module_text)
         self.assertIn('rm -f "\\${retry_marker}"', checkm2_module_text)
-        self.assertIn('normalise_download_layout() {', checkm2_module_text)
+        self.assertIn("normalise_download_layout() {", checkm2_module_text)
         self.assertIn('nested_root="\\$1/CheckM2_database"', checkm2_module_text)
         self.assertIn("stageInMode 'symlink'", busco_module_text)
         self.assertIn(
             "tuple val(destination), path(destination_parent), val(destination_name), val(download_enabled), val(lineages), val(force)",
             busco_module_text,
         )
-        self.assertIn('destination_path="${destination_parent}/${destination_name}"', busco_module_text)
-        self.assertIn('retry_marker="${destination_parent}/.nf_myco_busco_download_in_progress"', busco_module_text)
-        self.assertIn('if [[ "${force}" != "true" && ! -f "\\${retry_marker}" ]]; then', busco_module_text)
+        self.assertIn(
+            'destination_path="${destination_parent}/${destination_name}"',
+            busco_module_text,
+        )
+        self.assertIn(
+            'retry_marker="${destination_parent}/.nf_myco_busco_download_in_progress"',
+            busco_module_text,
+        )
+        self.assertIn(
+            'if [[ "${force}" != "true" && ! -f "\\${retry_marker}" ]]; then',
+            busco_module_text,
+        )
         self.assertIn(': > "\\${retry_marker}"', busco_module_text)
         self.assertIn('rm -f "\\${retry_marker}"', busco_module_text)
-        self.assertIn('busco --download_path "\\${destination_path}" --download "\\${lineage}"', busco_module_text)
+        self.assertIn(
+            'busco --download_path "\\${destination_path}" --download "\\${lineage}"',
+            busco_module_text,
+        )
         self.assertIn("stageInMode 'symlink'", eggnog_module_text)
-        self.assertIn('container { params["${component}_container"] }', eggnog_module_text)
-        self.assertIn('command -v prepare_runtime_databases.py', eggnog_module_text)
-        self.assertIn('--remote-source-manifest', eggnog_module_text)
-        self.assertNotIn('download_eggnog_data.py', eggnog_module_text)
+        self.assertIn(
+            'container { params["${component}_container"] }', eggnog_module_text
+        )
+        self.assertIn("command -v prepare_runtime_databases.py", eggnog_module_text)
+        self.assertIn("--remote-source-manifest", eggnog_module_text)
+        self.assertNotIn("download_eggnog_data.py", eggnog_module_text)
         self.assertIn("stageInMode 'symlink'", finalise_module_text)
         self.assertIn(
             "tuple val(component), val(destination), path(destination_parent), val(destination_name), path(mode_file), val(source_label), path(lineages_file)",
             finalise_module_text,
         )
-        self.assertIn('script_path="\\$(command -v finalise_runtime_database.py)"', finalise_module_text)
+        self.assertIn(
+            'script_path="\\$(command -v finalise_runtime_database.py)"',
+            finalise_module_text,
+        )
         self.assertIn('python_path="\\$(command -v python3)"', finalise_module_text)
-        self.assertIn('destination_path="${destination_parent}/${destination_name}"', finalise_module_text)
-        self.assertIn('python_version="\\$("\\${python_path}" --version 2>&1 | sed \'s/^Python //\')"', finalise_module_text)
-        self.assertIn('"\\${python_path}" "\\${script_path}" "\\${helper_args[@]}"', finalise_module_text)
-        self.assertIn('script_path="\\$(command -v merge_runtime_database_reports.py)"', merge_module_text)
+        self.assertIn(
+            'destination_path="${destination_parent}/${destination_name}"',
+            finalise_module_text,
+        )
+        self.assertIn(
+            'python_version="\\$("\\${python_path}" --version 2>&1 | sed \'s/^Python //\')"',
+            finalise_module_text,
+        )
+        self.assertIn(
+            '"\\${python_path}" "\\${script_path}" "\\${helper_args[@]}"',
+            finalise_module_text,
+        )
+        self.assertIn(
+            'script_path="\\$(command -v merge_runtime_database_reports.py)"',
+            merge_module_text,
+        )
         self.assertIn('python_path="\\$(command -v python3)"', merge_module_text)
         self.assertIn('"\\${python_path}" "\\${script_path}" \\', merge_module_text)
 
@@ -1056,11 +1309,18 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
             encoding="utf-8"
         )
 
-        self.assertIn("buscoLineagesList = SamplePolicy.lineages(params, params.busco_domain_lineages ? [] : normaliseBuscoLineages.call(params.busco_lineages))", workflow_text)
+        self.assertIn(
+            "buscoLineagesList = SamplePolicy.lineages(params, params.busco_domain_lineages ? [] : normaliseBuscoLineages.call(params.busco_lineages))",
+            workflow_text,
+        )
         self.assertIn("buscoLineagesList,", workflow_text)
         self.assertNotIn("params.busco_lineages as List<String>", workflow_text)
-        self.assertIn("""printf '%s\\n' "\\${lineages[@]}" > lineages.txt""", busco_module_text)
-        self.assertIn('helper_args+=(--busco-lineage "\\${lineage}")', finalise_module_text)
+        self.assertIn(
+            """printf '%s\\n' "\\${lineages[@]}" > lineages.txt""", busco_module_text
+        )
+        self.assertIn(
+            'helper_args+=(--busco-lineage "\\${lineage}")', finalise_module_text
+        )
 
     def test_busco_prep_accepts_valid_roots_without_ready_markers(self) -> None:
         """Require BUSCO prep to finalise valid lineage roots that lack a marker."""
@@ -1068,7 +1328,7 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
             encoding="utf-8"
         )
 
-        self.assertIn('has_all_lineages=true', module_text)
+        self.assertIn("has_all_lineages=true", module_text)
         self.assertIn(
             'if [[ "\\${has_all_lineages}" == "true" && -f "\\${destination_path}/.nf_myco_ready.json" ]]; then',
             module_text,
