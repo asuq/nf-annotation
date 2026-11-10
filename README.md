@@ -603,6 +603,8 @@ Run the dependency-locked development test suite with `pixi run test`.
 
 ## Documentation map
 
+- [`docs/development/code_quality.md`](docs/development/code_quality.md): locked
+  Ruff/ty checks, Bash formatting and validation workflow
 - `README.md`: onboarding, prerequisites, quick-start, and normal run examples
 - [`docs/functional_annotation.md`](docs/functional_annotation.md): configuration,
   reannotation, evidence and count semantics

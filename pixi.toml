@@ -15,3 +15,17 @@ test-python = "python -m unittest discover -s tests"
 test-helper-integration = "bash tests/test_nf_helper_integration.sh"
 test-viper-config = "HOSTNAME=viper05 NXF_APPTAINER_CACHEDIR=/ptmp/pixi-test/apptainer-cache NXF_SYNTAX_PARSER=v2 nextflow config -profile viper-cpu >/dev/null"
 test = { depends-on = ["test-python", "test-helper-integration", "test-viper-config"] }
+
+[feature.quality.dependencies]
+python = "3.12.*"
+ruff = "==0.16.2"
+ty = "==0.0.71"
+
+[feature.quality.tasks]
+lint = "ruff check ."
+format-check = "ruff format --check ."
+typecheck = "ty check --python .pixi/envs/default"
+quality = { depends-on = ["lint", "format-check", "typecheck"] }
+
+[environments]
+quality = { features = ["quality"], no-default-feature = true }
