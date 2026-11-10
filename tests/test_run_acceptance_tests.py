@@ -13,14 +13,13 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-
 ROOT = Path(__file__).resolve().parents[1]
 BIN_DIR = ROOT / "bin"
 if str(BIN_DIR) not in sys.path:
     sys.path.insert(0, str(BIN_DIR))
 
-import master_table_contract  # noqa: E402
-import run_acceptance_tests  # noqa: E402
+import master_table_contract
+import run_acceptance_tests
 
 MEDIUM_SOURCE_CATALOG = ROOT / "assets" / "tables" / "medium" / "source_catalog.tsv"
 MEDIUM_COHORT_PLAN = ROOT / "assets" / "tables" / "medium" / "cohort_plan.tsv"
@@ -31,7 +30,7 @@ def read_tsv_rows(path: Path) -> tuple[list[str], list[dict[str, str]]]:
     with path.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle, delimiter="\t")
         assert reader.fieldnames is not None
-        return reader.fieldnames, list(reader)
+        return list(reader.fieldnames or []), list(reader)
 
 
 class RunAcceptanceTestsTestCase(unittest.TestCase):
@@ -1011,7 +1010,7 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
                 run_acceptance_tests.CohortRecord(
                     accession="SRC_MYCO_A",
                     source_accession="SRC_MYCO_A",
-                    is_new=False,
+                    is_new="false",
                     include_metadata=True,
                     atypical_warnings="NA",
                     role_tags=("eggnog_smoke_candidate",),
@@ -1280,15 +1279,14 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
     def test_parse_args_rejects_ccfinder_override_flag(self) -> None:
         """Reject a harness-level CCFINDER override flag."""
         stderr = io.StringIO()
-        with contextlib.redirect_stderr(stderr):
-            with self.assertRaises(SystemExit):
-                run_acceptance_tests.parse_args(
-                    [
-                        "local",
-                        "--ccfinder-container",
-                        "quay.io/example/crisprcasfinder:tag",
-                    ]
-                )
+        with contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit):
+            run_acceptance_tests.parse_args(
+                [
+                    "local",
+                    "--ccfinder-container",
+                    "quay.io/example/crisprcasfinder:tag",
+                ]
+            )
         self.assertIn("unrecognized arguments", stderr.getvalue())
 
     def test_parse_args_accepts_singularity_runtime_flags(self) -> None:
@@ -1310,11 +1308,8 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
     def test_parse_args_rejects_removed_slurm_account_flag(self) -> None:
         """Reject the removed SLURM account override flag."""
         stderr = io.StringIO()
-        with contextlib.redirect_stderr(stderr):
-            with self.assertRaises(SystemExit):
-                run_acceptance_tests.parse_args(
-                    ["slurm", "--slurm-account", "my_account"]
-                )
+        with contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit):
+            run_acceptance_tests.parse_args(["slurm", "--slurm-account", "my_account"])
 
         self.assertIn("unrecognized arguments", stderr.getvalue())
 

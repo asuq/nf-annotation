@@ -5,7 +5,6 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 NEXTFLOW_CONFIG = ROOT / "nextflow.config"
 MAIN_WORKFLOW = ROOT / "main.nf"
@@ -347,7 +346,11 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
             "withName: DOWNLOAD_BUSCO_DATASET {\n        errorStrategy = {", config_text
         )
         self.assertIn(
-            "withName: DOWNLOAD_BUSCO_DATASET {\n        errorStrategy = {\n            task.attempt <= Math.max((params.db_download_attempts as int) - 1, 0)",
+            (
+                "withName: DOWNLOAD_BUSCO_DATASET {\n"
+                "        errorStrategy = {\n"
+                "            task.attempt <= Math.max((params.db_download_attempts as int) - 1, 0)"
+            ),
             config_text,
         )
         self.assertIn(

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import os
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -11,12 +11,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "bin"))
 from annotation_common import bundle_proteins
 
-NEXTFLOW = shutil.which("nextflow")
+NEXTFLOW = shutil.which("nextflow") or ""
 TARGET_PROCESSES = (
     "BARRNAP",
     "CHECKM2",
@@ -88,7 +87,7 @@ class StubResumeStorageTestCase(unittest.TestCase):
             path for path in self.work_leaf_dirs(workdir) if not path.startswith("tmp/")
         }
 
-    @unittest.skipUnless(NEXTFLOW is not None, "nextflow is required for resume tests.")
+    @unittest.skipUnless(bool(NEXTFLOW), "nextflow is required for resume tests.")
     def test_stub_run_pruned_outputs_remain_resume_safe(self) -> None:
         """Reuse the same work cache only for the `-resume` run."""
         with tempfile.TemporaryDirectory() as tmpdir_name:
@@ -142,7 +141,7 @@ class StubResumeStorageTestCase(unittest.TestCase):
                 (bundle / "proteins.faa").read_text().splitlines()[1], "MWA"
             )
 
-            resume_output = "\n".join((resumed.stdout, resumed.stderr))
+            resume_output = f"{resumed.stdout}\n{resumed.stderr}"
             self.assertIn("cached", resume_output.lower())
             self.assertTrue(
                 any(process in resume_output for process in TARGET_PROCESSES)

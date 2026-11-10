@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-NEXTFLOW = shutil.which("nextflow")
+NEXTFLOW = shutil.which("nextflow") or ""
 
 
 @unittest.skipUnless(NEXTFLOW, "Nextflow is required for Barrnap integration")
@@ -97,6 +97,7 @@ class BarrnapRuntimeTests(unittest.TestCase):
                     text=True,
                     capture_output=True,
                     timeout=120,
+                    check=False,
                 )
                 published = output / "samples/A/barrnap"
                 if mode == "failure":

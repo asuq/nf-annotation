@@ -8,13 +8,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 BIN_DIR = ROOT / "bin"
 if str(BIN_DIR) not in sys.path:
     sys.path.insert(0, str(BIN_DIR))
 
-import collect_versions  # noqa: E402
+import collect_versions
 
 
 def read_tsv(path: Path) -> list[dict[str, str]]:
@@ -99,34 +98,16 @@ class CollectVersionsTestCase(unittest.TestCase):
             tmpdir = Path(tmpdir_name)
             versions_a = self.write_text_file(
                 tmpdir / "validate_versions.yml",
-                "\n".join(
-                    [
-                        '"VALIDATE_INPUTS":',
-                        '  python: "3.12.1"',
-                        '  script: "bin/validate_inputs.py"',
-                    ]
-                )
+                '"VALIDATE_INPUTS":\n  python: "3.12.1"\n  script: "bin/validate_inputs.py"'
                 + "\n",
             )
             versions_b = self.write_text_file(
                 tmpdir / "checkm2_versions.yml",
-                "\n".join(
-                    [
-                        '"CHECKM2":',
-                        '  checkm2: "1.0.2"',
-                    ]
-                )
-                + "\n",
+                '"CHECKM2":\n  checkm2: "1.0.2"' + "\n",
             )
             versions_c = self.write_text_file(
                 tmpdir / "codetta_versions.yml",
-                "\n".join(
-                    [
-                        '"CODETTA":',
-                        '  codetta: "v2.0"',
-                        '  codetta_source_commit: "863359ed326276602d44e48227b6003ac6ffd266"',
-                    ]
-                )
+                '"CODETTA":\n  codetta: "v2.0"\n  codetta_source_commit: "863359ed326276602d44e48227b6003ac6ffd266"'
                 + "\n",
             )
             output = tmpdir / "tool_and_db_versions.tsv"
@@ -275,14 +256,7 @@ class CollectVersionsTestCase(unittest.TestCase):
             tmpdir = Path(tmpdir_name)
             versions = self.write_text_file(
                 tmpdir / "versions.yml",
-                "\n".join(
-                    [
-                        '"DOWNLOAD_BUSCO_DATASET":',
-                        '  busco: "BUSCO 6.0.0"',
-                        "EOF",
-                    ]
-                )
-                + "\n",
+                '"DOWNLOAD_BUSCO_DATASET":\n  busco: "BUSCO 6.0.0"\nEOF' + "\n",
             )
             output = tmpdir / "tool_and_db_versions.tsv"
 
@@ -307,15 +281,7 @@ class CollectVersionsTestCase(unittest.TestCase):
             tmpdir = Path(tmpdir_name)
             versions = self.write_text_file(
                 tmpdir / "versions.yml",
-                "\n".join(
-                    [
-                        '"STAGE_INPUTS":',
-                        '  seqtk: "',
-                        'NA"',
-                        '  samtools: "NA"',
-                    ]
-                )
-                + "\n",
+                '"STAGE_INPUTS":\n  seqtk: "\nNA"\n  samtools: "NA"' + "\n",
             )
             output = tmpdir / "tool_and_db_versions.tsv"
 
@@ -337,12 +303,7 @@ class CollectVersionsTestCase(unittest.TestCase):
             tmpdir = Path(tmpdir_name)
             versions = self.write_text_file(
                 tmpdir / "versions.yml",
-                "\n".join(
-                    [
-                        '    "PER_SAMPLE_ANNOTATION:EGGNOG":',
-                        '      eggnog_mapper: "2.1.13"',
-                    ]
-                )
+                '    "PER_SAMPLE_ANNOTATION:EGGNOG":\n      eggnog_mapper: "2.1.13"'
                 + "\n",
             )
             output = tmpdir / "tool_and_db_versions.tsv"
@@ -365,13 +326,7 @@ class CollectVersionsTestCase(unittest.TestCase):
             tmpdir = Path(tmpdir_name)
             versions = self.write_text_file(
                 tmpdir / "versions.yml",
-                "\n".join(
-                    [
-                        '"PER_SAMPLE_ANNOTATION:EGGNOG":',
-                        '  eggnog_mapper: "2.1.13"',
-                    ]
-                )
-                + "\n",
+                '"PER_SAMPLE_ANNOTATION:EGGNOG":\n  eggnog_mapper: "2.1.13"' + "\n",
             )
             output = tmpdir / "tool_and_db_versions.tsv"
 
@@ -397,23 +352,11 @@ class CollectVersionsTestCase(unittest.TestCase):
             version_dir = tmpdir / "version_files"
             self.write_text_file(
                 version_dir / "versions01.yml",
-                "\n".join(
-                    [
-                        '"PER_SAMPLE_QC:BARRNAP":',
-                        '  barrnap: "0.9"',
-                    ]
-                )
-                + "\n",
+                '"PER_SAMPLE_QC:BARRNAP":\n  barrnap: "0.9"' + "\n",
             )
             self.write_text_file(
                 version_dir / "versions02.yml",
-                "\n".join(
-                    [
-                        '"PER_SAMPLE_QC:BARRNAP":',
-                        '  barrnap: "0.9"',
-                    ]
-                )
-                + "\n",
+                '"PER_SAMPLE_QC:BARRNAP":\n  barrnap: "0.9"' + "\n",
             )
             output = tmpdir / "tool_and_db_versions.tsv"
 
@@ -443,23 +386,11 @@ class CollectVersionsTestCase(unittest.TestCase):
             version_dir = tmpdir / "version_files"
             self.write_text_file(
                 version_dir / "versions01.yml",
-                "\n".join(
-                    [
-                        '"PER_SAMPLE_QC:BARRNAP":',
-                        '  barrnap: "0.9"',
-                    ]
-                )
-                + "\n",
+                '"PER_SAMPLE_QC:BARRNAP":\n  barrnap: "0.9"' + "\n",
             )
             self.write_text_file(
                 version_dir / "versions02.yml",
-                "\n".join(
-                    [
-                        '"PER_SAMPLE_QC:BARRNAP":',
-                        '  barrnap: "0.10"',
-                    ]
-                )
-                + "\n",
+                '"PER_SAMPLE_QC:BARRNAP":\n  barrnap: "0.10"' + "\n",
             )
             output = tmpdir / "tool_and_db_versions.tsv"
 
@@ -482,13 +413,7 @@ class CollectVersionsTestCase(unittest.TestCase):
             version_dir = tmpdir / "version_files"
             self.write_text_file(
                 version_dir / "versions01.yml",
-                "\n".join(
-                    [
-                        '    "COHORT_16S:BUILD_COHORT_16S":',
-                        '      python: "3.12.13"',
-                        "    EOF",
-                    ]
-                )
+                '    "COHORT_16S:BUILD_COHORT_16S":\n      python: "3.12.13"\n    EOF'
                 + "\n",
             )
             output = tmpdir / "tool_and_db_versions.tsv"
@@ -512,23 +437,12 @@ class CollectVersionsTestCase(unittest.TestCase):
             version_dir = tmpdir / "version_files"
             direct_file = self.write_text_file(
                 tmpdir / "direct_versions.yml",
-                "\n".join(
-                    [
-                        '"INPUT_VALIDATION_AND_STAGING:VALIDATE_INPUTS":',
-                        '  python: "3.12.13"',
-                    ]
-                )
+                '"INPUT_VALIDATION_AND_STAGING:VALIDATE_INPUTS":\n  python: "3.12.13"'
                 + "\n",
             )
             self.write_text_file(
                 version_dir / "versions01.yml",
-                "\n".join(
-                    [
-                        '"PER_SAMPLE_QC:BARRNAP":',
-                        '  barrnap: "0.9"',
-                    ]
-                )
-                + "\n",
+                '"PER_SAMPLE_QC:BARRNAP":\n  barrnap: "0.9"' + "\n",
             )
             output = tmpdir / "tool_and_db_versions.tsv"
 

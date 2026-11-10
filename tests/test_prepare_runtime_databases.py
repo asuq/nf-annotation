@@ -17,6 +17,7 @@ import unittest
 import zipfile
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from typing import Any
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,7 +25,7 @@ BIN_DIR = ROOT / "bin"
 if str(BIN_DIR) not in sys.path:
     sys.path.insert(0, str(BIN_DIR))
 
-import prepare_runtime_databases  # noqa: E402
+import prepare_runtime_databases
 
 
 def read_tsv(path: Path) -> list[dict[str, str]]:
@@ -57,7 +58,7 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
         path.write_text(content, encoding="utf-8")
         return path
 
-    def read_marker(self, path: Path) -> dict[str, object]:
+    def read_marker(self, path: Path) -> dict[str, Any]:
         """Read one ready marker JSON object."""
         return json.loads(
             (path / prepare_runtime_databases.MARKER_FILE_NAME).read_text(
@@ -180,7 +181,7 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
         taxdump_checksum_value: str | None = None,
         checkm2_checksum_value: str | None = None,
         taxdump_versions: dict[str, dict[str, object]] | None = None,
-    ) -> dict[str, object]:
+    ) -> dict[str, Any]:
         """Build one minimal curated remote manifest for testing."""
         return {
             "taxdump": {
@@ -820,17 +821,17 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
             manifest = {
                 "busco": {"default_version": "pinned", "versions": {"pinned": config}}
             }
-            arguments = dict(
-                manifest=manifest,
-                remote_component="busco",
-                component_label=f"busco:{lineage}",
-                version="pinned",
-                validator=prepare_runtime_databases.build_busco_lineage_validator(
+            arguments = {
+                "manifest": manifest,
+                "remote_component": "busco",
+                "component_label": f"busco:{lineage}",
+                "version": "pinned",
+                "validator": prepare_runtime_databases.build_busco_lineage_validator(
                     lineage
                 ),
-                scratch_root=None,
-                lineage=lineage,
-            )
+                "scratch_root": None,
+                "lineage": lineage,
+            }
             with (
                 mock.patch.object(
                     prepare_runtime_databases.shutil, "which", return_value="aria2c"

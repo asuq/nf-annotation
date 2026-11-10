@@ -3,6 +3,7 @@
 import csv
 import hashlib
 import unittest
+
 import test_cohort_update_integration as fixture
 
 

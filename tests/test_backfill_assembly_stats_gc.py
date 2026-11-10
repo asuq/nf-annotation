@@ -11,7 +11,6 @@ import textwrap
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "bin" / "backfill_assembly_stats_gc.sh"
 
@@ -21,7 +20,7 @@ def read_tsv(path: Path) -> tuple[list[str], list[dict[str, str]]]:
     with path.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle, delimiter="\t")
         assert reader.fieldnames is not None
-        return reader.fieldnames, list(reader)
+        return list(reader.fieldnames or []), list(reader)
 
 
 class BackfillAssemblyStatsGcTestCase(unittest.TestCase):
