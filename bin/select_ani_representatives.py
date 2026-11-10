@@ -103,9 +103,13 @@ def read_tsv(path: Path) -> tuple[list[str], list[dict[str, str]]]:
 
     header = [column.strip() for column in rows[0]]
     if any(not column for column in header):
-        raise RepresentativeSelectionError(f"Input table has an empty header name: {path}")
+        raise RepresentativeSelectionError(
+            f"Input table has an empty header name: {path}"
+        )
     if len(set(header)) != len(header):
-        raise RepresentativeSelectionError(f"Input table contains duplicate headers: {path}")
+        raise RepresentativeSelectionError(
+            f"Input table contains duplicate headers: {path}"
+        )
 
     records: list[dict[str, str]] = []
     for line_number, values in enumerate(rows[1:], start=2):
@@ -115,7 +119,10 @@ def read_tsv(path: Path) -> tuple[list[str], list[dict[str, str]]]:
                 f"expected {len(header)}."
             )
         records.append(
-            {column: value.strip() for column, value in zip(header, values, strict=True)}
+            {
+                column: value.strip()
+                for column, value in zip(header, values, strict=True)
+            }
         )
     return header, records
 
@@ -140,7 +147,9 @@ def detect_key_column(header: Sequence[str], aliases: Sequence[str]) -> str:
 def find_required_column(header: Sequence[str], normalized_name: str) -> str:
     """Resolve one required column by normalized header name."""
     matches = [
-        column for column in header if normalize_header(column) == normalize_header(normalized_name)
+        column
+        for column in header
+        if normalize_header(column) == normalize_header(normalized_name)
     ]
     if len(matches) > 1:
         raise RepresentativeSelectionError(
@@ -163,9 +172,13 @@ def build_index(
     for row in rows:
         key = row.get(key_column, "").strip()
         if not key:
-            raise RepresentativeSelectionError(f"{table_name} contains an empty key value.")
+            raise RepresentativeSelectionError(
+                f"{table_name} contains an empty key value."
+            )
         if key in indexed:
-            raise RepresentativeSelectionError(f"{table_name} contains duplicate key {key!r}.")
+            raise RepresentativeSelectionError(
+                f"{table_name} contains duplicate key {key!r}."
+            )
         indexed[key] = row
     return indexed
 
@@ -207,7 +220,9 @@ def build_ani_outputs(
                     "ANI clusters contain samples but eligibility metadata is empty."
                 )
             return [], []
-        names, ani, name_to_idx = load_matrix(ani_matrix) if matrix_data is None else matrix_data
+        names, ani, name_to_idx = (
+            load_matrix(ani_matrix) if matrix_data is None else matrix_data
+        )
         metadata_by_matrix_name, eligible_names = load_ani_metadata(
             ani_metadata=ani_metadata,
             matrix_names=names,
@@ -247,7 +262,9 @@ def build_ani_outputs(
         for accessions in cluster_members_by_accession.values()
         for accession in accessions
     }
-    missing_cluster_accessions = sorted(set(matrix_name_by_accession) - cluster_accessions)
+    missing_cluster_accessions = sorted(
+        set(matrix_name_by_accession) - cluster_accessions
+    )
     if missing_cluster_accessions:
         raise RepresentativeSelectionError(
             "ANI metadata contains eligible accession(s) missing from ANI clusters: "
@@ -274,7 +291,9 @@ def build_ani_outputs(
     return summary_rows, representative_rows
 
 
-def write_tsv(path: Path, header: Sequence[str], rows: Sequence[dict[str, str]]) -> None:
+def write_tsv(
+    path: Path, header: Sequence[str], rows: Sequence[dict[str, str]]
+) -> None:
     """Write a TSV with a fixed header."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:

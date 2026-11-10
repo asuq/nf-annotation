@@ -197,7 +197,9 @@ def prepare(args):
                 for source in source_roots:
                     existing = read_profile(source, key)
                     if existing is not None:
-                        with tempfile.TemporaryDirectory(prefix="." + key + ".", dir=destination) as temporary:
+                        with tempfile.TemporaryDirectory(
+                            prefix="." + key + ".", dir=destination
+                        ) as temporary:
                             staging = Path(temporary)
                             for name in (
                                 ("profile.json", "markers.faa", "markers.hmm")

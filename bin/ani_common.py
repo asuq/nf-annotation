@@ -230,9 +230,7 @@ def _matrix_rows(
         if not raw:
             continue
         if row_index == sample_count:
-            raise AniInputError(
-                f"Expected {sample_count} ANI matrix rows, found more."
-            )
+            raise AniInputError(f"Expected {sample_count} ANI matrix rows, found more.")
         parts = raw.rsplit(maxsplit=row_index)
         if len(parts) != row_index + 1:
             raise AniInputError(
@@ -352,7 +350,11 @@ def build_genome_from_row(
             reasons.append(("missing_" if is_missing_value(raw) else "invalid_") + name)
         else:
             try:
-                valid = math.isfinite(value) and value >= minimum and (maximum is None or value <= maximum)
+                valid = (
+                    math.isfinite(value)
+                    and value >= minimum
+                    and (maximum is None or value <= maximum)
+                )
             except OverflowError:
                 valid = False
             if not valid:
@@ -364,13 +366,21 @@ def build_genome_from_row(
     checkm2_contamination = metric("checkm2_contamination", try_parse_float_like, 0)
     n50 = metric("n50", try_parse_int_like, 1)
     scaffolds = metric("scaffolds", try_parse_int_like, 1)
-    genome_size = metric("genome_size", try_parse_int_like, 1, required=require_genome_size)
+    genome_size = metric(
+        "genome_size", try_parse_int_like, 1, required=require_genome_size
+    )
 
     busco_str = row[busco_column].strip()
     busco_parsed = try_parse_busco(busco_str)
     if busco_parsed is None:
-        reasons.append(f"missing_{busco_column}" if is_missing_value(busco_str) else f"invalid_{busco_column}")
-    elif any(not math.isfinite(value) or not 0 <= value <= 100 for value in busco_parsed):
+        reasons.append(
+            f"missing_{busco_column}"
+            if is_missing_value(busco_str)
+            else f"invalid_{busco_column}"
+        )
+    elif any(
+        not math.isfinite(value) or not 0 <= value <= 100 for value in busco_parsed
+    ):
         reasons.append(f"invalid_{busco_column}")
 
     if reasons:
@@ -420,7 +430,9 @@ def load_ani_metadata(
     with ani_metadata.open("rt", encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle, delimiter="\t")
         if reader.fieldnames is None:
-            raise AniInputError(f"ANI metadata TSV is empty or missing a header: {ani_metadata}")
+            raise AniInputError(
+                f"ANI metadata TSV is empty or missing a header: {ani_metadata}"
+            )
 
         header_map: dict[str, str] = {}
         for original in reader.fieldnames:
@@ -458,7 +470,9 @@ def load_ani_metadata(
             }
             accession = row.get("accession", "").strip()
             if is_missing_value(accession):
-                raise AniInputError(f"ANI metadata TSV has an empty accession at line {row_number}.")
+                raise AniInputError(
+                    f"ANI metadata TSV has an empty accession at line {row_number}."
+                )
             matrix_name = row.get(normalized_matrix_name_column, "").strip()
             if is_missing_value(matrix_name):
                 raise AniInputError(
@@ -470,7 +484,9 @@ def load_ani_metadata(
                     f"Duplicate matrix-name value {matrix_name!r} in ANI metadata TSV."
                 )
             if accession in seen_accessions:
-                raise AniInputError(f"Duplicate accession {accession!r} in ANI metadata TSV.")
+                raise AniInputError(
+                    f"Duplicate accession {accession!r} in ANI metadata TSV."
+                )
             seen_accessions.add(accession)
 
             genome, reasons = build_genome_from_row(
@@ -510,7 +526,9 @@ def load_ani_metadata(
 
     eligible_names = [name for name in matrix_names if name in metadata]
     if not eligible_names:
-        raise AniInputError("No ANI-eligible samples remain after loading ANI metadata.")
+        raise AniInputError(
+            "No ANI-eligible samples remain after loading ANI metadata."
+        )
     return metadata, eligible_names
 
 
@@ -527,7 +545,9 @@ def load_cluster_metadata(
     with ani_metadata.open("rt", encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle, delimiter="\t")
         if reader.fieldnames is None:
-            raise AniInputError(f"ANI metadata TSV is empty or missing a header: {ani_metadata}")
+            raise AniInputError(
+                f"ANI metadata TSV is empty or missing a header: {ani_metadata}"
+            )
 
         header_map: dict[str, str] = {}
         for original in reader.fieldnames:
@@ -559,7 +579,9 @@ def load_cluster_metadata(
             accession = row.get("accession", "").strip()
             matrix_name = row.get(normalized_matrix_name_column, "").strip()
             if is_missing_value(accession):
-                raise AniInputError(f"ANI metadata TSV has an empty accession at line {row_number}.")
+                raise AniInputError(
+                    f"ANI metadata TSV has an empty accession at line {row_number}."
+                )
             if is_missing_value(matrix_name):
                 raise AniInputError(
                     "ANI metadata TSV has an empty matrix-name value at line "
@@ -570,7 +592,9 @@ def load_cluster_metadata(
                     f"Duplicate matrix-name value {matrix_name!r} in ANI metadata TSV."
                 )
             if accession in seen_accessions:
-                raise AniInputError(f"Duplicate accession {accession!r} in ANI metadata TSV.")
+                raise AniInputError(
+                    f"Duplicate accession {accession!r} in ANI metadata TSV."
+                )
             seen_accessions.add(accession)
             accession_by_matrix_name[matrix_name] = accession
 

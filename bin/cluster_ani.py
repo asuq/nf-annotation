@@ -73,7 +73,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default=8,
         help="Upper bound on concurrency for numeric libraries. Default: 8.",
     )
-    parser.add_argument("--ani-score-profile", choices=("default", "isolate", "mag"), default="default")
+    parser.add_argument(
+        "--ani-score-profile", choices=("default", "isolate", "mag"), default="default"
+    )
     log_group = parser.add_mutually_exclusive_group()
     log_group.add_argument(
         "-q",
@@ -234,14 +236,21 @@ def cluster_complete_linkage(
 
     for label, idxs in clusters.items():
         for offset, left in enumerate(idxs):
-            others = idxs[offset + 1:]
+            others = idxs[offset + 1 :]
             values = ani[left, others]
             invalid = np.flatnonzero(np.isnan(values) | (values < threshold * 100.0))
             if len(invalid):
                 right = others[int(invalid[0])]
                 raise AniInputError(
                     "Post-check failed for complete-linkage cluster %s: pair (%s, %s) has ANI=%s below %.2f."
-                    % (label, names[left], names[right], ani[left, right], threshold * 100.0))
+                    % (
+                        label,
+                        names[left],
+                        names[right],
+                        ani[left, right],
+                        threshold * 100.0,
+                    )
+                )
     return dict(clusters)
 
 
@@ -299,10 +308,14 @@ def write_clusters(path: Path, rows: Sequence[dict[str, str]]) -> None:
             writer.writerow(row)
 
 
-def run_pipeline(args: argparse.Namespace) -> tuple[list[str], "np.ndarray", dict[str, int]] | None:
+def run_pipeline(
+    args: argparse.Namespace,
+) -> tuple[list[str], "np.ndarray", dict[str, int]] | None:
     """Run ANI complete-linkage clustering and write cluster memberships."""
     if not (0.0 < float(args.threshold) < 1.0):
-        raise AniInputError(f"--threshold must be a fraction in (0,1). Got: {args.threshold}")
+        raise AniInputError(
+            f"--threshold must be a fraction in (0,1). Got: {args.threshold}"
+        )
 
     if is_empty_ani_cohort(
         args.ani_metadata, args.ani_matrix, matrix_name_column=args.matrix_name_column

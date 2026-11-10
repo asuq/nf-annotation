@@ -177,9 +177,17 @@ def run(args):
             raise AnnotationError("Mixed AAI domains")
         for row in data["samples"]:
             accession = row["accession"]
-            for key, column in (("n50", "N50"), ("scaffolds", "Scaffolds"), ("genome_size", "Genome_Size")):
-                row["quality"][key] = resolve_assembly_metric_value(metadata.get(accession, {}), stats.get(accession), column)
-            row["quality"]["busco"] = busco.get(accession, {}).get(row["primary_busco_column"], "NA")
+            for key, column in (
+                ("n50", "N50"),
+                ("scaffolds", "Scaffolds"),
+                ("genome_size", "Genome_Size"),
+            ):
+                row["quality"][key] = resolve_assembly_metric_value(
+                    metadata.get(accession, {}), stats.get(accession), column
+                )
+            row["quality"]["busco"] = busco.get(accession, {}).get(
+                row["primary_busco_column"], "NA"
+            )
         rows, reps, group, trace = cluster_domain(
             data["samples"],
             path,

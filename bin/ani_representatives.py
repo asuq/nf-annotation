@@ -95,7 +95,9 @@ def select_representative_for_indices(
             return np.full_like(values, 0.5, dtype=float)
         return (values - float(values.min())) / spread
 
-    assembly_values = np.array([genome.Assembly_Rank / 3.0 for genome in genomes], dtype=float)
+    assembly_values = np.array(
+        [genome.Assembly_Rank / 3.0 for genome in genomes], dtype=float
+    )
     busco_raw = np.array(
         [(genome.BUSCO_C - genome.BUSCO_M) / 100.0 for genome in genomes],
         dtype=float,
@@ -112,14 +114,20 @@ def select_representative_for_indices(
     checkm2_values = minmax_norm(winsorize(checkm2_raw))
 
     n50_values = minmax_norm(
-        winsorize(np.log10(np.array([genome.N50 for genome in genomes], dtype=float) + 1.0))
+        winsorize(
+            np.log10(np.array([genome.N50 for genome in genomes], dtype=float) + 1.0)
+        )
     )
     scaffold_values = 1.0 - minmax_norm(
         winsorize(
-            np.log10(np.array([genome.Scaffolds for genome in genomes], dtype=float) + 1.0)
+            np.log10(
+                np.array([genome.Scaffolds for genome in genomes], dtype=float) + 1.0
+            )
         )
     )
-    centrality_values = ani_centrality(idxs) if ani is not None else np.zeros(cluster_size)
+    centrality_values = (
+        ani_centrality(idxs) if ani is not None else np.zeros(cluster_size)
+    )
 
     if score_profile == "isolate":
         weights = (3.5, 1.5, 1.5, 1.0, 0.25, 0.5)
@@ -129,10 +137,19 @@ def select_representative_for_indices(
         weights = (3.0, 2.0, 1.5, 0.75, 0.5, 0.5)
     if ani is None:
         weights = (*weights[:5], 0.0)
-    weight_assembly, weight_checkm2, weight_busco, weight_n50, weight_scaffolds, weight_centrality = weights
+    (
+        weight_assembly,
+        weight_checkm2,
+        weight_busco,
+        weight_n50,
+        weight_scaffolds,
+        weight_centrality,
+    ) = weights
 
     scored: list[tuple[str, str, float, dict[str, float], Genome]] = []
-    for offset, (matrix_name, genome) in enumerate(zip(matrix_names, genomes, strict=True)):
+    for offset, (matrix_name, genome) in enumerate(
+        zip(matrix_names, genomes, strict=True)
+    ):
         components = {
             "A": float(assembly_values[offset]),
             "Q": float(checkm2_values[offset]),
@@ -196,11 +213,14 @@ def select_representative_for_indices(
         if abs(score - top_score) <= epsilon
     ]
     if len(tied) == 1:
-        debug_lines.append(f"Chosen by score alone: {meta[tied[0]].Accession} (score={top_score:.6f})")
+        debug_lines.append(
+            f"Chosen by score alone: {meta[tied[0]].Accession} (score={top_score:.6f})"
+        )
         return cluster_size, tied[0], debug_lines
 
     matrix_name_to_genome = {
-        matrix_name: genome for matrix_name, _accession, _score, _components, genome in scored
+        matrix_name: genome
+        for matrix_name, _accession, _score, _components, genome in scored
     }
 
     def reduce_tie(
@@ -212,7 +232,10 @@ def select_representative_for_indices(
         """Reduce a tied representative set by one deterministic criterion."""
         if len(matrix_name_list) <= 1:
             return matrix_name_list
-        values = [key_func(matrix_name_to_genome[matrix_name]) for matrix_name in matrix_name_list]
+        values = [
+            key_func(matrix_name_to_genome[matrix_name])
+            for matrix_name in matrix_name_list
+        ]
         best = min(values) if prefer_lower else max(values)
         winners = [
             matrix_name
@@ -225,7 +248,9 @@ def select_representative_for_indices(
             )
         return winners
 
-    tied = reduce_tie(tied, lambda genome: genome.Assembly_Rank, "Assembly rank (higher)")
+    tied = reduce_tie(
+        tied, lambda genome: genome.Assembly_Rank, "Assembly rank (higher)"
+    )
     tied = reduce_tie(tied, lambda genome: genome.BUSCO_C, "BUSCO C (higher)")
     tied = reduce_tie(tied, lambda genome: genome.BUSCO_M, "BUSCO M (lower)", True)
     tied = reduce_tie(
@@ -234,7 +259,9 @@ def select_representative_for_indices(
         "Contamination (lower)",
         True,
     )
-    tied = reduce_tie(tied, lambda genome: genome.CheckM2_Completeness, "CheckM2 (higher)")
+    tied = reduce_tie(
+        tied, lambda genome: genome.CheckM2_Completeness, "CheckM2 (higher)"
+    )
     tied = reduce_tie(tied, lambda genome: genome.Scaffolds, "Scaffolds (fewer)", True)
     tied = reduce_tie(tied, lambda genome: genome.N50, "N50 (higher)")
 
@@ -248,7 +275,9 @@ def select_representative_for_indices(
             % (len(tied), matrix_name_to_genome[representative].Accession)
         )
     else:
-        debug_lines.append(f"Chosen by tie cascade: {matrix_name_to_genome[representative].Accession}")
+        debug_lines.append(
+            f"Chosen by tie cascade: {matrix_name_to_genome[representative].Accession}"
+        )
     return cluster_size, representative, debug_lines
 
 
@@ -264,7 +293,9 @@ def select_representatives_for_clusters(
     name_to_idx = {name: index for index, name in enumerate(names)}
     results: dict[str, tuple[str, list[str]]] = {}
 
-    def run_one(cluster_id: str, matrix_names: list[str]) -> tuple[str, tuple[str, list[str]]]:
+    def run_one(
+        cluster_id: str, matrix_names: list[str]
+    ) -> tuple[str, tuple[str, list[str]]]:
         """Select one representative for a single cluster."""
         idxs = [name_to_idx[matrix_name] for matrix_name in matrix_names]
         _cluster_size, representative, debug_lines = select_representative_for_indices(
@@ -334,7 +365,9 @@ def warn_soft_screen_offenders(
         if reasons:
             offenders.append(f"{genome.Accession}[{';'.join(reasons)}]")
     if offenders:
-        logging.warning("Soft-screen offenders in %s: %s", cluster_id, ", ".join(offenders))
+        logging.warning(
+            "Soft-screen offenders in %s: %s", cluster_id, ", ".join(offenders)
+        )
 
 
 def build_ani_summary_from_clusters(
@@ -380,7 +413,9 @@ def build_ani_summary_from_clusters(
             {
                 "Cluster_ID": cluster_id,
                 "Representative_Accession": representative.Accession,
-                "Organism_Name": re.sub(r"\s+", "_", representative.Organism_Name.strip()),
+                "Organism_Name": re.sub(
+                    r"\s+", "_", representative.Organism_Name.strip()
+                ),
                 "CheckM2_Completeness": f"{representative.CheckM2_Completeness:.2f}",
                 "CheckM2_Contamination": f"{representative.CheckM2_Contamination:.2f}",
                 "BUSCO": representative.BUSCO_str,

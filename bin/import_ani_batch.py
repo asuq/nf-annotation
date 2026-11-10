@@ -243,13 +243,17 @@ def import_sample(
                 existing = regular_files(target, exclude_annotation=True)
                 annotation = target / "annotation"
                 if annotation.is_symlink():
-                    raise AnnotationError("Publication annotation directory must not be linked")
+                    raise AnnotationError(
+                        "Publication annotation directory must not be linked"
+                    )
                 owned_bundle = annotation / "bundle"
                 if owned_bundle.exists() or owned_bundle.is_symlink():
-                    existing.update({
-                        "annotation/bundle/" + name: path
-                        for name, path in regular_files(owned_bundle).items()
-                    })
+                    existing.update(
+                        {
+                            "annotation/bundle/" + name: path
+                            for name, path in regular_files(owned_bundle).items()
+                        }
+                    )
                 if set(existing) != set(files) or any(
                     digest(existing[name]) != source_checksum(path)
                     for name, path in files.items()
@@ -364,6 +368,7 @@ def main() -> int:
     parser.add_argument("--source-checksums", type=Path)
     args = parser.parse_args()
     from fingerprinting.source_fingerprint import load_checksums
+
     try:
         run(
             read_json(args.records),
@@ -372,7 +377,9 @@ def main() -> int:
             args.channels,
             args.audit,
             mode=args.mode,
-            source_checksum=load_checksums(args.source_checksums) if args.source_checksums else digest,
+            source_checksum=load_checksums(args.source_checksums)
+            if args.source_checksums
+            else digest,
             qc_root=args.qc_publication_root,
             fingerprints=read_json(args.source_validation)["fingerprints"]
             if args.source_validation

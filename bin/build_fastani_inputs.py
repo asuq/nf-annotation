@@ -158,7 +158,9 @@ def load_staged_manifest(path: Path) -> dict[str, dict[str, str]]:
     for row in rows:
         accession = row.get("accession", "").strip()
         if not accession:
-            raise FastAniInputError("Staged genome manifest contains an empty accession.")
+            raise FastAniInputError(
+                "Staged genome manifest contains an empty accession."
+            )
         if accession in manifest:
             raise FastAniInputError(
                 f"Staged genome manifest contains duplicate accession {accession!r}."
@@ -182,13 +184,17 @@ def load_busco_index(paths: Sequence[Path]) -> dict[str, dict[str, str]]:
             )
         busco_column = busco_columns[0]
         if busco_column in seen_busco_columns:
-            raise FastAniInputError(f"Duplicate BUSCO lineage column supplied: {busco_column}")
+            raise FastAniInputError(
+                f"Duplicate BUSCO lineage column supplied: {busco_column}"
+            )
         seen_busco_columns.add(busco_column)
 
         for row in rows:
             accession = row.get(accession_column, "").strip()
             if not accession:
-                raise FastAniInputError(f"BUSCO table {path} contains an empty accession.")
+                raise FastAniInputError(
+                    f"BUSCO table {path} contains an empty accession."
+                )
             entry = index.setdefault(accession, {})
             value = row.get(busco_column, "").strip()
             entry[busco_column] = value if value else MISSING_VALUE
@@ -250,7 +256,9 @@ def ensure_fastani_input(
     if not source.is_absolute():
         source = manifest_dir / source
     if not source.is_file():
-        raise FastAniInputError(f"Missing staged genome in build_fastani_inputs: {staged_filename}")
+        raise FastAniInputError(
+            f"Missing staged genome in build_fastani_inputs: {staged_filename}"
+        )
 
     output_dir.mkdir(parents=True, exist_ok=True)
     target_name = f"{internal_id}.fasta"
@@ -265,7 +273,9 @@ def ensure_fastani_input(
     return relative_path, str(target)
 
 
-def write_tsv(path: Path, header: Sequence[str], rows: Sequence[dict[str, str]]) -> None:
+def write_tsv(
+    path: Path, header: Sequence[str], rows: Sequence[dict[str, str]]
+) -> None:
     """Write rows to a TSV file."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -370,7 +380,9 @@ def run_build_fastani_inputs(
         if is_atypical and not is_exception:
             reasons.append("atypical")
 
-        selected_busco_column = sample_policy.primary_column(sample_row, primary_busco_column)
+        selected_busco_column = sample_policy.primary_column(
+            sample_row, primary_busco_column
+        )
         primary_busco_value = busco_row.get(selected_busco_column, MISSING_VALUE)
         if is_missing(primary_busco_value):
             reasons.append("missing_primary_busco")
