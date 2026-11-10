@@ -7,9 +7,8 @@ import argparse
 import csv
 import logging
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
-
 
 LOGGER = logging.getLogger(__name__)
 OUTPUT_COLUMNS = ("component", "kind", "version", "image_or_path", "notes")

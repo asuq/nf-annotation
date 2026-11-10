@@ -7,13 +7,12 @@ import argparse
 import csv
 import logging
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
 
-import sample_policy
 import master_table_contract
-
+import sample_policy
 
 LOGGER = logging.getLogger(__name__)
 

@@ -6,8 +6,8 @@ from __future__ import annotations
 import argparse
 import csv
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 import run_acceptance_tests
 from prepare_runtime_databases import (
@@ -19,7 +19,6 @@ from prepare_runtime_databases import (
     validate_eggnog,
     validate_taxdump,
 )
-
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_COHORT_PLAN = ROOT_DIR / "assets" / "tables" / "acceptance" / "cohort_plan.tsv"

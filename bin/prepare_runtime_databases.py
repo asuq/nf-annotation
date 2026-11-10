@@ -15,11 +15,12 @@ import subprocess
 import sys
 import tarfile
 import zipfile
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Callable, Iterator, Sequence
+from typing import Any
 from urllib.parse import urlparse
 
 from annotation_resources import (

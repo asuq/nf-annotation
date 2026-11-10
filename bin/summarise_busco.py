@@ -9,9 +9,9 @@ import json
 import logging
 import re
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Sequence
-
+from typing import Any, cast
 
 LOGGER = logging.getLogger(__name__)
 
@@ -228,7 +228,7 @@ def format_busco_string(percentages: dict[str, float], n_value: float) -> str:
         f"{format_percent(percentages['S'])}%,D:"
         f"{format_percent(percentages['D'])}%],F:"
         f"{format_percent(percentages['F'])}%,M:"
-        f"{format_percent(percentages['M'])}%,n:{int(round(n_value))}"
+        f"{format_percent(percentages['M'])}%,n:{round(n_value)}"
     )
 
 
@@ -283,7 +283,7 @@ def build_busco_string_from_scalars(scalars: dict[str, list[Any]]) -> str:
         n_value = find_scalar_value(scalars, COUNT_ALIASES["n"])
         if n_value is None:
             raise ValueError("BUSCO JSON is missing the total marker count.")
-        return format_busco_string(percentages, n_value)
+        return format_busco_string(cast(dict[str, float], percentages), n_value)
 
     counts = {
         key: find_scalar_value(scalars, aliases)
@@ -315,7 +315,7 @@ def build_busco_string_from_scalars(scalars: dict[str, list[Any]]) -> str:
         f"{format_percent(100 * duplicated / total)}%"
         "],F:"
         f"{format_percent(100 * fragmented / total)}%,M:"
-        f"{format_percent(100 * missing / total)}%,n:{int(round(total))}"
+        f"{format_percent(100 * missing / total)}%,n:{round(total)}"
     )
 
 

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
-from annotation_summary import ANNOTATION_COLUMNS
-from aai_common import AAI_COLUMNS, AAI_STATUS_COLUMNS
 
+from aai_common import AAI_COLUMNS, AAI_STATUS_COLUMNS
+from annotation_summary import ANNOTATION_COLUMNS
 
 DEFAULT_BUSCO_LINEAGES = ("bacillota_odb12", "mycoplasmatota_odb12")
 TAXONOMY_COLUMNS = (

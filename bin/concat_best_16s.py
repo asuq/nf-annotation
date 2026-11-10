@@ -7,8 +7,8 @@ import argparse
 import csv
 import logging
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from atypical_warnings import classify_atypical_warnings
 

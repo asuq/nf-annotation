@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 DOMAINS = {"Bacteria": "bac", "Archaea": "arc"}
@@ -112,9 +112,7 @@ def resolve_sample(
     }
 
 
-def sample_lineages(
-    sample: Mapping[str, str], legacy: list[str] | tuple[str, ...]
-) -> list[str]:
+def sample_lineages(sample: Mapping[str, str], legacy: Sequence[str]) -> list[str]:
     """Read and validate the complete per-sample domain record, or the legacy contract."""
     present = set(DOMAIN_FIELDS) & sample.keys()
     if not present:

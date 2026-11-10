@@ -9,10 +9,11 @@ import json
 import logging
 import math
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation, localcontext
 from pathlib import Path
-from typing import Sequence
+from typing import cast
 
 from master_table_contract import GCODE_PROVENANCE_COLUMNS
 from reviewed_codes import recorded_candidates, select_review
@@ -28,7 +29,7 @@ GCODE_RULE_CHOICES = (
 )
 DEFAULT_GCODE_RULE = MEAN_GENE_LENGTH_RATIO_RULE
 LENGTH_RATIO_THRESHOLD = Decimal("1.5")
-COMPLETENESS_DELTA_THRESHOLD = Decimal("10")
+COMPLETENESS_DELTA_THRESHOLD = Decimal(10)
 
 OUTPUT_COLUMNS = (
     "accession",
@@ -263,7 +264,7 @@ def assign_low_quality(
     with localcontext() as context:
         context.prec = (
             max(
-                len(value.as_tuple().digits) + abs(value.as_tuple().exponent)
+                len(value.as_tuple().digits) + abs(cast(int, value.as_tuple().exponent))
                 for value in (
                     report.metrics["Completeness"],
                     report.metrics["Contamination"],
@@ -312,7 +313,8 @@ def assign_gcode_from_valid_pair(
         with localcontext() as context:
             context.prec = (
                 max(
-                    len(value.as_tuple().digits) + abs(value.as_tuple().exponent)
+                    len(value.as_tuple().digits)
+                    + abs(cast(int, value.as_tuple().exponent))
                     for value in (completeness_four, completeness_eleven)
                 )
                 + 10
@@ -427,6 +429,7 @@ def build_output_row(
         accession, genome, [] if review_candidates is None else review_candidates
     )
     if review is not None:
+        assert report_four is not None and report_eleven is not None
         row["Gcode"] = str(review["genetic_code"])
         row["Gcode_Selection_Reason"] = "reviewed_code_manifest"
         row["Gcode_Review"] = json.dumps(

@@ -7,9 +7,8 @@ import argparse
 import csv
 import shlex
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
-
 
 REPORT_COLUMNS = ("component", "status", "source", "destination", "details")
 

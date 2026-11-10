@@ -4,8 +4,6 @@
 from __future__ import annotations
 
 import re
-from typing import Sequence
-
 
 MISSING_VALUE_TOKENS = {"", "na", "n/a", "null", "none"}
 UNVERIFIED_SOURCE_ORGANISM = "unverified source organism"
@@ -23,6 +21,7 @@ def parse_atypical_reasons(value: str | None) -> tuple[str, ...]:
     """Return normalised atypical reasons extracted from one metadata value."""
     if is_missing(value):
         return ()
+    assert value is not None
     return tuple(
         reason.casefold()
         for raw_reason in ATYPICAL_REASON_SPLIT_RE.split(value)

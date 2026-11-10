@@ -7,15 +7,14 @@ import argparse
 import csv
 import logging
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from build_master_table import (
     detect_key_column,
     find_column_by_normalised_name,
     read_table,
 )
-
 
 LOGGER = logging.getLogger(__name__)
 LINEAGE_COLUMNS = (
@@ -84,7 +83,7 @@ def split_dmp_fields(line: str) -> list[str]:
 
 def load_requested_tax_ids(validated_samples: Path, metadata: Path) -> list[str]:
     """Return unique metadata Tax_ID values referenced by requested samples."""
-    sample_header, sample_rows = read_table(validated_samples, delimiter="\t")
+    _sample_header, sample_rows = read_table(validated_samples, delimiter="\t")
     metadata_header, metadata_rows = read_table(metadata)
     metadata_key = detect_key_column(metadata_header, ("Accession", "accession"))
     tax_id_column = find_column_by_normalised_name(metadata_header, "tax_id")

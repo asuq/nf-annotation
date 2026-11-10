@@ -9,10 +9,10 @@ import json
 import logging
 import math
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Sequence
-
+from typing import Any
 
 LOGGER = logging.getLogger(__name__)
 
@@ -104,14 +104,14 @@ def configure_logging() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 
-def format_number(value: float | int | None) -> str:
+def format_number(value: float | None) -> str:
     """Format optional numeric values for TSV output."""
     if value is None:
         return "NA"
     if isinstance(value, int):
         return str(value)
     if math.isclose(value, round(value), rel_tol=0.0, abs_tol=1e-9):
-        return str(int(round(value)))
+        return str(round(value))
     return f"{value:.6f}".rstrip("0").rstrip(".")
 
 

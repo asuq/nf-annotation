@@ -11,9 +11,9 @@ import logging
 import shutil
 import subprocess
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
 from urllib.request import urlopen
 
 import master_table_contract
@@ -183,7 +183,7 @@ def read_tsv(path: Path) -> tuple[list[str], list[dict[str, str]]]:
         reader = csv.DictReader(handle, delimiter="\t")
         if reader.fieldnames is None:
             raise AcceptanceTestError(f"TSV file is empty: {path}")
-        return reader.fieldnames, list(reader)
+        return list(reader.fieldnames), list(reader)
 
 
 def read_csv(path: Path) -> tuple[list[str], list[dict[str, str]]]:
@@ -194,7 +194,7 @@ def read_csv(path: Path) -> tuple[list[str], list[dict[str, str]]]:
         reader = csv.DictReader(handle)
         if reader.fieldnames is None:
             raise AcceptanceTestError(f"CSV file is empty: {path}")
-        return reader.fieldnames, list(reader)
+        return list(reader.fieldnames), list(reader)
 
 
 def write_tsv(
@@ -376,13 +376,15 @@ def download_source_fasta(
     temporary = destination.with_suffix(".fna.tmp")
     LOGGER.info("Downloading %s to %s", record.source_accession, destination)
     try:
-        with urlopen(record.source_url, timeout=300) as response:
-            with temporary.open("wb") as handle:
-                if record.source_url.endswith(".gz"):
-                    with gzip.GzipFile(fileobj=response) as gz_handle:
-                        stream_copy(gz_handle, handle)
-                else:
-                    stream_copy(response, handle)
+        with (
+            urlopen(record.source_url, timeout=300) as response,
+            temporary.open("wb") as handle,
+        ):
+            if record.source_url.endswith(".gz"):
+                with gzip.GzipFile(fileobj=response) as gz_handle:
+                    stream_copy(gz_handle, handle)
+            else:
+                stream_copy(response, handle)
         temporary.replace(destination)
     except Exception as error:
         temporary.unlink(missing_ok=True)

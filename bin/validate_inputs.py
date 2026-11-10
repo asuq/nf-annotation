@@ -11,13 +11,12 @@ import json
 import logging
 import sys
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
 
-import sample_policy
 import master_table_contract
-
+import sample_policy
 
 LOGGER = logging.getLogger(__name__)
 
@@ -151,6 +150,7 @@ def normalise_optional_value(value: str | None) -> str:
     """Normalise optional fields to a stripped string or `NA`."""
     if is_missing(value):
         return "NA"
+    assert value is not None
     return value.strip()
 
 
@@ -158,6 +158,7 @@ def normalise_assembly_level(value: str | None, accession: str) -> str:
     """Normalise a sample-manifest assembly level to the canonical ANI token."""
     if is_missing(value):
         return "NA"
+    assert value is not None
     token = value.strip().casefold()
     if token in ASSEMBLY_LEVEL_MAP:
         return ASSEMBLY_LEVEL_MAP[token]
@@ -640,7 +641,7 @@ def run_validation(
         sample_header = [*sample_header, "qc_scope"]
         for record in validated_records:
             record.values["qc_scope"] = "qc"
-    from reviewed_codes import load_manifest, encode_candidates
+    from reviewed_codes import encode_candidates, load_manifest
 
     try:
         reviews = load_manifest(reviewed_codes)

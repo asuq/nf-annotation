@@ -8,11 +8,10 @@ import csv
 import logging
 import re
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from Bio.Data import CodonTable
-
 
 LOGGER = logging.getLogger(__name__)
 PROFILE_NAME = "Pfam-A_enone.hmm"
@@ -159,11 +158,7 @@ def build_ncbi_table_string(table: CodonTable.CodonTable) -> str:
     """Build one NCBI genetic-code string in Codetta's 64-codon order."""
     stop_codons = set(table.stop_codons)
     return "".join(
-        table.forward_table[codon]
-        if codon in table.forward_table
-        else "*"
-        if codon in stop_codons
-        else "?"
+        table.forward_table.get(codon, "*" if codon in stop_codons else "?")
         for codon in CODON_ORDER
     )
 

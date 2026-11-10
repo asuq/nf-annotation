@@ -8,10 +8,9 @@ import csv
 import logging
 import re
 import sys
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Sequence, TypeVar
-
 
 LOGGER = logging.getLogger(__name__)
 
@@ -27,7 +26,6 @@ FASTA_HEADER_RE = re.compile(
     r"^(?P<rrna_name>[^:]+)::(?P<contig>.+):(?P<start0>\d+)-(?P<end0>\d+)\((?P<strand>[+-])\)$"
 )
 MatchKey = tuple[str, str, int, int, str]
-RecordT = TypeVar("RecordT")
 
 
 @dataclass(frozen=True)
@@ -242,7 +240,7 @@ def parse_gff_hits(path: Path) -> list[GffHit]:
     return parsed_hits
 
 
-def build_keyed_records(
+def build_keyed_records[RecordT](
     records: Sequence[RecordT],
     path: Path,
     source_name: str,

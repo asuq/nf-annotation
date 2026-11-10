@@ -7,17 +7,16 @@ import argparse
 import csv
 import logging
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
 
+import build_master_table as table_helpers
+import master_table_contract
+import sample_policy
+import validate_inputs
 from ani_common import ANI_16S_POLICIES, derive_sixteen_s_ani_exclusion_reason
 from atypical_warnings import classify_atypical_warnings
-import build_master_table as table_helpers
-import sample_policy
-import master_table_contract
-import validate_inputs
-
 
 LOGGER = logging.getLogger(__name__)
 PROKKA_MANIFEST_COLUMNS = ("exit_code", "gff_size", "faa_size")
