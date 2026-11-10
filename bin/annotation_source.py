@@ -197,6 +197,7 @@ def validate_source(
     ) not in ("nf-annotation-v0.5", *REFERENCE_CONTRACTS):
         raise AnnotationError("Annotation reuse requires native v0.5 published results")
     from cohort_evidence import verify
+
     verify(root, manifest.get("cohort_artifacts", {}), checksum)
     accessions = manifest.get("accessions", [])
     if not accessions or len(accessions) != len(set(accessions)):
@@ -252,7 +253,16 @@ def validate_source(
     ) as (header, rows):
         master_key = detect_metadata_key_column(header)
         masters = [
-            {key: row.get(key, "NA") for key in (master_key, "Gcode", "Low_quality", *GCODE_PROVENANCE_COLUMNS, *tool_statuses)}
+            {
+                key: row.get(key, "NA")
+                for key in (
+                    master_key,
+                    "Gcode",
+                    "Low_quality",
+                    *GCODE_PROVENANCE_COLUMNS,
+                    *tool_statuses,
+                )
+            }
             for row in rows
         ]
     if not masters:
@@ -286,7 +296,11 @@ def validate_source(
             "Published annotation status does not contain the complete declared grid"
         )
     batches = source_batches(
-        root, manifest, accessions, publication if publication.reference else None, checksum=checksum
+        root,
+        manifest,
+        accessions,
+        publication if publication.reference else None,
+        checksum=checksum,
     )
     referenced_members = {batch_id: set() for batch_id in batches}
     samples = {}
@@ -297,9 +311,13 @@ def validate_source(
     for master, status in zip(masters, statuses, strict=True):
         accession = master[master_key]
         try:
-            validate_published_decision(samples.get(accession, {}), publication.native_root(accession), master)
+            validate_published_decision(
+                samples.get(accession, {}), publication.native_root(accession), master
+            )
         except (ValueError, KeyError, OSError) as error:
-            raise AnnotationError(f"Invalid reviewed code evidence for {accession}: {error}") from error
+            raise AnnotationError(
+                f"Invalid reviewed code evidence for {accession}: {error}"
+            ) from error
         for tool in TOOLS:
             if (
                 grid[(accession, tool)] != status[f"{tool}_status"]
@@ -375,7 +393,9 @@ def validate_source(
                 or record.get("status") != grid[(accession, tool)]
             ):
                 raise AnnotationError("Published result identity or status changed")
-            validate_raw_evidence(path_for(expected_path), record, batches, checksum=checksum)
+            validate_raw_evidence(
+                path_for(expected_path), record, batches, checksum=checksum
+            )
             if "native_batch" in record:
                 batch_id = record["native_batch"]["batch_id"]
                 member = batches[batch_id].members[accession]
@@ -420,7 +440,9 @@ def import_source(root: Path, output: Path) -> None:
 
         with FingerprintScanner() as scanner:
             snapshot = scanner.fingerprint(root)
-            manifest, _ = validate_source(root, _content_checked=True, checksum=scanner.checksum)
+            manifest, _ = validate_source(
+                root, _content_checked=True, checksum=scanner.checksum
+            )
     else:
         manifest, _ = validate_source(root)
     for accession in manifest["accessions"]:
@@ -470,8 +492,13 @@ def import_source(root: Path, output: Path) -> None:
     # of the original publication. Annotation-only work does not recompute them.
     from independent_copy import copy_independent
 
-    for relative in ("cohort/assembly_stats", "cohort/fastaai", "cohort/aai_clusters",
-                     "cohort/fastani", "cohort/ani_clusters"):
+    for relative in (
+        "cohort/assembly_stats",
+        "cohort/fastaai",
+        "cohort/aai_clusters",
+        "cohort/fastani",
+        "cohort/ani_clusters",
+    ):
         source = source_path(root, relative)
         if not source.exists():
             continue

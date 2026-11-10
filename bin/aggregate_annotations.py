@@ -88,8 +88,10 @@ class TableWriter:
         self.pending = {}
         self.accession = None
         self.schemas = {
-            "proteins": PROTEIN_COLUMNS, "coordinates": COORDINATE_COLUMNS,
-            "summaries": PROTEIN_SUMMARY_COLUMNS, "status": STATUS_COLUMNS,
+            "proteins": PROTEIN_COLUMNS,
+            "coordinates": COORDINATE_COLUMNS,
+            "summaries": PROTEIN_SUMMARY_COLUMNS,
+            "status": STATUS_COLUMNS,
             "provenance": PROVENANCE_COLUMNS,
         }
         self.handles = {}
@@ -98,38 +100,68 @@ class TableWriter:
     def add_genes(self, proteins):
         # A canonical key encodes accession and protein ID. Bundle-local ID
         # uniqueness and cohort accession uniqueness therefore imply global uniqueness.
-        if any(row["gene_id"] != canonical_gene_id(row["accession"], row["protein_id"]) for row in proteins):
-            raise AnnotationError("Noncanonical protein IDs could collide across genomes")
+        if any(
+            row["gene_id"] != canonical_gene_id(row["accession"], row["protein_id"])
+            for row in proteins
+        ):
+            raise AnnotationError(
+                "Noncanonical protein IDs could collide across genomes"
+            )
 
     def add_counts(self, matrix, index, counts):
         if matrix not in self.count_handles:
-            self.count_handles[matrix] = (self.directory.parent / (matrix + ".jsonl")).open("w+")
+            self.count_handles[matrix] = (
+                self.directory.parent / (matrix + ".jsonl")
+            ).open("w+")
         self.count_handles[matrix].write(json.dumps([index, counts]) + "\n")
 
-    def add_rows(self, name, rows, order, *, gene_key="", coordinate=False, source_order=0):
+    def add_rows(
+        self, name, rows, order, *, gene_key="", coordinate=False, source_order=0
+    ):
         pending = self.pending.setdefault(name, [])
         for index, row in enumerate(rows):
             if row["accession"] != self.accession:
                 raise AnnotationError("Report row belongs to a different accession")
-            pending.append(((row.get(gene_key, ""), int(row["segment"]) if coordinate else 0,
-                             source_order, index), row))
+            pending.append(
+                (
+                    (
+                        row.get(gene_key, ""),
+                        int(row["segment"]) if coordinate else 0,
+                        source_order,
+                        index,
+                    ),
+                    row,
+                )
+            )
 
     def finish_sample(self):
         for name, rows in self.pending.items():
             writer = self.writer(name)
             for _, row in sorted(rows, key=lambda item: item[0]):
-                writer.writerow({key: "NA" if value is None else value for key, value in row.items()})
+                writer.writerow(
+                    {
+                        key: "NA" if value is None else value
+                        for key, value in row.items()
+                    }
+                )
         self.pending.clear()
 
     def writer(self, name):
         if name not in self.writers:
             filename = {
-                "proteins": "protein_manifest.tsv", "coordinates": "gene_coordinates.tsv",
-                "summaries": "protein_function_summary.tsv", "status": "annotation_status.tsv",
+                "proteins": "protein_manifest.tsv",
+                "coordinates": "gene_coordinates.tsv",
+                "summaries": "protein_function_summary.tsv",
+                "status": "annotation_status.tsv",
                 "provenance": "annotation_provenance.tsv",
             }.get(name, name.removeprefix("detail:"))
             handle = (self.directory / filename).open("w", newline="")
-            writer = csv.DictWriter(handle, fieldnames=self.schemas[name], delimiter="\t", lineterminator="\n")
+            writer = csv.DictWriter(
+                handle,
+                fieldnames=self.schemas[name],
+                delimiter="\t",
+                lineterminator="\n",
+            )
             writer.writeheader()
             self.handles[name], self.writers[name] = handle, writer
         return self.writers[name]
@@ -145,8 +177,13 @@ class TableWriter:
         handle.seek(0)
         for line in handle:
             index, counts = json.loads(line)
-            yield dict(accession=accessions[index], **{
-                feature: counts.get(feature, 0) if counts is not None else None for feature in features})
+            yield dict(
+                accession=accessions[index],
+                **{
+                    feature: counts.get(feature, 0) if counts is not None else None
+                    for feature in features
+                },
+            )
 
 
 def result_record(
@@ -588,7 +625,11 @@ def main() -> int:
     ):
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--publication", type=Path)
-    parser.add_argument("--publication-mode", choices=("self_contained", "reference"), default="self_contained")
+    parser.add_argument(
+        "--publication-mode",
+        choices=("self_contained", "reference"),
+        default="self_contained",
+    )
     parser.add_argument("--cohort-entries", type=Path)
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -597,13 +638,18 @@ def main() -> int:
             args.plan,
             args.master,
             args.sample_status,
-            read_publication_paths(args.bundle_list, args.publication, args.publication_mode),
+            read_publication_paths(
+                args.bundle_list, args.publication, args.publication_mode
+            ),
             read_json(args.result_list),
             args.output,
             batch_dirs=read_path_list(args.batch_list),
         )
         from cohort_evidence import inventory as cohort_inventory, read_entries
-        manifest["cohort_artifacts"] = cohort_inventory(read_entries(args.cohort_entries))
+
+        manifest["cohort_artifacts"] = cohort_inventory(
+            read_entries(args.cohort_entries)
+        )
         write_json(args.output / "annotation_results.json", manifest)
         if args.publication_mode == "reference":
             from publication_references import (
@@ -611,11 +657,19 @@ def main() -> int:
                 REFERENCE_FILE,
                 Publication,
             )
+
             if args.publication is None:
-                raise AnnotationError("Reference aggregation requires the publication root")
+                raise AnnotationError(
+                    "Reference aggregation requires the publication root"
+                )
             view = Publication(args.publication, pending=True)
-            if set(view.document["samples"]) != set(manifest["accessions"]) or manifest["enabled_tools"]:
-                raise AnnotationError("Reference aggregation requires matching membership and disabled tools")
+            if (
+                set(view.document["samples"]) != set(manifest["accessions"])
+                or manifest["enabled_tools"]
+            ):
+                raise AnnotationError(
+                    "Reference aggregation requires matching membership and disabled tools"
+                )
             manifest["pipeline_contract"] = REFERENCE_CONTRACT
             manifest["reference_manifest_sha256"] = digest(view.root / REFERENCE_FILE)
             write_json(args.output / "annotation_results.json", manifest)

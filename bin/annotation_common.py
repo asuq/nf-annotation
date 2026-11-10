@@ -224,7 +224,10 @@ def bundle_proteins(
     bundle: Path, *, checksum=digest, manifest_sha256: str | None = None
 ) -> tuple[dict[str, Any], list[dict[str, str]]]:
     """Verify a bundle, or its consumed tables against a previously checked manifest."""
-    if manifest_sha256 is not None and checksum(bundle / "bundle.json") != manifest_sha256:
+    if (
+        manifest_sha256 is not None
+        and checksum(bundle / "bundle.json") != manifest_sha256
+    ):
         raise AnnotationError("Bundle manifest changed after planning")
     manifest = read_json(bundle / "bundle.json")
     if (
@@ -249,9 +252,14 @@ def bundle_proteins(
         raise AnnotationError(
             "Bundle must record all required source and derived files"
         )
-    checked_files = files if manifest_sha256 is None else {
-        name: files[name] for name in ("protein_manifest.tsv", "gene_coordinates.tsv")
-    }
+    checked_files = (
+        files
+        if manifest_sha256 is None
+        else {
+            name: files[name]
+            for name in ("protein_manifest.tsv", "gene_coordinates.tsv")
+        }
+    )
     for name, expected in checked_files.items():
         path = bundle / name
         if Path(name).name != name or not path.is_file() or checksum(path) != expected:

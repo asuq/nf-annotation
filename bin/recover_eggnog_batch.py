@@ -236,7 +236,6 @@ def validate_source(
     return old, batch, proteins, prepared
 
 
-
 def recover(
     taskdir: Path, batchdir: Path, previous: Path, members: list[Path], resource: Path
 ) -> int:

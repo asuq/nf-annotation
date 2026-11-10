@@ -107,10 +107,15 @@ def plan(
 
             previous_paths = []
             for key in previous_batch_ids:
-                matches = [root / "annotation_batches" / key for root in roots
-                           if (root / "annotation_batches" / key).exists()]
+                matches = [
+                    root / "annotation_batches" / key
+                    for root in roots
+                    if (root / "annotation_batches" / key).exists()
+                ]
                 if len(matches) != 1:
-                    raise AnnotationError(f"Missing or ambiguous published batch: {key}")
+                    raise AnnotationError(
+                        f"Missing or ambiguous published batch: {key}"
+                    )
                 previous_paths.extend(matches)
             previous_batches = native_batch_index(previous_paths)
     else:
@@ -248,7 +253,9 @@ def plan(
     return record
 
 
-def plan_disabled(samples: Path, bundles: list[Path], receipt: Path, output: Path) -> dict:
+def plan_disabled(
+    samples: Path, bundles: list[Path], receipt: Path, output: Path
+) -> dict:
     """Record the complete disabled grid; aggregation validates bundle contents."""
     checked = read_json(receipt)
     validate_preflight(checked)
@@ -260,7 +267,9 @@ def plan_disabled(samples: Path, bundles: list[Path], receipt: Path, output: Pat
     for row in record["tasks"]:
         if row["tool"] == "eggnog":
             row["input_proteins"] = None
-    record["plan_id"] = identity({key: value for key, value in record.items() if key != "plan_id"})
+    record["plan_id"] = identity(
+        {key: value for key, value in record.items() if key != "plan_id"}
+    )
     write_json(output / "annotation_plan.json", record)
     write_tsv(output / "annotation_plan.tsv", PLAN_COLUMNS, record["tasks"])
     return record
@@ -288,7 +297,9 @@ def reuse(taskdir: Path, previous: Path, outdir: Path) -> None:
     write_json(outdir / "result.json", record)
 
 
-def execution_groups(samples: Path, receipt: Path, source: Path | list[Path] | None, size: int) -> dict:
+def execution_groups(
+    samples: Path, receipt: Path, source: Path | list[Path] | None, size: int
+) -> dict:
     """Freeze small eggNOG readiness groups without waiting for new proteins."""
     if size < 1:
         raise AnnotationError("eggNOG group size must be positive")
@@ -310,31 +321,61 @@ def execution_groups(samples: Path, receipt: Path, source: Path | list[Path] | N
                 remaining.difference_update(members)
         new_members = sorted(remaining)
         for offset in range(0, len(new_members), size):
-            groups.append(dict(accessions=new_members[offset:offset + size], previous_batch_ids=[]))
+            groups.append(
+                dict(
+                    accessions=new_members[offset : offset + size],
+                    previous_batch_ids=[],
+                )
+            )
     for group in groups:
         group["key"] = identity(group)
-    record = dict(accessions=accessions, preflight_id=checked["preflight_id"], groups=groups)
+    record = dict(
+        accessions=accessions, preflight_id=checked["preflight_id"], groups=groups
+    )
     record["groups_id"] = identity(record)
     return record
 
 
-def plan_part(members: Path, bundles: list[Path], receipt: Path, output: Path,
-              source: Path | list[Path] | None, scope: str) -> dict:
+def plan_part(
+    members: Path,
+    bundles: list[Path],
+    receipt: Path,
+    output: Path,
+    source: Path | list[Path] | None,
+    scope: str,
+) -> dict:
     """Plan one ready proteome or one ready eggNOG group with existing methods."""
     group = read_json(members)
     accessions = group["accessions"]
     if scope == "individual" and len(accessions) != 1:
         raise AnnotationError("Individual planning requires one accession")
-    if scope == "eggnog" and group.get("key") != identity({key: value for key, value in group.items() if key != "key"}):
+    if scope == "eggnog" and group.get("key") != identity(
+        {key: value for key, value in group.items() if key != "key"}
+    ):
         raise AnnotationError("Changed eggNOG readiness group")
     sample_file = output.parent / "part_samples.tsv"
-    write_tsv(sample_file, ("accession",), [dict(accession=value) for value in accessions])
-    tools = ("eggnog",) if scope == "eggnog" else tuple(tool for tool in TOOLS if tool != "eggnog")
-    return plan(sample_file, bundles, receipt, output, source, tools=tools,
-                previous_batch_ids=group.get("previous_batch_ids", []))
+    write_tsv(
+        sample_file, ("accession",), [dict(accession=value) for value in accessions]
+    )
+    tools = (
+        ("eggnog",)
+        if scope == "eggnog"
+        else tuple(tool for tool in TOOLS if tool != "eggnog")
+    )
+    return plan(
+        sample_file,
+        bundles,
+        receipt,
+        output,
+        source,
+        tools=tools,
+        previous_batch_ids=group.get("previous_batch_ids", []),
+    )
 
 
-def merge_plans(samples: Path, receipt: Path, fragments: list[Path], output: Path) -> dict:
+def merge_plans(
+    samples: Path, receipt: Path, fragments: list[Path], output: Path
+) -> dict:
     """Build the complete cohort accounting after independently scheduled work."""
     checked = read_json(receipt)
     validate_preflight(checked)
@@ -345,7 +386,11 @@ def merge_plans(samples: Path, receipt: Path, fragments: list[Path], output: Pat
     observed = {}
     for path in fragments:
         fragment = read_json(path)
-        if fragment.get("preflight_id") != checked["preflight_id"] or fragment.get("plan_id") != identity({key: value for key, value in fragment.items() if key != "plan_id"}):
+        if fragment.get("preflight_id") != checked["preflight_id"] or fragment.get(
+            "plan_id"
+        ) != identity(
+            {key: value for key, value in fragment.items() if key != "plan_id"}
+        ):
             raise AnnotationError("Changed or incompatible annotation plan fragment")
         for row in fragment["tasks"]:
             key = (row["accession"], row["tool"])
@@ -359,12 +404,21 @@ def merge_plans(samples: Path, receipt: Path, fragments: list[Path], output: Pat
             if row is None:
                 row = dict.fromkeys(PLAN_COLUMNS)
                 enabled = tool in checked["enabled_tools"]
-                row.update(accession=accession, tool=tool, action="skip",
-                           status="upstream_failed" if enabled else "skipped_disabled",
-                           reason="no_valid_protein_bundle" if enabled else "tool_disabled")
+                row.update(
+                    accession=accession,
+                    tool=tool,
+                    action="skip",
+                    status="upstream_failed" if enabled else "skipped_disabled",
+                    reason="no_valid_protein_bundle" if enabled else "tool_disabled",
+                )
             tasks.append(row)
-    record = dict(schema_version=SCHEMA_VERSION, accessions=accessions,
-                  enabled_tools=checked["enabled_tools"], preflight_id=checked["preflight_id"], tasks=tasks)
+    record = dict(
+        schema_version=SCHEMA_VERSION,
+        accessions=accessions,
+        enabled_tools=checked["enabled_tools"],
+        preflight_id=checked["preflight_id"],
+        tasks=tasks,
+    )
     record["plan_id"] = identity(record)
     output.mkdir()
     write_json(output / "annotation_plan.json", record)
@@ -390,7 +444,11 @@ def main() -> int:
     disabled.add_argument("--preflight", type=Path, required=True)
     disabled.add_argument("--output", type=Path, required=True)
     disabled.add_argument("--publication", type=Path)
-    disabled.add_argument("--publication-mode", choices=("self_contained", "reference"), default="self_contained")
+    disabled.add_argument(
+        "--publication-mode",
+        choices=("self_contained", "reference"),
+        default="self_contained",
+    )
     groups = sub.add_parser("groups", allow_abbrev=False)
     groups.add_argument("--samples", type=Path, required=True)
     groups.add_argument("--preflight", type=Path, required=True)
@@ -429,14 +487,35 @@ def main() -> int:
         if args.command == "preflight":
             write_json(args.output, preflight(read_json(args.config)))
         elif args.command == "plan-disabled":
-            plan_disabled(args.samples, read_publication_paths(args.bundle_list, args.publication, args.publication_mode), args.preflight, args.output)
+            plan_disabled(
+                args.samples,
+                read_publication_paths(
+                    args.bundle_list, args.publication, args.publication_mode
+                ),
+                args.preflight,
+                args.output,
+            )
         elif args.command == "groups":
-            write_json(args.output, execution_groups(args.samples, args.preflight, args.source, args.size))
+            write_json(
+                args.output,
+                execution_groups(args.samples, args.preflight, args.source, args.size),
+            )
         elif args.command == "plan-part":
-            plan_part(args.members, read_path_list(args.bundle_list), args.preflight,
-                      args.output, args.source, args.scope)
+            plan_part(
+                args.members,
+                read_path_list(args.bundle_list),
+                args.preflight,
+                args.output,
+                args.source,
+                args.scope,
+            )
         elif args.command == "merge-plans":
-            merge_plans(args.samples, args.preflight, read_path_list(args.fragment_list), args.output)
+            merge_plans(
+                args.samples,
+                args.preflight,
+                read_path_list(args.fragment_list),
+                args.output,
+            )
         elif args.command == "plan":
             plan(
                 args.samples,

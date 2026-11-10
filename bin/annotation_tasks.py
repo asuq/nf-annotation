@@ -308,7 +308,9 @@ def normalize_task(
     task = read_json(taskdir / "task.json")
     if task.get("tool") == "eggnog":
         raise AnnotationError("eggNOG normalization requires the shared batch result")
-    manifest, proteins = bundle_proteins(bundle, manifest_sha256=task["bundle_manifest_sha256"])
+    manifest, proteins = bundle_proteins(
+        bundle, manifest_sha256=task["bundle_manifest_sha256"]
+    )
     if (
         manifest["input_id"] != task["input_id"]
         or manifest["accession"] != task["accession"]

@@ -182,6 +182,10 @@ def validate_result(
     if record["status"] != "success":
         raise AnnotationError(f"Cannot reuse unsuccessful annotation result: {root}")
     validate_raw_evidence(root, record, batches, checksum=checksum)
-    if normalized and inventory(root / "normalized", checksum=checksum) != record["normalized_files"]:
+    if (
+        normalized
+        and inventory(root / "normalized", checksum=checksum)
+        != record["normalized_files"]
+    ):
         raise AnnotationError(f"Normalized annotation evidence changed: {root}")
     return record
