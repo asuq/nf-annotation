@@ -35,8 +35,13 @@ class ClusterAniHelperTestCase(unittest.TestCase):
 
     def test_normalize_header_matches_nextflow_style(self) -> None:
         """Normalize mixed punctuation and case into lowercase underscore tokens."""
-        self.assertEqual(ani_common.normalize_header(" Assembly Level "), "assembly_level")
-        self.assertEqual(ani_common.normalize_header("BUSCO-bacillota_odb12"), "busco_bacillota_odb12")
+        self.assertEqual(
+            ani_common.normalize_header(" Assembly Level "), "assembly_level"
+        )
+        self.assertEqual(
+            ani_common.normalize_header("BUSCO-bacillota_odb12"),
+            "busco_bacillota_odb12",
+        )
 
     def test_try_parse_busco_extracts_complete_and_missing(self) -> None:
         """Read the compact BUSCO string format emitted by the BUSCO summariser."""

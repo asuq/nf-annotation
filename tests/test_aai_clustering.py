@@ -134,7 +134,10 @@ class AaiClusteringTests(unittest.TestCase):
             from_pairs(path, ["A", "B"], {("A", "B"): 1.0})
             rows, reps, _, _ = cluster_domain(
                 [record("A", domain=domain), record("B", domain=domain)],
-                path, 0.65, "default", domain,
+                path,
+                0.65,
+                "default",
+                domain,
             )
             self.assertEqual(len(reps), 1)
             identifiers.append(rows[0]["AAI_Cluster_ID"])
@@ -182,10 +185,13 @@ class AaiClusteringTests(unittest.TestCase):
         self.assertNotEqual(rows[0]["AAI_Score"], "NA")
 
     def test_invalid_metrics_remove_candidates_without_removing_membership(self):
-        for field, value in (("n50", "-1"), ("scaffolds", "0"),
-                             ("checkm2_completeness", "NaN"),
-                             ("checkm2_contamination", "inf"),
-                             ("busco", "C:101.0%[S:101.0%,D:0.0%],F:0.0%,M:0.0%,n:200")):
+        for field, value in (
+            ("n50", "-1"),
+            ("scaffolds", "0"),
+            ("checkm2_completeness", "NaN"),
+            ("checkm2_contamination", "inf"),
+            ("busco", "C:101.0%[S:101.0%,D:0.0%],F:0.0%,M:0.0%,n:200"),
+        ):
             with self.subTest(field=field):
                 a, b = record("A"), record("B")
                 a["quality"][field] = value

@@ -40,7 +40,9 @@ class BuildFastAniInputsTestCase(unittest.TestCase):
     ) -> tuple[dict[str, Path], dict[str, Path]]:
         """Write a compact multi-sample ANI fixture and return input paths."""
         staged_paths: dict[str, Path] = {}
-        validated_lines = ["accession\tis_new\tassembly_level\tgenome_fasta\tinternal_id"]
+        validated_lines = [
+            "accession\tis_new\tassembly_level\tgenome_fasta\tinternal_id"
+        ]
         metadata_lines = [
             "Accession\tOrganism_Name\tAssembly_Level\tN50\tScaffolds\tGenome_Size\tAtypical_Warnings"
         ]
@@ -50,18 +52,28 @@ class BuildFastAniInputsTestCase(unittest.TestCase):
             "Contamination_gcode4\tContamination_gcode11\tGcode\tLow_quality"
         ]
         sixteen_s_lines = ["accession\t16S\tbest_16S_header\tbest_16S_length\twarnings"]
-        busco_lines = ["accession\tlineage\tBUSCO_bacillota_odb12\tbusco_status\twarnings"]
+        busco_lines = [
+            "accession\tlineage\tBUSCO_bacillota_odb12\tbusco_status\twarnings"
+        ]
 
-        for offset, (accession, sixteen_s_status) in enumerate(sixteen_s_statuses.items(), start=1):
-            staged_path = self.write_text_file(tmpdir / f"{accession}.fasta", ">a\nACGT\n")
+        for offset, (accession, sixteen_s_status) in enumerate(
+            sixteen_s_statuses.items(), start=1
+        ):
+            staged_path = self.write_text_file(
+                tmpdir / f"{accession}.fasta", ">a\nACGT\n"
+            )
             staged_paths[accession] = staged_path
-            validated_lines.append(f"{accession}\tfalse\tNA\t{staged_path}\t{accession}")
+            validated_lines.append(
+                f"{accession}\tfalse\tNA\t{staged_path}\t{accession}"
+            )
             metadata_lines.append(
                 f"{accession}\tGenome {offset}\tScaffold\t50000\t2\t800000\tNA"
             )
             staged_manifest_lines.append(f"{accession}\t{accession}\t{accession}.fasta")
             checkm2_lines.append(f"{accession}\tNA\t95\tNA\t1\t11\tfalse")
-            sixteen_s_lines.append(f"{accession}\t{sixteen_s_status}\th{offset}\t1500\t")
+            sixteen_s_lines.append(
+                f"{accession}\t{sixteen_s_status}\th{offset}\t1500\t"
+            )
             busco_lines.append(
                 f"{accession}\tbacillota_odb12\t"
                 "C:98.0%[S:98.0%,D:0.0%],F:1.0%,M:1.0%,n:200\tdone\t"
@@ -72,14 +84,22 @@ class BuildFastAniInputsTestCase(unittest.TestCase):
                 tmpdir / "validated_samples.tsv",
                 "\n".join(validated_lines) + "\n",
             ),
-            "metadata": self.write_text_file(tmpdir / "metadata.tsv", "\n".join(metadata_lines) + "\n"),
+            "metadata": self.write_text_file(
+                tmpdir / "metadata.tsv", "\n".join(metadata_lines) + "\n"
+            ),
             "staged_manifest": self.write_text_file(
                 tmpdir / "staged_manifest.tsv",
                 "\n".join(staged_manifest_lines) + "\n",
             ),
-            "checkm2": self.write_text_file(tmpdir / "checkm2.tsv", "\n".join(checkm2_lines) + "\n"),
-            "sixteen_s": self.write_text_file(tmpdir / "16s.tsv", "\n".join(sixteen_s_lines) + "\n"),
-            "busco": self.write_text_file(tmpdir / "busco.tsv", "\n".join(busco_lines) + "\n"),
+            "checkm2": self.write_text_file(
+                tmpdir / "checkm2.tsv", "\n".join(checkm2_lines) + "\n"
+            ),
+            "sixteen_s": self.write_text_file(
+                tmpdir / "16s.tsv", "\n".join(sixteen_s_lines) + "\n"
+            ),
+            "busco": self.write_text_file(
+                tmpdir / "busco.tsv", "\n".join(busco_lines) + "\n"
+            ),
         }
         return files, staged_paths
 
@@ -192,15 +212,27 @@ class BuildFastAniInputsTestCase(unittest.TestCase):
 
             self.assertEqual(exit_code, 0)
             metadata_rows = read_tsv(outdir / "ani_metadata.tsv")
-            self.assertEqual([row["accession"] for row in metadata_rows], ["ACC1", "ACC2"])
+            self.assertEqual(
+                [row["accession"] for row in metadata_rows], ["ACC1", "ACC2"]
+            )
             self.assertEqual(metadata_rows[0]["gcode"], "11")
             self.assertEqual(metadata_rows[0]["checkm2_completeness"], "95")
             self.assertEqual(metadata_rows[1]["assembly_level"], "Scaffold")
             self.assertTrue((outdir / "fastani_inputs" / "ACC1.fasta").exists())
-            self.assertFalse((outdir / "fastani_inputs" / "ACC1.fasta").samefile(staged_a))
-            self.assertEqual((outdir / "fastani_inputs" / "ACC1.fasta").read_bytes(), staged_a.read_bytes())
-            self.assertFalse((outdir / "fastani_inputs" / "ACC2.fasta").samefile(staged_b))
-            self.assertEqual((outdir / "fastani_inputs" / "ACC2.fasta").read_bytes(), staged_b.read_bytes())
+            self.assertFalse(
+                (outdir / "fastani_inputs" / "ACC1.fasta").samefile(staged_a)
+            )
+            self.assertEqual(
+                (outdir / "fastani_inputs" / "ACC1.fasta").read_bytes(),
+                staged_a.read_bytes(),
+            )
+            self.assertFalse(
+                (outdir / "fastani_inputs" / "ACC2.fasta").samefile(staged_b)
+            )
+            self.assertEqual(
+                (outdir / "fastani_inputs" / "ACC2.fasta").read_bytes(),
+                staged_b.read_bytes(),
+            )
             self.assertFalse((outdir / "fastani_inputs" / "ACC1.fasta").is_symlink())
             self.assertFalse((outdir / "fastani_inputs" / "ACC2.fasta").is_symlink())
             self.assertEqual(
@@ -213,7 +245,9 @@ class BuildFastAniInputsTestCase(unittest.TestCase):
             self.assertEqual(exclusion_rows["ACC1"]["ani_included"], "true")
             self.assertEqual(exclusion_rows["ACC2"]["ani_included"], "true")
 
-    def test_excludes_mixed_atypical_warning_even_with_unverified_source_reason(self) -> None:
+    def test_excludes_mixed_atypical_warning_even_with_unverified_source_reason(
+        self,
+    ) -> None:
         """Exclude ANI samples when unverified source organism is not the sole reason."""
         with tempfile.TemporaryDirectory() as tmpdir_name:
             tmpdir = Path(tmpdir_name)
@@ -287,7 +321,9 @@ class BuildFastAniInputsTestCase(unittest.TestCase):
             self.assertEqual(exclusion_rows[0]["ani_included"], "false")
             self.assertEqual(exclusion_rows[0]["ani_exclusion_reason"], "atypical")
 
-    def test_excludes_low_quality_partial_and_non_exception_atypical_samples(self) -> None:
+    def test_excludes_low_quality_partial_and_non_exception_atypical_samples(
+        self,
+    ) -> None:
         """Record stable exclusion reasons for ineligible ANI samples."""
         with tempfile.TemporaryDirectory() as tmpdir_name:
             tmpdir = Path(tmpdir_name)
@@ -392,7 +428,9 @@ class BuildFastAniInputsTestCase(unittest.TestCase):
 
             self.assertEqual(exit_code, 0)
             self.assertEqual(read_tsv(outdir / "ani_metadata.tsv"), [])
-            exclusions = {row["accession"]: row for row in read_tsv(outdir / "ani_exclusions.tsv")}
+            exclusions = {
+                row["accession"]: row for row in read_tsv(outdir / "ani_exclusions.tsv")
+            }
             self.assertEqual(exclusions["ACC_NO"]["ani_included"], "false")
             self.assertEqual(exclusions["ACC_NO"]["ani_exclusion_reason"], "no_16s")
             self.assertEqual(exclusions["ACC_PARTIAL"]["ani_included"], "false")
@@ -450,7 +488,9 @@ class BuildFastAniInputsTestCase(unittest.TestCase):
                 for accession in expected:
                     target = output / "fastani_inputs" / f"{accession}.fasta"
                     self.assertFalse(target.samefile(staged[accession]))
-                    self.assertEqual(target.read_bytes(), staged[accession].read_bytes())
+                    self.assertEqual(
+                        target.read_bytes(), staged[accession].read_bytes()
+                    )
                 decisions = {
                     row["accession"]: row
                     for row in read_tsv(output / "ani_exclusions.tsv")
@@ -462,7 +502,9 @@ class BuildFastAniInputsTestCase(unittest.TestCase):
                     )
                 self.assertEqual(files["sixteen_s"].read_bytes(), original_status)
 
-    def test_uses_in_house_assembly_stats_when_metadata_metrics_are_missing(self) -> None:
+    def test_uses_in_house_assembly_stats_when_metadata_metrics_are_missing(
+        self,
+    ) -> None:
         """Use computed stats for ANI eligibility and ANI metadata output."""
         with tempfile.TemporaryDirectory() as tmpdir_name:
             tmpdir = Path(tmpdir_name)
@@ -610,18 +652,22 @@ class BuildFastAniInputsTestCase(unittest.TestCase):
             output_dir = tmpdir / "out" / "fastani_inputs"
 
             with mock.patch("independent_copy.sys.platform", "no_clone_primitive"):
-                relative_path, absolute_path = build_fastani_inputs.ensure_fastani_input(
-                    staged_filename="ACC5.fasta",
-                    manifest_dir=tmpdir,
-                    internal_id="ACC5",
-                    output_dir=output_dir,
+                relative_path, absolute_path = (
+                    build_fastani_inputs.ensure_fastani_input(
+                        staged_filename="ACC5.fasta",
+                        manifest_dir=tmpdir,
+                        internal_id="ACC5",
+                        output_dir=output_dir,
+                    )
                 )
 
             target = Path(absolute_path)
             self.assertEqual(relative_path, "fastani_inputs/ACC5.fasta")
             self.assertTrue(target.exists())
             self.assertFalse(target.is_symlink())
-            self.assertEqual(target.read_text(encoding="utf-8"), source.read_text(encoding="utf-8"))
+            self.assertEqual(
+                target.read_text(encoding="utf-8"), source.read_text(encoding="utf-8")
+            )
             self.assertNotEqual(target.stat().st_ino, source.stat().st_ino)
 
 

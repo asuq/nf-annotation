@@ -58,7 +58,9 @@ class AniBatchImportTests(unittest.TestCase):
         expected = {
             name: digest(path) for name, path in regular_files(self.source).items()
         }
-        result = import_sample(self.source, self.meta, "4", self.destination, self.channels)
+        result = import_sample(
+            self.source, self.meta, "4", self.destination, self.channels
+        )
         target = self.destination / "samples/A"
         self.assertEqual(result["bundle"], "reused")
         self.assertEqual(result["files_copied"] + result["files_cloned"], len(expected))
@@ -87,27 +89,49 @@ class AniBatchImportTests(unittest.TestCase):
     def test_import_resume_consumes_fresh_scan_checksums_without_source_rereads(self):
         from fingerprinting.source_fingerprint import FingerprintScanner, load_checksums
         import hashlib
+
         original = hashlib.file_digest
         with FingerprintScanner(2) as scanner:
             scanner.metrics.update(current_files_hashed=0, current_bytes_hashed=0)
-            list(scanner.hashes([(p, p.stat()) for p in regular_files(self.source).values()]))
+            list(
+                scanner.hashes(
+                    [(p, p.stat()) for p in regular_files(self.source).values()]
+                )
+            )
             catalog = self.root / "checksums.json"
             scanner.export_checksums(catalog)
         import_sample(self.source, self.meta, "4", self.destination, self.channels)
         reads = []
+
         def checked(handle, *args, **kwargs):
             path = Path(handle.name)
-            self.assertFalse(path.is_relative_to(self.source), "source payload read twice")
+            self.assertFalse(
+                path.is_relative_to(self.source), "source payload read twice"
+            )
             reads.append(path)
             return original(handle, *args, **kwargs)
+
         checksum = load_checksums(catalog)
         from fingerprinting import source_fingerprint
+
         original_signature = source_fingerprint.signature
+
         def other_worker(info):
             value = original_signature(info)
             return (value[0] + 1, value[1] + 1, *value[2:])
-        with patch.object(source_fingerprint, "signature", side_effect=other_worker), patch("hashlib.file_digest", side_effect=checked):
-            import_sample(self.source, self.meta, "4", self.destination, self.channels, source_checksum=checksum)
+
+        with (
+            patch.object(source_fingerprint, "signature", side_effect=other_worker),
+            patch("hashlib.file_digest", side_effect=checked),
+        ):
+            import_sample(
+                self.source,
+                self.meta,
+                "4",
+                self.destination,
+                self.channels,
+                source_checksum=checksum,
+            )
         self.assertEqual(len(reads), len(regular_files(self.source)))
         changed = self.source / "prokka/prokka.faa"
         changed.write_text("changed")
@@ -130,10 +154,14 @@ class AniBatchImportTests(unittest.TestCase):
         result.parent.mkdir()
         result.write_text('{"producer": "functional annotation"}\n')
         before = result.read_bytes()
-        observed = import_sample(self.source, self.meta, "4", self.destination, self.channels)
+        observed = import_sample(
+            self.source, self.meta, "4", self.destination, self.channels
+        )
         self.assertEqual(observed["publication"], "verified_existing")
         self.assertEqual(result.read_bytes(), before)
-        (self.destination / "samples/A/annotation/bundle/proteins.faa").write_text("changed")
+        (self.destination / "samples/A/annotation/bundle/proteins.faa").write_text(
+            "changed"
+        )
         with self.assertRaisesRegex(AnnotationError, "Existing publication differs"):
             import_sample(self.source, self.meta, "4", self.destination, self.channels)
 

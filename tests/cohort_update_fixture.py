@@ -33,13 +33,39 @@ def ccfinder_zero(genome: Path, output: Path) -> None:
     output.mkdir(parents=True, exist_ok=True)
     adapter = str(ROOT / "bin/ccfinder_contigs.pl")
     staged, mapping = output / "tool.fasta", output / "contig_mapping.json"
-    subprocess.run(["perl", adapter, "stage", str(genome), str(staged), str(mapping),
-                    str(output), str(output / "files.txt")], check=True)
-    native = {"Sequences": [dict(Id=row["tool_id"], Length=row["length"], Crisprs=[], Cas=[])
-                            for row in json.loads(mapping.read_text())["contigs"]]}
+    subprocess.run(
+        [
+            "perl",
+            adapter,
+            "stage",
+            str(genome),
+            str(staged),
+            str(mapping),
+            str(output),
+            str(output / "files.txt"),
+        ],
+        check=True,
+    )
+    native = {
+        "Sequences": [
+            dict(Id=row["tool_id"], Length=row["length"], Crisprs=[], Cas=[])
+            for row in json.loads(mapping.read_text())["contigs"]
+        ]
+    }
     write(output / "native_result.json", json.dumps(native))
-    subprocess.run(["perl", adapter, "restore", str(genome), str(staged), str(mapping),
-                    str(output / "native_result.json"), str(output / "result.json")], check=True)
+    subprocess.run(
+        [
+            "perl",
+            adapter,
+            "restore",
+            str(genome),
+            str(staged),
+            str(mapping),
+            str(output / "native_result.json"),
+            str(output / "result.json"),
+        ],
+        check=True,
+    )
 
 
 def table(path: str | Path, header: list[str], rows: list[list[str]]) -> None:
@@ -149,11 +175,17 @@ def make_stub(args: argparse.Namespace) -> None:
                     "Total_Coding_Sequences",
                     "Translation_Table_Used",
                 ],
-                [[
-                    internal_id, completeness, "1", "0.9",
-                    "300" if args.translation_table == "4" else "150",
-                    "800", args.translation_table,
-                ]],
+                [
+                    [
+                        internal_id,
+                        completeness,
+                        "1",
+                        "0.9",
+                        "300" if args.translation_table == "4" else "150",
+                        "800",
+                        args.translation_table,
+                    ]
+                ],
             )
         write("checkm2.log", f"exit_code={1 if failed else 0}\n")
     elif tool == "busco":
@@ -198,12 +230,27 @@ def make_stub(args: argparse.Namespace) -> None:
         protein = str(record.seq[:30].translate(table=4))
         gene = f"{internal_id}_1"
         record.annotations["molecule_type"] = "DNA"
-        record.features = [SeqFeature(SimpleLocation(0, 30, strand=1), type="CDS",
-            qualifiers={"locus_tag": [gene], "translation": [protein],
-                        "transl_table": ["4"], "codon_start": ["1"]})]
-        write("prokka.gff", "" if failed else (
-            f"##gff-version 3\n{record.id}\tProkka\tCDS\t1\t30\t.\t+\t0\tID={gene}\n"
-            f"##FASTA\n>{record.id}\n{sequence}\n"))
+        record.features = [
+            SeqFeature(
+                SimpleLocation(0, 30, strand=1),
+                type="CDS",
+                qualifiers={
+                    "locus_tag": [gene],
+                    "translation": [protein],
+                    "transl_table": ["4"],
+                    "codon_start": ["1"],
+                },
+            )
+        ]
+        write(
+            "prokka.gff",
+            ""
+            if failed
+            else (
+                f"##gff-version 3\n{record.id}\tProkka\tCDS\t1\t30\t.\t+\t0\tID={gene}\n"
+                f"##FASTA\n>{record.id}\n{sequence}\n"
+            ),
+        )
         write("prokka.faa", "" if failed else f">{gene}\n{protein}\n")
         if failed:
             write("prokka.gbk", "")

@@ -64,12 +64,15 @@ class CohortUpdateIntegrationTestCase(unittest.TestCase):
             ROOT / "tests/cohort_update_fixture.py",
             cls.project / "tests/cohort_update_fixture.py",
         )
-        if (ROOT / 'tests/fastaai_workflow_fixture.py').is_file():
-            shutil.copy2(ROOT / 'tests/fastaai_workflow_fixture.py', cls.project / 'tests/fastaai_workflow_fixture.py')
+        if (ROOT / "tests/fastaai_workflow_fixture.py").is_file():
+            shutil.copy2(
+                ROOT / "tests/fastaai_workflow_fixture.py",
+                cls.project / "tests/fastaai_workflow_fixture.py",
+            )
         # Keep production scripts intact. Replace expensive stubs and execute
         # the real lightweight scripts in stub mode rather than canned tables.
         for path in (cls.project / "modules/local").glob("*.nf"):
-            if path.name == 'fastaai.nf':
+            if path.name == "fastaai.nf":
                 continue
             content = path.read_text()
             if "\n    stub:" not in content:
@@ -195,7 +198,14 @@ class CohortUpdateIntegrationTestCase(unittest.TestCase):
         if domain is not None:
             command.extend(["--domain", domain])
         if source:
-            command.extend(["--update_from", ','.join(map(str, source)) if isinstance(source, list) else str(source)])
+            command.extend(
+                [
+                    "--update_from",
+                    ",".join(map(str, source))
+                    if isinstance(source, list)
+                    else str(source),
+                ]
+            )
         if resume:
             command.append("-resume")
         environment = os.environ.copy()
@@ -279,10 +289,12 @@ class CohortUpdateIntegrationTestCase(unittest.TestCase):
         status = read_rows(updated / "tables/sample_status.tsv")[0]
         self.assertEqual(status["aai_status"], "excluded")
         self.assertIn("no_valid_protein_bundle", status["aai_exclusion_reason"])
-        self.assertFalse(any(
-            "PREPARE_ANNOTATION_BUNDLE" in row["name"]
-            for row in read_rows(updated / "pipeline_info/trace.tsv")
-        ))
+        self.assertFalse(
+            any(
+                "PREPARE_ANNOTATION_BUNDLE" in row["name"]
+                for row in read_rows(updated / "pipeline_info/trace.tsv")
+            )
+        )
         self.assertEqual(self.heavy_tasks(updated), [])
         self.assertEqual(fingerprints(source), before)
         for name in ("prokka.faa", "prokka.gff", "prokka.gbk"):
@@ -292,28 +304,35 @@ class CohortUpdateIntegrationTestCase(unittest.TestCase):
             )
 
     def test_merge_independent_publications_without_rerunning_samples(self) -> None:
-        first = self.run_pipeline('multi-a', ['A'])
-        second = self.run_pipeline('multi-b', ['B'])
+        first = self.run_pipeline("multi-a", ["A"])
+        second = self.run_pipeline("multi-b", ["B"])
         before = [fingerprints(p) for p in (first, second)]
-        for name in ('multi-a', 'multi-b'):
-            shutil.rmtree(self.root / f'work-{name}')
-        merged = self.run_pipeline('multi-ab', ['A', 'B'], source=[first, second])
-        self.assert_members(merged, {'A', 'B'})
+        for name in ("multi-a", "multi-b"):
+            shutil.rmtree(self.root / f"work-{name}")
+        merged = self.run_pipeline("multi-ab", ["A", "B"], source=[first, second])
+        self.assert_members(merged, {"A", "B"})
         self.assertEqual(self.heavy_tasks(merged), [])
-        for source, accession, original in zip((first, second), ('A', 'B'), before):
+        for source, accession, original in zip((first, second), ("A", "B"), before):
             self.assertEqual(fingerprints(source), original)
-            self.assertEqual(fingerprints(source / 'samples' / accession), fingerprints(merged / 'samples' / accession))
-        self.assertEqual({r['action'] for r in read_rows(merged / 'tables/cohort_update.tsv')}, {'reused'})
-        parameters = self.root / 'multi-sources.json'
-        parameters.write_text(json.dumps({'update_from': [str(first), str(second)]}))
-        resumed = self.run_pipeline('multi-ab', ['A', 'B'], resume=True,
-                                    extra=['-params-file', str(parameters)])
-        self.assert_members(resumed, {'A', 'B'})
+            self.assertEqual(
+                fingerprints(source / "samples" / accession),
+                fingerprints(merged / "samples" / accession),
+            )
+        self.assertEqual(
+            {r["action"] for r in read_rows(merged / "tables/cohort_update.tsv")},
+            {"reused"},
+        )
+        parameters = self.root / "multi-sources.json"
+        parameters.write_text(json.dumps({"update_from": [str(first), str(second)]}))
+        resumed = self.run_pipeline(
+            "multi-ab", ["A", "B"], resume=True, extra=["-params-file", str(parameters)]
+        )
+        self.assert_members(resumed, {"A", "B"})
         self.assertEqual(self.heavy_tasks(resumed), [])
         # The merged output is itself a normal portable source for later additions.
-        successor = self.run_pipeline('multi-abc', ['A', 'B', 'C'], source=merged)
-        self.assert_members(successor, {'A', 'B', 'C'})
-        self.assertTrue(all('(C' in r['name'] for r in self.heavy_tasks(successor)))
+        successor = self.run_pipeline("multi-abc", ["A", "B", "C"], source=merged)
+        self.assert_members(successor, {"A", "B", "C"})
+        self.assertTrue(all("(C" in r["name"] for r in self.heavy_tasks(successor)))
 
     def test_add_remove_and_successive_updates_without_original_work(self) -> None:
         source = self.run_pipeline("ab", ["A", "B"])

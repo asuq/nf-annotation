@@ -27,11 +27,21 @@ class AaiStageIntegrationTests(unittest.TestCase):
             "            if time.monotonic() > deadline: raise AssertionError('AAI waited for BUSCO')\n"
             "            time.sleep(0.05)\n"
         )
-        caller.write_text(source.replace("def make_stub(args: argparse.Namespace) -> None:\n",
-                                         "def make_stub(args: argparse.Namespace) -> None:\n" + gate))
+        caller.write_text(
+            source.replace(
+                "def make_stub(args: argparse.Namespace) -> None:\n",
+                "def make_stub(args: argparse.Namespace) -> None:\n" + gate,
+            )
+        )
         driver = case.project / "tests/fastaai_workflow_fixture.py"
-        driver.write_text(driver.read_text().replace("    prepare_aai.prepare(args)",
-                          "    prepare_aai.prepare(args)\n    Path(" + repr(str(marker)) + ").write_text('ready')"))
+        driver.write_text(
+            driver.read_text().replace(
+                "    prepare_aai.prepare(args)",
+                "    prepare_aai.prepare(args)\n    Path("
+                + repr(str(marker))
+                + ").write_text('ready')",
+            )
+        )
         result = case.run_pipeline("ready-aai", ["A", "B"])
         self.assertTrue(marker.is_file())
         trace = fixture.read_rows(result / "pipeline_info/trace.tsv")
@@ -43,7 +53,9 @@ class AaiStageIntegrationTests(unittest.TestCase):
         self.addCleanup(fixture.CohortUpdateIntegrationTestCase.tearDownClass)
         case = fixture.CohortUpdateIntegrationTestCase(methodName="runTest")
         with (case.project / "nextflow.config").open("a") as handle:
-            handle.write("\ntrace.fields = 'task_id,hash,name,status,exit,cpus,memory'\ntrace.raw = true\n")
+            handle.write(
+                "\ntrace.fields = 'task_id,hash,name,status,exit,cpus,memory'\ntrace.raw = true\n"
+            )
         path = case.inputs / "PARTIAL.fasta"
         path.write_bytes(case.genomes["B"].read_bytes())
         case.genomes["PARTIAL"] = path
@@ -72,7 +84,9 @@ class AaiStageIntegrationTests(unittest.TestCase):
         )
         self.assertTrue((output / "cohort/fastaai/Bacteria/jaccard.npy").is_file())
         trace = fixture.read_rows(output / "pipeline_info/trace.tsv")
-        clusters = [r for r in trace if r["name"].split(" (")[0].endswith(":CLUSTER_AAI")]
+        clusters = [
+            r for r in trace if r["name"].split(" (")[0].endswith(":CLUSTER_AAI")
+        ]
         self.assertEqual(len(clusters), 1)
         self.assertEqual(int(clusters[0]["cpus"]), 1)
         self.assertEqual(int(clusters[0]["memory"]), 3 * 1024**3)

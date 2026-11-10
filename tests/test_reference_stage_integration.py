@@ -64,9 +64,15 @@ class ReferenceStageIntegrationTests(unittest.TestCase):
                 path.name,
             )
             matched += 1
-        self.assertEqual(set(read_json(reference / "annotation_results.json")["tables"]), {
-            "tables/master_table.tsv", "tables/sample_status.tsv",
-            "tables/annotation_status.tsv", "tables/annotation_provenance.tsv"})
+        self.assertEqual(
+            set(read_json(reference / "annotation_results.json")["tables"]),
+            {
+                "tables/master_table.tsv",
+                "tables/sample_status.tsv",
+                "tables/annotation_status.tsv",
+                "tables/annotation_provenance.tsv",
+            },
+        )
         self.assertFalse((reference / "tables/protein_manifest.tsv").exists())
         audits = [
             read_json(path)
@@ -112,16 +118,32 @@ class ReferenceStageIntegrationTests(unittest.TestCase):
         (launch / "captured.log").write_text(result.stdout + result.stderr)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         trace = fixture.read_rows(reannotation / "pipeline_info/trace.tsv")
-        self.assertTrue(any(row["name"].split(" (")[0].endswith("REFERENCE_ACCEPTANCE") for row in trace))
+        self.assertTrue(
+            any(
+                row["name"].split(" (")[0].endswith("REFERENCE_ACCEPTANCE")
+                for row in trace
+            )
+        )
         validate_source(reannotation)
         self.assertEqual(
-            (chained / 'cohort/aai_clusters/aai_summary.tsv').read_bytes(),
-            (reannotation / 'cohort/aai_clusters/aai_summary.tsv').read_bytes())
-        self.assertTrue(list((reannotation / 'cohort/fastaai/profiles').glob('*/profile.json')))
-        self.assertTrue((reannotation / 'cohort/assembly_stats/assembly_stats.tsv').is_file())
-        for relative in ('cohort/fastani/fastani.matrix', 'cohort/ani_clusters/cluster.tsv',
-                         'cohort/ani_clusters/ani_summary.tsv'):
-            self.assertEqual((chained / relative).read_bytes(), (reannotation / relative).read_bytes())
+            (chained / "cohort/aai_clusters/aai_summary.tsv").read_bytes(),
+            (reannotation / "cohort/aai_clusters/aai_summary.tsv").read_bytes(),
+        )
+        self.assertTrue(
+            list((reannotation / "cohort/fastaai/profiles").glob("*/profile.json"))
+        )
+        self.assertTrue(
+            (reannotation / "cohort/assembly_stats/assembly_stats.tsv").is_file()
+        )
+        for relative in (
+            "cohort/fastani/fastani.matrix",
+            "cohort/ani_clusters/cluster.tsv",
+            "cohort/ani_clusters/ani_summary.tsv",
+        ):
+            self.assertEqual(
+                (chained / relative).read_bytes(),
+                (reannotation / relative).read_bytes(),
+            )
         shutil.rmtree(chained)
         shutil.rmtree(source)
         for output in (portable, materialised, reannotation):

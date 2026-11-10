@@ -166,9 +166,19 @@ class DomainStageIntegrationTests(unittest.TestCase):
         )
         self.assertNotIn("CALCULATE_ASSEMBLY_STATS", names)
         self.assertNotIn("AGGREGATE_ANNOTATIONS", names)
-        expected_stats = {row["accession"]: row for root in (a, b)
-                          for row in fixture.read_rows(root / "cohort/assembly_stats/assembly_stats.tsv")}
-        observed_stats = {row["accession"]: row for row in fixture.read_rows(output / "cohort/assembly_stats/assembly_stats.tsv")}
+        expected_stats = {
+            row["accession"]: row
+            for root in (a, b)
+            for row in fixture.read_rows(
+                root / "cohort/assembly_stats/assembly_stats.tsv"
+            )
+        }
+        observed_stats = {
+            row["accession"]: row
+            for row in fixture.read_rows(
+                output / "cohort/assembly_stats/assembly_stats.tsv"
+            )
+        }
         self.assertEqual(observed_stats, expected_stats)
         self.assertIn("FASTANI", names)
         master = {
@@ -300,7 +310,9 @@ class DomainStageIntegrationTests(unittest.TestCase):
         self.config.write_text(
             original_config.replace("['archaea_odb12']", "['other_archaeal_odb12']")
         )
-        self.run_stage("domain-incompatible", ["B"], "clustering", source=b, expected_code=1)
+        self.run_stage(
+            "domain-incompatible", ["B"], "clustering", source=b, expected_code=1
+        )
         self.config.write_text(original_config)
 
     def test_single_domain_modes_produce_matching_provenance(self):

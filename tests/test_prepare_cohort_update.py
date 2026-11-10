@@ -108,13 +108,21 @@ class PrepareCohortUpdateTestCase(unittest.TestCase):
             table(sample / "16s/16S_status.tsv", list(sixteen_s), [sixteen_s])
             qc = {column: "1" for column in build_master_table.CHECKM2_COLUMNS}
             qc.update(
-                accession=accession, Gcode="4", Low_quality="false", warnings="",
-                Completeness_gcode4="95", Completeness_gcode11="80",
-                Average_Gene_Length_gcode4="300", Average_Gene_Length_gcode11="150",
-                Gcode_Rule="mean_gene_length_ratio", Gcode_Length_Ratio="2",
+                accession=accession,
+                Gcode="4",
+                Low_quality="false",
+                warnings="",
+                Completeness_gcode4="95",
+                Completeness_gcode11="80",
+                Average_Gene_Length_gcode4="300",
+                Average_Gene_Length_gcode11="150",
+                Gcode_Rule="mean_gene_length_ratio",
+                Gcode_Length_Ratio="2",
                 Gcode_Length_Ratio_Threshold="1.5",
                 Gcode_Selection_Reason="length_ratio_above_threshold",
-                Gcode_Automatic="4", Gcode_Automatic_Reason="length_ratio_above_threshold", Gcode_Review="NA",
+                Gcode_Automatic="4",
+                Gcode_Automatic_Reason="length_ratio_above_threshold",
+                Gcode_Review="NA",
                 checkm2_status="done",
             )
             table(sample / "checkm2/checkm2_summary.tsv", list(qc), [qc])
@@ -322,17 +330,25 @@ class PrepareCohortUpdateTestCase(unittest.TestCase):
         args.source_results = [first, self.source]
         update.run_prepare(args)
         _, reused = update.read_table(args.outdir / "reused_samples.tsv")
-        self.assertEqual({r['accession']: r['source_index'] for r in reused}, {'A': '0', 'B': '1'})
+        self.assertEqual(
+            {r["accession"]: r["source_index"] for r in reused}, {"A": "0", "B": "1"}
+        )
         _, added = update.read_table(args.outdir / "new_samples.tsv")
-        self.assertEqual([r['accession'] for r in added], ['C'])
+        self.assertEqual([r["accession"] for r in added], ["C"])
         identity = json.loads((args.outdir / "cohort_update_run.json").read_text())
-        self.assertEqual([r['source_outdir'] for r in identity['sources']], [str(first.resolve()), str(self.source.resolve())])
+        self.assertEqual(
+            [r["source_outdir"] for r in identity["sources"]],
+            [str(first.resolve()), str(self.source.resolve())],
+        )
         _, audit = update.read_table(args.outdir / "cohort_update.tsv")
-        self.assertEqual({r['accession']: r['source_outdir'] for r in audit}, {'A': str(first.resolve()), 'B': str(self.source.resolve()), 'C': 'NA'})
+        self.assertEqual(
+            {r["accession"]: r["source_outdir"] for r in audit},
+            {"A": str(first.resolve()), "B": str(self.source.resolve()), "C": "NA"},
+        )
         args.previous_update = args.outdir / "cohort_update_run.json"
         update.run_prepare(args)
         args.source_results.reverse()
-        with self.assertRaisesRegex(update.CohortUpdateError, 'different inputs'):
+        with self.assertRaisesRegex(update.CohortUpdateError, "different inputs"):
             update.run_prepare(args)
 
     def test_multiple_sources_reject_duplicate_accessions_and_roots(self) -> None:
@@ -342,10 +358,12 @@ class PrepareCohortUpdateTestCase(unittest.TestCase):
         self.published_cohort(["A"])
         args = self.arguments(["A"])
         args.source_results = [first, self.source]
-        with self.assertRaisesRegex(update.CohortUpdateError, 'Duplicate accessions'):
+        with self.assertRaisesRegex(update.CohortUpdateError, "Duplicate accessions"):
             update.run_prepare(args)
         args.source_results = [first, first]
-        with self.assertRaisesRegex(update.CohortUpdateError, 'Duplicate published source'):
+        with self.assertRaisesRegex(
+            update.CohortUpdateError, "Duplicate published source"
+        ):
             update.run_prepare(args)
 
     def test_multiple_sources_reject_published_internal_id_collisions(self) -> None:
@@ -355,7 +373,9 @@ class PrepareCohortUpdateTestCase(unittest.TestCase):
         self.published_cohort(["ID.X"])
         args = self.arguments(["ID-X", "ID.X"])
         args.source_results = [first, self.source]
-        with self.assertRaisesRegex(update.CohortUpdateError, 'duplicate published internal_id'):
+        with self.assertRaisesRegex(
+            update.CohortUpdateError, "duplicate published internal_id"
+        ):
             update.run_prepare(args)
 
     def test_supplemental_columns_cannot_override_internal_reuse_fields(self) -> None:
@@ -389,7 +409,9 @@ class PrepareCohortUpdateTestCase(unittest.TestCase):
             writer = csv.writer(handle)
             writer.writerow(["accession", "Assembly_Level", "QC_Scope"])
             writer.writerow(["A", "Scaffold", "qc"])
-        with self.assertRaisesRegex(update.CohortUpdateError, "overlaps resolved QC_Scope"):
+        with self.assertRaisesRegex(
+            update.CohortUpdateError, "overlaps resolved QC_Scope"
+        ):
             update.run_prepare(args)
 
     def test_preserves_published_ids_when_adding_a_sanitisation_collision(self) -> None:
@@ -498,7 +520,9 @@ class PrepareCohortUpdateTestCase(unittest.TestCase):
         header, rows = update.read_table(path)
         rows[0]["Translation_Table_Used"] = "11"
         table(path, header, rows)
-        with self.assertRaisesRegex(update.CohortUpdateError, "translation-table mismatch"):
+        with self.assertRaisesRegex(
+            update.CohortUpdateError, "translation-table mismatch"
+        ):
             update.run_prepare(args)
 
     def test_reuse_rejects_changed_rule_even_when_selected_table_matches(self) -> None:
@@ -521,7 +545,8 @@ class PrepareCohortUpdateTestCase(unittest.TestCase):
         ):
             header, rows = update.read_table(path)
             rows[0].update(
-                Gcode_Rule="strict_delta", Gcode_Length_Ratio_Threshold="NA",
+                Gcode_Rule="strict_delta",
+                Gcode_Length_Ratio_Threshold="NA",
                 Gcode_Selection_Reason="completeness_gcode4_advantage_above_10",
                 Gcode_Automatic_Reason="completeness_gcode4_advantage_above_10",
             )

@@ -80,15 +80,22 @@ class StreamliningTests(unittest.TestCase):
         write_json(previous, {"receipts": receipts})
         with FingerprintScanner(2) as scanner:
             records = [scanner.fingerprint(case.source)]
-            with patch("reuse_source_validation.validate", side_effect=AssertionError("revalidated")):
-                _, reused = validate_or_reuse([case.source], records, previous, checksum=scanner.checksum)
+            with patch(
+                "reuse_source_validation.validate",
+                side_effect=AssertionError("revalidated"),
+            ):
+                _, reused = validate_or_reuse(
+                    [case.source], records, previous, checksum=scanner.checksum
+                )
                 self.assertTrue(reused)
         target = case.source / "tables/master_table.tsv"
         target.write_bytes(target.read_bytes() + b"\n")
         with FingerprintScanner(2) as scanner:
             records = [scanner.fingerprint(case.source)]
             with self.assertRaises(AnnotationError):
-                validate_or_reuse([case.source], records, previous, checksum=scanner.checksum)
+                validate_or_reuse(
+                    [case.source], records, previous, checksum=scanner.checksum
+                )
 
     def test_slow_first_file_does_not_stop_reader_replenishment(self):
         case = fingerprint_fixture.ParallelFingerprintTests()

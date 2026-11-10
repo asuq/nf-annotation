@@ -92,7 +92,9 @@ class SelectAniRepresentativesTestCase(unittest.TestCase):
             self.assertEqual(exit_code, 0)
 
             summary_header, summary_rows = read_tsv_rows(ani_summary)
-            representative_header, representative_rows = read_tsv_rows(ani_representatives)
+            representative_header, representative_rows = read_tsv_rows(
+                ani_representatives
+            )
 
             self.assertEqual(
                 summary_header,
@@ -122,10 +124,14 @@ class SelectAniRepresentativesTestCase(unittest.TestCase):
             summary_by_accession = {row["Accession"]: row for row in summary_rows}
             self.assertEqual(summary_by_accession["ACC1"]["Cluster_ID"], "C000001")
             self.assertEqual(summary_by_accession["ACC1"]["Is_Representative"], "yes")
-            self.assertEqual(summary_by_accession["ACC1"]["ANI_to_Representative"], "100.0000")
+            self.assertEqual(
+                summary_by_accession["ACC1"]["ANI_to_Representative"], "100.0000"
+            )
             self.assertNotEqual(summary_by_accession["ACC1"]["Score"], "NA")
             self.assertEqual(summary_by_accession["ACC2"]["Is_Representative"], "no")
-            self.assertEqual(summary_by_accession["ACC2"]["ANI_to_Representative"], "97.2500")
+            self.assertEqual(
+                summary_by_accession["ACC2"]["ANI_to_Representative"], "97.2500"
+            )
 
             self.assertEqual(len(representative_rows), 1)
             self.assertEqual(representative_rows[0]["Cluster_ID"], "C000001")

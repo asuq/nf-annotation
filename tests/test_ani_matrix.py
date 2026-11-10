@@ -34,7 +34,9 @@ class AniMatrixTests(unittest.TestCase):
     def test_exact_float64_values_missingness_names_and_order(self):
         names = ["Z with spaces.fa", "A'quote.fa", "tab\tinside.fa", "B\\slash.fa"]
         tokens = [
-            [], ["-0.0"], ["NA", "100"],
+            [],
+            ["-0.0"],
+            ["NA", "100"],
             ["9.5e1", "94.99999999999", "95.00000000001"],
         ]
         self.path.write_text(
@@ -55,9 +57,7 @@ class AniMatrixTests(unittest.TestCase):
         self.assertEqual(observed_names, names)
         self.assertEqual(indices, {name: i for i, name in enumerate(names)})
         self.assertEqual(matrix.dtype, np.float64)
-        np.testing.assert_array_equal(
-            matrix.view(np.uint64), expected.view(np.uint64)
-        )
+        np.testing.assert_array_equal(matrix.view(np.uint64), expected.view(np.uint64))
 
     def test_singleton(self):
         self.path.write_text("1\nfirst sample.fa\n")
@@ -68,9 +68,18 @@ class AniMatrixTests(unittest.TestCase):
 
     def test_invalid_matrix_is_rejected(self):
         for text in (
-            "", "\n\t\n", "not-an-integer\n", "1.0\n", "0\n", "-1\n",
-            "1000000000\nfirst\n", "3\nA\nB 95\n", "1\nA\nB 95\n",
-            "2\nA\nB\n", "3\nA\nB 95\nC 96\n", "2\nA\nA 95\n",
+            "",
+            "\n\t\n",
+            "not-an-integer\n",
+            "1.0\n",
+            "0\n",
+            "-1\n",
+            "1000000000\nfirst\n",
+            "3\nA\nB 95\n",
+            "1\nA\nB 95\n",
+            "2\nA\nB\n",
+            "3\nA\nB 95\nC 96\n",
+            "2\nA\nA 95\n",
             *[
                 f"2\nA\nB {value}\n"
                 for value in ("bad", "nan", "inf", "-inf", "101", "-0.1")
@@ -94,6 +103,7 @@ class AniMatrixTests(unittest.TestCase):
         rows = ani_common._matrix_rows
         for replace in (False, True):
             self.path.write_text(original)
+
             def mutate(lines, count):
                 for index, item in enumerate(rows(lines, count)):
                     if index == 0:
@@ -106,14 +116,13 @@ class AniMatrixTests(unittest.TestCase):
                             self.path.write_text(original.replace("96", "95"))
                             os.utime(self.path, ns=(info.st_atime_ns, info.st_mtime_ns))
                     yield item
+
             with mock.patch.object(ani_common, "_matrix_rows", side_effect=mutate):
                 with self.assertRaisesRegex(AniInputError, "changed while reading"):
                     load_matrix(self.path)
 
     def test_threshold_adjacent_values_keep_complete_linkage_membership(self):
-        self.path.write_text(
-            "4\nB\nA 95.0000000001\nC 94.9999999999 95\nD NA NA NA\n"
-        )
+        self.path.write_text("4\nB\nA 95.0000000001\nC 94.9999999999 95\nD NA NA NA\n")
         names, matrix, _ = load_matrix(self.path)
         accessions = {name: name for name in names}
         clusters = cluster_complete_linkage(matrix, names, 0.95)

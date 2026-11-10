@@ -54,14 +54,18 @@ class ReferencePublicationTests(unittest.TestCase):
         shutil.copytree(source / "tables", output / "tables")
         manifest = copy.deepcopy(read_json(source / "annotation_results.json"))
         if mode == "reference":
-            complete([audit], output / "tables/validated_samples.tsv", output, self.source)
+            complete(
+                [audit], output / "tables/validated_samples.tsv", output, self.source
+            )
             manifest["pipeline_contract"] = REFERENCE_CONTRACT
             manifest["reference_manifest_sha256"] = digest(output / REFERENCE_FILE)
         else:
             manifest["pipeline_contract"] = "nf-annotation-v0.5"
             manifest.pop("reference_manifest_sha256", None)
         for accession, bundle in manifest.get("bundles", {}).items():
-            bundle["manifest_sha256"] = digest(output / f"samples/{accession}/annotation/bundle/bundle.json")
+            bundle["manifest_sha256"] = digest(
+                output / f"samples/{accession}/annotation/bundle/bundle.json"
+            )
         write_json(output / "annotation_results.json", manifest)
         validate_source(output)
         return output
@@ -75,7 +79,9 @@ class ReferencePublicationTests(unittest.TestCase):
         self.assertEqual(records, expected)
         self.assertEqual(metrics["unique_roots_completed"], 3)
         self.assertEqual(metrics["shared_root_hits"], 3)
-        self.assertEqual(metrics["files_hashed"], sum(item["files"] for item in expected[:3]))
+        self.assertEqual(
+            metrics["files_hashed"], sum(item["files"] for item in expected[:3])
+        )
         self.assertLessEqual(metrics["peak_pending_reads"], 8)
 
     def test_reference_chain_is_flattened_and_can_be_materialised(self):
@@ -197,8 +203,14 @@ class ReferencePublicationTests(unittest.TestCase):
             {"source": 0},
         )
         second = self.publish(first, "linked-rebuilt-view")
-        self.assertEqual(read_json(second / REFERENCE_FILE)["samples"][accession]["bundle"], {"source": 0})
-        self.assertEqual([row["path"] for row in read_json(second / REFERENCE_FILE)["sources"]], ["."])
+        self.assertEqual(
+            read_json(second / REFERENCE_FILE)["samples"][accession]["bundle"],
+            {"source": 0},
+        )
+        self.assertEqual(
+            [row["path"] for row in read_json(second / REFERENCE_FILE)["sources"]],
+            ["."],
+        )
         shutil.rmtree(first)
         validate_source(second)
         shutil.rmtree(self.source)
