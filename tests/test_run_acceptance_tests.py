@@ -140,7 +140,13 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
         ]
         return self.write_tsv_rows(
             path,
-            ["source_accession", "organism_name", "tax_id", "assembly_level", "source_url"],
+            [
+                "source_accession",
+                "organism_name",
+                "tax_id",
+                "assembly_level",
+                "source_url",
+            ],
             rows,
         )
 
@@ -293,21 +299,31 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
                 "SRC_MYCO_A": self.write_gzip_file(
                     tmpdir / "downloads" / "myco_a.fna.gz",
                     ">a\nAAAA\n>b\nAAA\n",
-                ).resolve().as_uri(),
+                )
+                .resolve()
+                .as_uri(),
                 "SRC_MYCO_B": self.write_gzip_file(
                     tmpdir / "downloads" / "myco_b.fna.gz",
                     ">a\nAAAAAA\n",
-                ).resolve().as_uri(),
+                )
+                .resolve()
+                .as_uri(),
                 "SRC_ECOLI": self.write_gzip_file(
                     tmpdir / "downloads" / "ecoli.fna.gz",
                     ">a\nAAAAA\n>b\nAAAAA\n",
-                ).resolve().as_uri(),
+                )
+                .resolve()
+                .as_uri(),
                 "SRC_STREP": self.write_gzip_file(
                     tmpdir / "downloads" / "strep.fna.gz",
                     ">a\nAAAAAAAA\n",
-                ).resolve().as_uri(),
+                )
+                .resolve()
+                .as_uri(),
             }
-            source_catalog = self.write_source_catalog(tmpdir / "source_catalog.tsv", source_urls)
+            source_catalog = self.write_source_catalog(
+                tmpdir / "source_catalog.tsv", source_urls
+            )
             cohort_plan = self.write_cohort_plan(tmpdir / "cohort_plan.tsv")
 
             prepared = run_acceptance_tests.prepare_cohort(
@@ -321,19 +337,35 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
             self.assertTrue(prepared.metadata_tsv.is_file())
             self.assertTrue(prepared.checksums_tsv.is_file())
 
-            sample_header, sample_rows = run_acceptance_tests.read_csv(prepared.sample_csv)
+            sample_header, sample_rows = run_acceptance_tests.read_csv(
+                prepared.sample_csv
+            )
             self.assertEqual(tuple(sample_header), run_acceptance_tests.SAMPLE_COLUMNS)
             self.assertEqual(len(sample_rows), 10)
-            self.assertEqual(sample_rows[0]["genome_fasta"], str(prepared.source_stats["SRC_MYCO_A"].fasta_path))
-            self.assertEqual(sample_rows[-1]["genome_fasta"], str(prepared.source_stats["SRC_ECOLI"].fasta_path))
+            self.assertEqual(
+                sample_rows[0]["genome_fasta"],
+                str(prepared.source_stats["SRC_MYCO_A"].fasta_path),
+            )
+            self.assertEqual(
+                sample_rows[-1]["genome_fasta"],
+                str(prepared.source_stats["SRC_ECOLI"].fasta_path),
+            )
 
             metadata_header, metadata_rows = read_tsv_rows(prepared.metadata_tsv)
-            self.assertEqual(tuple(metadata_header), run_acceptance_tests.METADATA_COLUMNS)
+            self.assertEqual(
+                tuple(metadata_header), run_acceptance_tests.METADATA_COLUMNS
+            )
             self.assertEqual(len(metadata_rows), 9)
             metadata_by_accession = {row["Accession"]: row for row in metadata_rows}
             self.assertNotIn("SRC_MYCO_A_NEW", metadata_by_accession)
-            self.assertEqual(metadata_by_accession["MYCO-ATYPICAL"]["Atypical_Warnings"], "cell culture adapted")
-            self.assertEqual(metadata_by_accession["MYCO_EXCEPTION"]["Atypical_Warnings"], "unverified source organism")
+            self.assertEqual(
+                metadata_by_accession["MYCO-ATYPICAL"]["Atypical_Warnings"],
+                "cell culture adapted",
+            )
+            self.assertEqual(
+                metadata_by_accession["MYCO_EXCEPTION"]["Atypical_Warnings"],
+                "unverified source organism",
+            )
             self.assertEqual(
                 metadata_by_accession["MYCO_MIXED"]["Atypical_Warnings"],
                 "genome length too small, unverified source organism",
@@ -344,7 +376,9 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
             self.assertEqual(prepared.source_stats["SRC_MYCO_A"].n50, 4)
 
             checksum_header, checksum_rows = read_tsv_rows(prepared.checksums_tsv)
-            self.assertEqual(tuple(checksum_header), run_acceptance_tests.DOWNLOAD_COLUMNS)
+            self.assertEqual(
+                tuple(checksum_header), run_acceptance_tests.DOWNLOAD_COLUMNS
+            )
             self.assertEqual(len(checksum_rows), 4)
 
     def test_medium_assets_define_fixed_reproducible_cohort(self) -> None:
@@ -381,8 +415,9 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
             1,
         )
 
-
-    def test_prepare_medium_cohort_builds_generated_inputs_and_reuses_downloads(self) -> None:
+    def test_prepare_medium_cohort_builds_generated_inputs_and_reuses_downloads(
+        self,
+    ) -> None:
         """Prepare the fixed medium cohort from local sources and reuse cached FASTA files."""
         with tempfile.TemporaryDirectory() as tmpdir_name:
             tmpdir = Path(tmpdir_name)
@@ -405,7 +440,9 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
                         "source_url": self.write_gzip_file(
                             tmpdir / "downloads" / "myco_a.fna.gz",
                             ">a\nAAAA\n>b\nAAA\n",
-                        ).resolve().as_uri(),
+                        )
+                        .resolve()
+                        .as_uri(),
                         "phylum": "Mycoplasmatota",
                     },
                     {
@@ -416,7 +453,9 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
                         "source_url": self.write_gzip_file(
                             tmpdir / "downloads" / "myco_b.fna.gz",
                             ">a\nAAAAAA\n",
-                        ).resolve().as_uri(),
+                        )
+                        .resolve()
+                        .as_uri(),
                         "phylum": "Mycoplasmatota",
                     },
                     {
@@ -427,7 +466,9 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
                         "source_url": self.write_gzip_file(
                             tmpdir / "downloads" / "spiro.fna.gz",
                             ">a\nAAAAA\n>b\nAAAA\n",
-                        ).resolve().as_uri(),
+                        )
+                        .resolve()
+                        .as_uri(),
                         "phylum": "Mycoplasmatota",
                     },
                     {
@@ -438,7 +479,9 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
                         "source_url": self.write_gzip_file(
                             tmpdir / "downloads" / "baci.fna.gz",
                             ">a\nAAAAAAA\n",
-                        ).resolve().as_uri(),
+                        )
+                        .resolve()
+                        .as_uri(),
                         "phylum": "Bacillota",
                     },
                     {
@@ -449,20 +492,25 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
                         "source_url": self.write_gzip_file(
                             tmpdir / "downloads" / "strep.fna.gz",
                             ">a\nAAAAAAAA\n",
-                        ).resolve().as_uri(),
+                        )
+                        .resolve()
+                        .as_uri(),
                         "phylum": "Bacillota",
                     },
                 ],
             )
             work_root = tmpdir / "medium_work"
-            with mock.patch.object(
-                run_acceptance_tests,
-                "DEFAULT_MEDIUM_SOURCE_CATALOG",
-                source_catalog,
-            ), mock.patch.object(
-                run_acceptance_tests,
-                "DEFAULT_MEDIUM_COHORT_PLAN",
-                MEDIUM_COHORT_PLAN,
+            with (
+                mock.patch.object(
+                    run_acceptance_tests,
+                    "DEFAULT_MEDIUM_SOURCE_CATALOG",
+                    source_catalog,
+                ),
+                mock.patch.object(
+                    run_acceptance_tests,
+                    "DEFAULT_MEDIUM_COHORT_PLAN",
+                    MEDIUM_COHORT_PLAN,
+                ),
             ):
                 prepared = run_acceptance_tests.prepare_medium_cohort(
                     work_root=work_root,
@@ -477,7 +525,9 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
                     offline=False,
                 )
 
-            sample_header, sample_rows = run_acceptance_tests.read_csv(prepared.sample_csv)
+            sample_header, sample_rows = run_acceptance_tests.read_csv(
+                prepared.sample_csv
+            )
             self.assertEqual(tuple(sample_header), run_acceptance_tests.SAMPLE_COLUMNS)
             self.assertEqual(len(sample_rows), 21)
             self.assertEqual(
@@ -486,18 +536,27 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
             )
 
             metadata_header, metadata_rows = read_tsv_rows(prepared.metadata_tsv)
-            self.assertEqual(tuple(metadata_header), run_acceptance_tests.METADATA_COLUMNS)
+            self.assertEqual(
+                tuple(metadata_header), run_acceptance_tests.METADATA_COLUMNS
+            )
             metadata_accessions = {row["Accession"] for row in metadata_rows}
             self.assertNotIn("MYCO_NEW_1", metadata_accessions)
             self.assertIn("BACI-PAIR", metadata_accessions)
             self.assertIn("BACI PAIR", metadata_accessions)
 
             checksum_header, checksum_rows = read_tsv_rows(prepared.checksums_tsv)
-            self.assertEqual(tuple(checksum_header), run_acceptance_tests.DOWNLOAD_COLUMNS)
+            self.assertEqual(
+                tuple(checksum_header), run_acceptance_tests.DOWNLOAD_COLUMNS
+            )
             self.assertEqual(len(checksum_rows), 5)
 
-            self.assertEqual(prepared.sample_csv.read_text(), prepared_reused.sample_csv.read_text())
-            self.assertEqual(prepared.metadata_tsv.read_text(), prepared_reused.metadata_tsv.read_text())
+            self.assertEqual(
+                prepared.sample_csv.read_text(), prepared_reused.sample_csv.read_text()
+            )
+            self.assertEqual(
+                prepared.metadata_tsv.read_text(),
+                prepared_reused.metadata_tsv.read_text(),
+            )
             reused_mtimes = {
                 path.name: path.stat().st_mtime_ns
                 for path in (work_root / "downloads").glob("*.fna")
@@ -540,10 +599,22 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
             source_catalog_path = self.write_source_catalog(
                 tmpdir / "source_catalog.tsv",
                 {
-                    "SRC_MYCO_A": self.write_gzip_file(tmpdir / "a.fna.gz", ">a\nAAAA\n").resolve().as_uri(),
-                    "SRC_MYCO_B": self.write_gzip_file(tmpdir / "b.fna.gz", ">a\nAAAA\n").resolve().as_uri(),
-                    "SRC_ECOLI": self.write_gzip_file(tmpdir / "c.fna.gz", ">a\nAAAA\n").resolve().as_uri(),
-                    "SRC_STREP": self.write_gzip_file(tmpdir / "d.fna.gz", ">a\nAAAA\n").resolve().as_uri(),
+                    "SRC_MYCO_A": self.write_gzip_file(
+                        tmpdir / "a.fna.gz", ">a\nAAAA\n"
+                    )
+                    .resolve()
+                    .as_uri(),
+                    "SRC_MYCO_B": self.write_gzip_file(
+                        tmpdir / "b.fna.gz", ">a\nAAAA\n"
+                    )
+                    .resolve()
+                    .as_uri(),
+                    "SRC_ECOLI": self.write_gzip_file(tmpdir / "c.fna.gz", ">a\nAAAA\n")
+                    .resolve()
+                    .as_uri(),
+                    "SRC_STREP": self.write_gzip_file(tmpdir / "d.fna.gz", ">a\nAAAA\n")
+                    .resolve()
+                    .as_uri(),
                 },
             )
             catalog = run_acceptance_tests.load_source_catalog(source_catalog_path)
@@ -564,26 +635,126 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
                     "Tax_ID": "102",
                     "16S": "Yes",
                 },
-                "SRC_ECOLI": {"Gcode": "11", "CRISPRS": "0", "Cluster_ID": "NA", "Tax_ID": "103"},
-                "SRC_STREP": {"Gcode": "11", "CRISPRS": "2", "Cluster_ID": "NA", "Tax_ID": "104"},
-                "SRC_MYCO_A_NEW": {"Gcode": "4", "CRISPRS": "0", "Cluster_ID": "NA", "Tax_ID": "NA"},
-                "MYCO-ATYPICAL": {"Gcode": "4", "CRISPRS": "0", "Cluster_ID": "NA", "Tax_ID": "101"},
-                "MYCO_EXCEPTION": {"Gcode": "4", "CRISPRS": "0", "Cluster_ID": "C000001", "Tax_ID": "101"},
-                "MYCO_MIXED": {"Gcode": "4", "CRISPRS": "0", "Cluster_ID": "NA", "Tax_ID": "101"},
-                "ECOLI-PAIR": {"Gcode": "11", "CRISPRS": "0", "Cluster_ID": "C000002", "Tax_ID": "103"},
-                "ECOLI PAIR": {"Gcode": "11", "CRISPRS": "0", "Cluster_ID": "C000002", "Tax_ID": "103"},
+                "SRC_ECOLI": {
+                    "Gcode": "11",
+                    "CRISPRS": "0",
+                    "Cluster_ID": "NA",
+                    "Tax_ID": "103",
+                },
+                "SRC_STREP": {
+                    "Gcode": "11",
+                    "CRISPRS": "2",
+                    "Cluster_ID": "NA",
+                    "Tax_ID": "104",
+                },
+                "SRC_MYCO_A_NEW": {
+                    "Gcode": "4",
+                    "CRISPRS": "0",
+                    "Cluster_ID": "NA",
+                    "Tax_ID": "NA",
+                },
+                "MYCO-ATYPICAL": {
+                    "Gcode": "4",
+                    "CRISPRS": "0",
+                    "Cluster_ID": "NA",
+                    "Tax_ID": "101",
+                },
+                "MYCO_EXCEPTION": {
+                    "Gcode": "4",
+                    "CRISPRS": "0",
+                    "Cluster_ID": "C000001",
+                    "Tax_ID": "101",
+                },
+                "MYCO_MIXED": {
+                    "Gcode": "4",
+                    "CRISPRS": "0",
+                    "Cluster_ID": "NA",
+                    "Tax_ID": "101",
+                },
+                "ECOLI-PAIR": {
+                    "Gcode": "11",
+                    "CRISPRS": "0",
+                    "Cluster_ID": "C000002",
+                    "Tax_ID": "103",
+                },
+                "ECOLI PAIR": {
+                    "Gcode": "11",
+                    "CRISPRS": "0",
+                    "Cluster_ID": "C000002",
+                    "Tax_ID": "103",
+                },
             }
             status_rows = {
-                "SRC_MYCO_A": {"accession": "SRC_MYCO_A", "ani_included": "false", "ani_exclusion_reason": "low_quality", "warnings": "", "internal_id": "SRC_MYCO_A"},
-                "SRC_MYCO_B": {"accession": "SRC_MYCO_B", "ani_included": "false", "ani_exclusion_reason": "low_quality", "warnings": "", "internal_id": "SRC_MYCO_B"},
-                "SRC_ECOLI": {"accession": "SRC_ECOLI", "ani_included": "true", "ani_exclusion_reason": "", "warnings": "", "internal_id": "SRC_ECOLI"},
-                "SRC_STREP": {"accession": "SRC_STREP", "ani_included": "true", "ani_exclusion_reason": "", "warnings": "", "internal_id": "SRC_STREP"},
-                "SRC_MYCO_A_NEW": {"accession": "SRC_MYCO_A_NEW", "ani_included": "false", "ani_exclusion_reason": "partial_16s", "warnings": "missing_metadata_for_new_sample", "internal_id": "SRC_MYCO_A_NEW"},
-                "MYCO-ATYPICAL": {"accession": "MYCO-ATYPICAL", "ani_included": "false", "ani_exclusion_reason": "atypical", "warnings": "", "internal_id": "MYCO_ATYPICAL"},
-                "MYCO_EXCEPTION": {"accession": "MYCO_EXCEPTION", "ani_included": "true", "ani_exclusion_reason": "", "warnings": "", "internal_id": "MYCO_EXCEPTION"},
-                "MYCO_MIXED": {"accession": "MYCO_MIXED", "ani_included": "false", "ani_exclusion_reason": "atypical", "warnings": "", "internal_id": "MYCO_MIXED"},
-                "ECOLI-PAIR": {"accession": "ECOLI-PAIR", "ani_included": "true", "ani_exclusion_reason": "", "warnings": "internal_id_collision_resolved", "internal_id": "ECOLI_PAIR_aaa"},
-                "ECOLI PAIR": {"accession": "ECOLI PAIR", "ani_included": "true", "ani_exclusion_reason": "", "warnings": "internal_id_collision_resolved", "internal_id": "ECOLI_PAIR_bbb"},
+                "SRC_MYCO_A": {
+                    "accession": "SRC_MYCO_A",
+                    "ani_included": "false",
+                    "ani_exclusion_reason": "low_quality",
+                    "warnings": "",
+                    "internal_id": "SRC_MYCO_A",
+                },
+                "SRC_MYCO_B": {
+                    "accession": "SRC_MYCO_B",
+                    "ani_included": "false",
+                    "ani_exclusion_reason": "low_quality",
+                    "warnings": "",
+                    "internal_id": "SRC_MYCO_B",
+                },
+                "SRC_ECOLI": {
+                    "accession": "SRC_ECOLI",
+                    "ani_included": "true",
+                    "ani_exclusion_reason": "",
+                    "warnings": "",
+                    "internal_id": "SRC_ECOLI",
+                },
+                "SRC_STREP": {
+                    "accession": "SRC_STREP",
+                    "ani_included": "true",
+                    "ani_exclusion_reason": "",
+                    "warnings": "",
+                    "internal_id": "SRC_STREP",
+                },
+                "SRC_MYCO_A_NEW": {
+                    "accession": "SRC_MYCO_A_NEW",
+                    "ani_included": "false",
+                    "ani_exclusion_reason": "partial_16s",
+                    "warnings": "missing_metadata_for_new_sample",
+                    "internal_id": "SRC_MYCO_A_NEW",
+                },
+                "MYCO-ATYPICAL": {
+                    "accession": "MYCO-ATYPICAL",
+                    "ani_included": "false",
+                    "ani_exclusion_reason": "atypical",
+                    "warnings": "",
+                    "internal_id": "MYCO_ATYPICAL",
+                },
+                "MYCO_EXCEPTION": {
+                    "accession": "MYCO_EXCEPTION",
+                    "ani_included": "true",
+                    "ani_exclusion_reason": "",
+                    "warnings": "",
+                    "internal_id": "MYCO_EXCEPTION",
+                },
+                "MYCO_MIXED": {
+                    "accession": "MYCO_MIXED",
+                    "ani_included": "false",
+                    "ani_exclusion_reason": "atypical",
+                    "warnings": "",
+                    "internal_id": "MYCO_MIXED",
+                },
+                "ECOLI-PAIR": {
+                    "accession": "ECOLI-PAIR",
+                    "ani_included": "true",
+                    "ani_exclusion_reason": "",
+                    "warnings": "internal_id_collision_resolved",
+                    "internal_id": "ECOLI_PAIR_aaa",
+                },
+                "ECOLI PAIR": {
+                    "accession": "ECOLI PAIR",
+                    "ani_included": "true",
+                    "ani_exclusion_reason": "",
+                    "warnings": "internal_id_collision_resolved",
+                    "internal_id": "ECOLI_PAIR_bbb",
+                },
             }
 
             run_acceptance_tests.assert_role_coverage(
@@ -603,38 +774,160 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
             source_catalog_path = self.write_source_catalog(
                 tmpdir / "source_catalog.tsv",
                 {
-                    "SRC_MYCO_A": self.write_gzip_file(tmpdir / "a.fna.gz", ">a\nAAAA\n").resolve().as_uri(),
-                    "SRC_MYCO_B": self.write_gzip_file(tmpdir / "b.fna.gz", ">a\nAAAA\n").resolve().as_uri(),
-                    "SRC_ECOLI": self.write_gzip_file(tmpdir / "c.fna.gz", ">a\nAAAA\n").resolve().as_uri(),
-                    "SRC_STREP": self.write_gzip_file(tmpdir / "d.fna.gz", ">a\nAAAA\n").resolve().as_uri(),
+                    "SRC_MYCO_A": self.write_gzip_file(
+                        tmpdir / "a.fna.gz", ">a\nAAAA\n"
+                    )
+                    .resolve()
+                    .as_uri(),
+                    "SRC_MYCO_B": self.write_gzip_file(
+                        tmpdir / "b.fna.gz", ">a\nAAAA\n"
+                    )
+                    .resolve()
+                    .as_uri(),
+                    "SRC_ECOLI": self.write_gzip_file(tmpdir / "c.fna.gz", ">a\nAAAA\n")
+                    .resolve()
+                    .as_uri(),
+                    "SRC_STREP": self.write_gzip_file(tmpdir / "d.fna.gz", ">a\nAAAA\n")
+                    .resolve()
+                    .as_uri(),
                 },
             )
             catalog = run_acceptance_tests.load_source_catalog(source_catalog_path)
             plan = run_acceptance_tests.load_cohort_plan(cohort_plan_path, catalog)
 
             master_rows = {
-                "SRC_MYCO_A": {"Gcode": "4", "CRISPRS": "0", "Cluster_ID": "NA", "Tax_ID": "101"},
-                "SRC_MYCO_B": {"Gcode": "4", "CRISPRS": "0", "Cluster_ID": "NA", "Tax_ID": "102"},
-                "SRC_ECOLI": {"Gcode": "11", "CRISPRS": "0", "Cluster_ID": "NA", "Tax_ID": "103"},
-                "SRC_STREP": {"Gcode": "11", "CRISPRS": "2", "Cluster_ID": "NA", "Tax_ID": "104"},
-                "SRC_MYCO_A_NEW": {"Gcode": "4", "CRISPRS": "0", "Cluster_ID": "NA", "Tax_ID": "NA"},
-                "MYCO-ATYPICAL": {"Gcode": "4", "CRISPRS": "0", "Cluster_ID": "NA", "Tax_ID": "101"},
-                "MYCO_EXCEPTION": {"Gcode": "4", "CRISPRS": "0", "Cluster_ID": "C000001", "Tax_ID": "101"},
-                "MYCO_MIXED": {"Gcode": "4", "CRISPRS": "0", "Cluster_ID": "NA", "Tax_ID": "101"},
-                "ECOLI-PAIR": {"Gcode": "11", "CRISPRS": "0", "Cluster_ID": "C000002", "Tax_ID": "103"},
-                "ECOLI PAIR": {"Gcode": "11", "CRISPRS": "0", "Cluster_ID": "C000002", "Tax_ID": "103"},
+                "SRC_MYCO_A": {
+                    "Gcode": "4",
+                    "CRISPRS": "0",
+                    "Cluster_ID": "NA",
+                    "Tax_ID": "101",
+                },
+                "SRC_MYCO_B": {
+                    "Gcode": "4",
+                    "CRISPRS": "0",
+                    "Cluster_ID": "NA",
+                    "Tax_ID": "102",
+                },
+                "SRC_ECOLI": {
+                    "Gcode": "11",
+                    "CRISPRS": "0",
+                    "Cluster_ID": "NA",
+                    "Tax_ID": "103",
+                },
+                "SRC_STREP": {
+                    "Gcode": "11",
+                    "CRISPRS": "2",
+                    "Cluster_ID": "NA",
+                    "Tax_ID": "104",
+                },
+                "SRC_MYCO_A_NEW": {
+                    "Gcode": "4",
+                    "CRISPRS": "0",
+                    "Cluster_ID": "NA",
+                    "Tax_ID": "NA",
+                },
+                "MYCO-ATYPICAL": {
+                    "Gcode": "4",
+                    "CRISPRS": "0",
+                    "Cluster_ID": "NA",
+                    "Tax_ID": "101",
+                },
+                "MYCO_EXCEPTION": {
+                    "Gcode": "4",
+                    "CRISPRS": "0",
+                    "Cluster_ID": "C000001",
+                    "Tax_ID": "101",
+                },
+                "MYCO_MIXED": {
+                    "Gcode": "4",
+                    "CRISPRS": "0",
+                    "Cluster_ID": "NA",
+                    "Tax_ID": "101",
+                },
+                "ECOLI-PAIR": {
+                    "Gcode": "11",
+                    "CRISPRS": "0",
+                    "Cluster_ID": "C000002",
+                    "Tax_ID": "103",
+                },
+                "ECOLI PAIR": {
+                    "Gcode": "11",
+                    "CRISPRS": "0",
+                    "Cluster_ID": "C000002",
+                    "Tax_ID": "103",
+                },
             }
             status_rows = {
-                "SRC_MYCO_A": {"accession": "SRC_MYCO_A", "ani_included": "false", "ani_exclusion_reason": "low_quality", "warnings": "", "internal_id": "SRC_MYCO_A"},
-                "SRC_MYCO_B": {"accession": "SRC_MYCO_B", "ani_included": "false", "ani_exclusion_reason": "low_quality", "warnings": "", "internal_id": "SRC_MYCO_B"},
-                "SRC_ECOLI": {"accession": "SRC_ECOLI", "ani_included": "true", "ani_exclusion_reason": "", "warnings": "", "internal_id": "SRC_ECOLI"},
-                "SRC_STREP": {"accession": "SRC_STREP", "ani_included": "true", "ani_exclusion_reason": "", "warnings": "", "internal_id": "SRC_STREP"},
-                "SRC_MYCO_A_NEW": {"accession": "SRC_MYCO_A_NEW", "ani_included": "false", "ani_exclusion_reason": "partial_16s", "warnings": "missing_metadata_for_new_sample", "internal_id": "SRC_MYCO_A_NEW"},
-                "MYCO-ATYPICAL": {"accession": "MYCO-ATYPICAL", "ani_included": "false", "ani_exclusion_reason": "atypical", "warnings": "", "internal_id": "MYCO_ATYPICAL"},
-                "MYCO_EXCEPTION": {"accession": "MYCO_EXCEPTION", "ani_included": "true", "ani_exclusion_reason": "", "warnings": "", "internal_id": "MYCO_EXCEPTION"},
-                "MYCO_MIXED": {"accession": "MYCO_MIXED", "ani_included": "false", "ani_exclusion_reason": "atypical", "warnings": "", "internal_id": "MYCO_MIXED"},
-                "ECOLI-PAIR": {"accession": "ECOLI-PAIR", "ani_included": "true", "ani_exclusion_reason": "", "warnings": "internal_id_collision_resolved", "internal_id": "ECOLI_PAIR_aaa"},
-                "ECOLI PAIR": {"accession": "ECOLI PAIR", "ani_included": "true", "ani_exclusion_reason": "", "warnings": "internal_id_collision_resolved", "internal_id": "ECOLI_PAIR_bbb"},
+                "SRC_MYCO_A": {
+                    "accession": "SRC_MYCO_A",
+                    "ani_included": "false",
+                    "ani_exclusion_reason": "low_quality",
+                    "warnings": "",
+                    "internal_id": "SRC_MYCO_A",
+                },
+                "SRC_MYCO_B": {
+                    "accession": "SRC_MYCO_B",
+                    "ani_included": "false",
+                    "ani_exclusion_reason": "low_quality",
+                    "warnings": "",
+                    "internal_id": "SRC_MYCO_B",
+                },
+                "SRC_ECOLI": {
+                    "accession": "SRC_ECOLI",
+                    "ani_included": "true",
+                    "ani_exclusion_reason": "",
+                    "warnings": "",
+                    "internal_id": "SRC_ECOLI",
+                },
+                "SRC_STREP": {
+                    "accession": "SRC_STREP",
+                    "ani_included": "true",
+                    "ani_exclusion_reason": "",
+                    "warnings": "",
+                    "internal_id": "SRC_STREP",
+                },
+                "SRC_MYCO_A_NEW": {
+                    "accession": "SRC_MYCO_A_NEW",
+                    "ani_included": "false",
+                    "ani_exclusion_reason": "partial_16s",
+                    "warnings": "missing_metadata_for_new_sample",
+                    "internal_id": "SRC_MYCO_A_NEW",
+                },
+                "MYCO-ATYPICAL": {
+                    "accession": "MYCO-ATYPICAL",
+                    "ani_included": "false",
+                    "ani_exclusion_reason": "atypical",
+                    "warnings": "",
+                    "internal_id": "MYCO_ATYPICAL",
+                },
+                "MYCO_EXCEPTION": {
+                    "accession": "MYCO_EXCEPTION",
+                    "ani_included": "true",
+                    "ani_exclusion_reason": "",
+                    "warnings": "",
+                    "internal_id": "MYCO_EXCEPTION",
+                },
+                "MYCO_MIXED": {
+                    "accession": "MYCO_MIXED",
+                    "ani_included": "false",
+                    "ani_exclusion_reason": "atypical",
+                    "warnings": "",
+                    "internal_id": "MYCO_MIXED",
+                },
+                "ECOLI-PAIR": {
+                    "accession": "ECOLI-PAIR",
+                    "ani_included": "true",
+                    "ani_exclusion_reason": "",
+                    "warnings": "internal_id_collision_resolved",
+                    "internal_id": "ECOLI_PAIR_aaa",
+                },
+                "ECOLI PAIR": {
+                    "accession": "ECOLI PAIR",
+                    "ani_included": "true",
+                    "ani_exclusion_reason": "",
+                    "warnings": "internal_id_collision_resolved",
+                    "internal_id": "ECOLI_PAIR_bbb",
+                },
             }
 
             with self.assertRaisesRegex(
@@ -670,13 +963,14 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
                     }
                 ],
             )
-            master_header = list(run_acceptance_tests.METADATA_COLUMNS) + master_table_contract.read_append_columns_asset()
+            master_header = (
+                list(run_acceptance_tests.METADATA_COLUMNS)
+                + master_table_contract.read_append_columns_asset()
+            )
             master_path = self.write_tsv_rows(
                 tmpdir / "master_table.tsv",
                 master_header,
-                [
-                    {column: "NA" for column in master_header} | {"Accession": "ACC1"}
-                ],
+                [{column: "NA" for column in master_header} | {"Accession": "ACC1"}],
             )
 
             run_acceptance_tests.assert_metadata_contract(master_path, metadata_path)
@@ -689,14 +983,20 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
             args = self.make_real_run_args(annotation_config=configuration)
             run_acceptance_tests.validate_real_run_args(args)
             args.annotation_config = None
-            with self.assertRaisesRegex(run_acceptance_tests.AcceptanceTestError, "annotation-config"):
+            with self.assertRaisesRegex(
+                run_acceptance_tests.AcceptanceTestError, "annotation-config"
+            ):
                 run_acceptance_tests.validate_real_run_args(args)
 
     def test_default_real_profiles_use_complete_cohort(self) -> None:
         """Use the normal execution profiles for every declared accession."""
         self.assertEqual(run_acceptance_tests.DEFAULT_LOCAL_PROFILE, "local,docker")
-        self.assertEqual(run_acceptance_tests.DEFAULT_SLURM_PROFILE, "slurm,singularity")
-        self.assertEqual(run_acceptance_tests.DEFAULT_DBPREP_PROFILE, "slurm,singularity")
+        self.assertEqual(
+            run_acceptance_tests.DEFAULT_SLURM_PROFILE, "slurm,singularity"
+        )
+        self.assertEqual(
+            run_acceptance_tests.DEFAULT_DBPREP_PROFILE, "slurm,singularity"
+        )
 
     def test_build_nextflow_command_uses_pipeline_ccfinder_container(self) -> None:
         """Build Nextflow commands without any harness CCFINDER parameter."""
@@ -733,9 +1033,13 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
         self.assertNotIn("--eggnog_only_accessions", command)
         self.assertIn("--codetta_db", command)
         self.assertIn(str(Path("/tmp/codetta").resolve()), command)
-        self.assertEqual(command[command.index("-c") + 1], str(args.annotation_config.resolve()))
+        self.assertEqual(
+            command[command.index("-c") + 1], str(args.annotation_config.resolve())
+        )
 
-    def test_build_nextflow_command_forwards_singularity_runtime_arguments(self) -> None:
+    def test_build_nextflow_command_forwards_singularity_runtime_arguments(
+        self,
+    ) -> None:
         """Forward renamed Singularity runtime arguments to Nextflow."""
         args = self.make_real_run_args(
             singularity_cache_dir=Path("/tmp/singularity-cache"),
@@ -861,7 +1165,9 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
             args=args,
         )
 
-        self.assertEqual(command[:4], ["nextflow", "run", "prepare_databases.nf", "-profile"])
+        self.assertEqual(
+            command[:4], ["nextflow", "run", "prepare_databases.nf", "-profile"]
+        )
         self.assertIn("oist", command)
         self.assertIn("--taxdump", command)
         self.assertIn(str(Path("/tmp/taxdump").resolve()), command)
@@ -934,10 +1240,34 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
                 tmpdir / "runtime_database_report.tsv",
                 ["component", "status", "source", "destination", "details"],
                 [
-                    {"component": "taxdump", "status": "prepared", "source": "stub", "destination": "/db/taxdump", "details": "ok"},
-                    {"component": "checkm2", "status": "prepared", "source": "stub", "destination": "/db/checkm2", "details": "ok"},
-                    {"component": "codetta", "status": "prepared", "source": "stub", "destination": "/db/codetta", "details": "ok"},
-                    {"component": "busco_root", "status": "prepared", "source": "derived", "destination": "/db/busco", "details": "ok"},
+                    {
+                        "component": "taxdump",
+                        "status": "prepared",
+                        "source": "stub",
+                        "destination": "/db/taxdump",
+                        "details": "ok",
+                    },
+                    {
+                        "component": "checkm2",
+                        "status": "prepared",
+                        "source": "stub",
+                        "destination": "/db/checkm2",
+                        "details": "ok",
+                    },
+                    {
+                        "component": "codetta",
+                        "status": "prepared",
+                        "source": "stub",
+                        "destination": "/db/codetta",
+                        "details": "ok",
+                    },
+                    {
+                        "component": "busco_root",
+                        "status": "prepared",
+                        "source": "derived",
+                        "destination": "/db/busco",
+                        "details": "ok",
+                    },
                 ],
             )
 
@@ -982,7 +1312,9 @@ class RunAcceptanceTestsTestCase(unittest.TestCase):
         stderr = io.StringIO()
         with contextlib.redirect_stderr(stderr):
             with self.assertRaises(SystemExit):
-                run_acceptance_tests.parse_args(["slurm", "--slurm-account", "my_account"])
+                run_acceptance_tests.parse_args(
+                    ["slurm", "--slurm-account", "my_account"]
+                )
 
         self.assertIn("unrecognized arguments", stderr.getvalue())
 
