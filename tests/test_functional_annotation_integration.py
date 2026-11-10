@@ -6,6 +6,7 @@ staging, identity-dependent reuse, failure publication and the final gate.
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -716,7 +717,11 @@ workflow {
 }
 """)
         for case, status, payload in [
-            ("success", 0, '{"Sequences":[]}'),
+            (
+                "success",
+                0,
+                '{"Sequences":[{"Id":"ctg00000001","Length":120,"Crisprs":[],"Cas":[]}]}',
+            ),
             ("failure", 7, '{"partial":true}'),
             ("malformed", 0, "{broken"),
         ]:
@@ -725,7 +730,7 @@ workflow {
                     """use strict;
 use warnings;
 if ($ARGV[0] eq '-v') { print "version 4.2.30\\n"; exit 0; }
-die "missing original parent contig lookup" unless -f '../contigA.fna';
+die "missing staged parent contig lookup" unless -f '../ctg00000001.fna';
 my $output;
 for (my $i=0; $i<@ARGV; $i++) { $output=$ARGV[$i+1] if $ARGV[$i] eq '-outdir'; }
 mkdir $output or die $!;
@@ -774,9 +779,18 @@ exit """
                 task = tasks[0]
                 self.assertEqual(genome.read_bytes(), original)
                 self.assertTrue((task / "staged-input.fna").is_symlink())
+                self.assertEqual((task / "native_result.json").read_text(), payload)
+                if case == "success":
+                    restored = json.loads((task / "result.json").read_text())
+                    self.assertEqual(restored["Sequences"][0]["Id"], "contigA.1")
+                    self.assertEqual(restored["Sequences"][0]["Length"], 120)
+                else:
+                    self.assertEqual((task / "result.json").read_text(), "")
+                published = output / "samples/A/ccfinder"
                 self.assertEqual(
-                    (task / "result.json").read_text(), payload if status == 0 else ""
+                    (published / "native_result.json").read_text(), payload
                 )
+                self.assertTrue((published / "contig_mapping.json").is_file())
                 self.assertIn(
                     f"exit_code={status}", (task / "ccfinder.log").read_text()
                 )
@@ -784,7 +798,7 @@ exit """
                     "ccfinder_tmp",
                     "ccfinder_run",
                     "ccfinder_raw",
-                    "contigA.fna",
+                    "ctg00000001.fna",
                 ):
                     self.assertEqual((task / name).exists(), case != "success", name)
 

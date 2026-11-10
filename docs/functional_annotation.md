@@ -92,6 +92,8 @@ bytes and contig order are preserved. Publications retain `native_result.json`,
 descriptions and identifier-bearing feature fields are restored only after a
 complete bijection and length check. Invalid or incomplete native output remains
 a failed result, never a zero-CRISPR result. No JSON repair is applied.
+Failed runs retain native diagnostics and work files. Cleanup runs only after
+successful native execution and complete restoration to source contigs.
 
 Main-workflow cohort updates reuse recorded canonical bundles. They repeat neither
 gene prediction nor bundle construction. Recorded bundle failures remain failures;
