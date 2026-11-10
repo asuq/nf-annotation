@@ -1,6 +1,7 @@
 """Compact, ordered, non-pickle pair evidence for v0.5 FastAAI consumers."""
 
 from pathlib import Path
+
 import numpy as np
 from annotation_common import AnnotationError, read_json, write_json
 
@@ -34,7 +35,8 @@ def create(root, names):
             arrays[name] = np.empty(0, dtype=dtype)
             np.save(path, arrays[name], allow_pickle=False)
     write_json(
-        root / "evidence.json", dict(format=FORMAT, accessions=list(names), pairs=count)
+        root / "evidence.json",
+        {"format": FORMAT, "accessions": list(names), "pairs": count},
     )
     return arrays
 
@@ -90,20 +92,21 @@ def iter_pairs(root):
             k = offset(len(names), i, j)
             shared = int(arrays["shared"][k])
             jaccard = float(arrays["jaccard"][k])
-            yield dict(
-                query=left,
-                target=names[j],
-                avg_jacc_sim=format(jaccard, ".17g") if shared else "NA",
-                num_shared_SCPs=shared,
-                poss_shared_SCPs=int(arrays["possible"][k]),
-                AAI_estimate=aai_estimate(jaccard) if shared else "NA",
-            )
+            yield {
+                "query": left,
+                "target": names[j],
+                "avg_jacc_sim": format(jaccard, ".17g") if shared else "NA",
+                "num_shared_SCPs": shared,
+                "poss_shared_SCPs": int(arrays["possible"][k]),
+                "AAI_estimate": aai_estimate(jaccard) if shared else "NA",
+            }
 
 
 if __name__ == "__main__":
     import argparse
-    from annotation_common import write_tsv
+
     from aai_common import PAIR_COLUMNS
+    from annotation_common import write_tsv
 
     parser = argparse.ArgumentParser(
         description="Stream a v0.5 AAI evidence directory to TSV."

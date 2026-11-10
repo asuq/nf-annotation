@@ -2,9 +2,10 @@
 """Prepare bounded batches of native marker profiles from existing protein bundles."""
 
 from __future__ import annotations
+
 import argparse
-import inspect
 import concurrent.futures
+import inspect
 import multiprocessing
 import shutil
 import tempfile
@@ -27,13 +28,13 @@ RUNTIME = Path("/opt/nf-annotation/provenance/fastaai.json")
 
 
 def native_init():
-    import fastaai.fastaai as native
+    import fastaai.fastaai as native  # ty: ignore[unresolved-import]  # Provided by the pinned native image.
 
     native.hmm_preproc_initializer(native.find_hmm(), False)
 
 
 def extract(job):
-    import fastaai.fastaai as native
+    import fastaai.fastaai as native  # ty: ignore[unresolved-import]  # Provided by the pinned native image.
 
     protein, temporary = job
     native.prepare_directories(str(temporary), "protein", "build", make_crystals=True)
@@ -76,7 +77,7 @@ def extract(job):
 
 def profile_key(accession, protein_sha, method):
     return identity(
-        dict(accession=accession, protein_sha256=protein_sha, method=method)
+        {"accession": accession, "protein_sha256": protein_sha, "method": method}
     )
 
 
@@ -163,30 +164,30 @@ def prepare(args):
             if bundle.get("status") != "success":
                 reasons.append("no_valid_protein_bundle")
             primary = sample_policy.primary_column(sample, args.primary_busco_column)
-            quality = dict(
-                path="proteins.faa",
-                gcode=gcode,
-                checkm2_completeness=completeness,
-                checkm2_contamination=contamination,
-                assembly_level=choose_assembly_level(sample, m),
-                n50="NA",
-                scaffolds="NA",
-                genome_size="NA",
-                organism_name=detect_metadata_value(m, "Organism_Name"),
-                busco="NA",
-            )
-            row = dict(
-                accession=acc,
-                domain=sample["annotation_domain"]
+            quality = {
+                "path": "proteins.faa",
+                "gcode": gcode,
+                "checkm2_completeness": completeness,
+                "checkm2_contamination": contamination,
+                "assembly_level": choose_assembly_level(sample, m),
+                "n50": "NA",
+                "scaffolds": "NA",
+                "genome_size": "NA",
+                "organism_name": detect_metadata_value(m, "Organism_Name"),
+                "busco": "NA",
+            }
+            row = {
+                "accession": acc,
+                "domain": sample["annotation_domain"]
                 if "annotation_domain" in sample
                 else sample_policy.domain(args.domain),
-                quality=quality,
-                primary_busco_column=primary,
-                status="excluded" if reasons else "ready",
-                reason=";".join(reasons) or "NA",
-                profile=None,
-                marker_count=0,
-            )
+                "quality": quality,
+                "primary_busco_column": primary,
+                "status": "excluded" if reasons else "ready",
+                "reason": ";".join(reasons) or "NA",
+                "profile": None,
+                "marker_count": 0,
+            }
             rows.append(row)
             if reasons:
                 continue
@@ -216,6 +217,7 @@ def prepare(args):
             else:
                 work = temp / key
                 work.mkdir()
+                assert bundle_path is not None
                 pending.append(
                     (row, key, protein_sha, bundle_path / "proteins.faa", work)
                 )
@@ -229,14 +231,14 @@ def prepare(args):
                 for item, result in zip(pending, results, strict=True):
                     row, key, protein_sha, _, _ = item
                     count, crystal = result
-                    record = dict(
-                        profile_id=key,
-                        accession=row["accession"],
-                        protein_sha256=protein_sha,
-                        method=method,
-                        marker_count=count,
-                        files={},
-                    )
+                    record = {
+                        "profile_id": key,
+                        "accession": row["accession"],
+                        "protein_sha256": protein_sha,
+                        "method": method,
+                        "marker_count": count,
+                        "files": {},
+                    }
                     staging = Path(tempfile.mkdtemp(prefix="." + key, dir=destination))
                     if count:
                         for name in ("markers.faa", "markers.hmm"):
@@ -248,16 +250,16 @@ def prepare(args):
         for row in rows:
             if row["status"] == "ready" and row["marker_count"] == 0:
                 row.update(status="no_markers", reason="no_usable_markers")
-    write_json(args.output, dict(samples=rows, method=method))
+    write_json(args.output, {"samples": rows, "method": method})
     write_json(
         args.output.parent / "preprocessing_metrics.json",
-        dict(
-            samples=len(rows),
-            extracted=len(pending),
-            reused=reused,
-            seconds=time.monotonic() - start,
-            workers=args.threads,
-        ),
+        {
+            "samples": len(rows),
+            "extracted": len(pending),
+            "reused": reused,
+            "seconds": time.monotonic() - start,
+            "workers": args.threads,
+        },
     )
 
 

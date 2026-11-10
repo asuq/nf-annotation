@@ -10,20 +10,23 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import numpy as np
 
 from ani_common import Genome
 
+LOGGER = logging.getLogger(__name__)
+
 
 def select_representative_for_indices(
     idxs: list[int],
     names: Sequence[str],
     meta: dict[str, Genome],
-    ani: "np.ndarray",
+    ani: np.ndarray | None,
     score_profile: str,
 ) -> tuple[int, str, list[str]]:
     """Select one representative for one ANI cluster.
@@ -62,7 +65,7 @@ def select_representative_for_indices(
     genomes = [meta[matrix_name] for matrix_name in matrix_names]
     cluster_size = len(genomes)
 
-    def winsorize(values: list[float]) -> "np.ndarray":
+    def winsorize(values: list[float] | np.ndarray) -> np.ndarray:
         """Winsorize a value vector within one cluster."""
         if cluster_size < 8:
             return np.asarray(values, dtype=float)
@@ -70,7 +73,7 @@ def select_representative_for_indices(
         low, high = np.quantile(array, [0.05, 0.95])
         return np.clip(array, low, high)
 
-    def minmax_norm(values: "np.ndarray") -> "np.ndarray":
+    def minmax_norm(values: np.ndarray) -> np.ndarray:
         """Normalize a vector into [0,1] with a constant fallback."""
         low = float(values.min())
         high = float(values.max())
@@ -78,12 +81,13 @@ def select_representative_for_indices(
             return (values - low) / (high - low)
         return np.full_like(values, 0.5, dtype=float)
 
-    def ani_centrality(cluster_indices: list[int]) -> "np.ndarray":
+    def ani_centrality(cluster_indices: list[int]) -> np.ndarray:
         """Compute ANI centrality within one cluster."""
         member_count = len(cluster_indices)
         if member_count <= 1:
             return np.ones(member_count, dtype=float)
 
+        assert ani is not None
         means: list[float] = []
         for index in cluster_indices:
             others = ani[index, [other for other in cluster_indices if other != index]]
@@ -172,37 +176,22 @@ def select_representative_for_indices(
         scored.append((matrix_name, genome.Accession, float(score), components, genome))
 
     debug_lines.append(
-        "Cluster size=%d; profile=%s; weights: A=%s, Q=%s, B=%s, N=%s, S=%s, C=%s"
-        % (cluster_size, score_profile, *weights)
+        f"Cluster size={cluster_size:d}; profile={score_profile}; weights: "
+        f"A={weights[0]}, Q={weights[1]}, B={weights[2]}, N={weights[3]}, S={weights[4]}, C={weights[5]}"
     )
     for _matrix_name, accession, score, components, genome in sorted(
         scored,
         key=lambda item: (-item[2], item[1]),
     ):
         debug_lines.append(
-            "  %s: score=%.6f | A=%.3f Q=%.3f(q_raw=%.3f) B=%.3f(b_raw=%.3f) "
-            "N=%.3f S=%.3f C=%.3f | asm=%s(rank=%d) busco(C=%.2f,M=%.2f) "
-            "checkm2=%.2f contam=%.2f scaffolds=%d n50=%d"
-            % (
-                accession,
-                score,
-                components["A"],
-                components["Q"],
-                components["Q_raw"],
-                components["B"],
-                components["B_raw"],
-                components["N"],
-                components["S"],
-                components["C"],
-                genome.Assembly_Level,
-                genome.Assembly_Rank,
-                genome.BUSCO_C,
-                genome.BUSCO_M,
-                genome.CheckM2_Completeness,
-                genome.CheckM2_Contamination,
-                genome.Scaffolds,
-                genome.N50,
-            )
+            f"  {accession}: score={score:.6f} | A={components['A']:.3f} "
+            f"Q={components['Q']:.3f}(q_raw={components['Q_raw']:.3f}) "
+            f"B={components['B']:.3f}(b_raw={components['B_raw']:.3f}) "
+            f"N={components['N']:.3f} S={components['S']:.3f} C={components['C']:.3f} | "
+            f"asm={genome.Assembly_Level}(rank={genome.Assembly_Rank:d}) "
+            f"busco(C={genome.BUSCO_C:.2f},M={genome.BUSCO_M:.2f}) "
+            f"checkm2={genome.CheckM2_Completeness:.2f} contam={genome.CheckM2_Contamination:.2f} "
+            f"scaffolds={genome.Scaffolds:d} n50={genome.N50:d}"
         )
 
     scored.sort(key=lambda item: (-item[2], item[1]))
@@ -265,14 +254,13 @@ def select_representative_for_indices(
     tied = reduce_tie(tied, lambda genome: genome.Scaffolds, "Scaffolds (fewer)", True)
     tied = reduce_tie(tied, lambda genome: genome.N50, "N50 (higher)")
 
-    representative = sorted(
-        tied,
-        key=lambda matrix_name: matrix_name_to_genome[matrix_name].Accession,
-    )[0]
+    representative = min(
+        tied, key=lambda matrix_name: matrix_name_to_genome[matrix_name].Accession
+    )
     if len(tied) > 1:
         debug_lines.append(
-            "Final tie among %d candidate(s); picking lexicographically smallest: %s"
-            % (len(tied), matrix_name_to_genome[representative].Accession)
+            f"Final tie among {len(tied):d} candidate(s); picking lexicographically smallest: "
+            f"{matrix_name_to_genome[representative].Accession}"
         )
     else:
         debug_lines.append(
@@ -285,7 +273,7 @@ def select_representatives_for_clusters(
     cluster_members: dict[str, list[str]],
     names: Sequence[str],
     meta: dict[str, Genome],
-    ani: "np.ndarray",
+    ani: np.ndarray | None,
     score_profile: str,
     threads: int = 1,
 ) -> dict[str, tuple[str, list[str]]]:
@@ -340,7 +328,7 @@ def warn_gcode_mixture(
         elif gcode == 11:
             gcode11 += 1
     if gcode4 > 0 and gcode11 > 0:
-        logging.warning(
+        LOGGER.warning(
             "Gcode mixture in %s: gcode4=%d, gcode11=%d",
             cluster_id,
             gcode4,
@@ -365,7 +353,7 @@ def warn_soft_screen_offenders(
         if reasons:
             offenders.append(f"{genome.Accession}[{';'.join(reasons)}]")
     if offenders:
-        logging.warning(
+        LOGGER.warning(
             "Soft-screen offenders in %s: %s", cluster_id, ", ".join(offenders)
         )
 
@@ -373,7 +361,7 @@ def warn_soft_screen_offenders(
 def build_ani_summary_from_clusters(
     cluster_members: dict[str, list[str]],
     names: Sequence[str],
-    ani: "np.ndarray",
+    ani: np.ndarray,
     name_to_idx: dict[str, int],
     meta: dict[str, Genome],
     score_profile: str = "default",
@@ -403,7 +391,7 @@ def build_ani_summary_from_clusters(
         matrix_names = cluster_members[cluster_id]
         representative_matrix_name, debug_lines = representative_map[cluster_id]
         for line in debug_lines:
-            logging.debug("%s (%s): %s", cluster_id, representative_matrix_name, line)
+            LOGGER.debug("%s (%s): %s", cluster_id, representative_matrix_name, line)
 
         warn_gcode_mixture(cluster_id, matrix_names, meta)
         warn_soft_screen_offenders(cluster_id, matrix_names, meta)

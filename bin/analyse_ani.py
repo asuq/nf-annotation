@@ -7,9 +7,9 @@ from ani_common import AniInputError
 from cluster_ani import (
     configure_logging,
     parse_args,
+    resolve_thread_cap,
     run_pipeline,
     set_thread_envs,
-    resolve_thread_cap,
 )
 from select_ani_representatives import (
     ANI_REPRESENTATIVE_COLUMNS,

@@ -1,6 +1,7 @@
 """FastAAI calibration, evidence and output contracts."""
 
 from __future__ import annotations
+
 import math
 
 UPSTREAM_COMMIT = "3b4904a223590f8227e9c791b6b7ed6a09c67757"

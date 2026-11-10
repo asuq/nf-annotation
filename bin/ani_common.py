@@ -4,14 +4,16 @@
 from __future__ import annotations
 
 import csv
-import os
 import logging
 import math
+import os
 import re
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING, Any
+
+LOGGER = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     import numpy as np
@@ -173,7 +175,7 @@ def try_parse_int_like(value: Any) -> int | None:
         return int(text)
     try:
         parsed = float(text)
-    except Exception:
+    except ValueError:
         return None
     if parsed.is_integer():
         return int(parsed)
@@ -187,7 +189,7 @@ def try_parse_float_like(value: Any) -> float | None:
         return None
     try:
         return float(text)
-    except Exception:
+    except ValueError:
         return None
 
 
@@ -263,7 +265,7 @@ def _matrix_rows(
         )
 
 
-def load_matrix(path: Path) -> tuple[list[str], "np.ndarray", dict[str, int]]:
+def load_matrix(path: Path) -> tuple[list[str], np.ndarray, dict[str, int]]:
     """Read a PHYLIP matrix once, with bounded allocation and file-mutation checks."""
     import numpy as np
 
@@ -393,6 +395,7 @@ def build_genome_from_row(
     assert scaffolds is not None
     if require_genome_size:
         assert genome_size is not None
+    assert busco_parsed is not None
     busco_c, busco_m = busco_parsed
     return (
         Genome(
@@ -497,7 +500,7 @@ def load_ani_metadata(
             )
             if genome is None:
                 excluded[matrix_name] = reasons
-                logging.warning(
+                LOGGER.warning(
                     "Excluding accession %r from ANI representative selection due to: %s",
                     accession,
                     ";".join(reasons),
@@ -518,7 +521,7 @@ def load_ani_metadata(
 
     extra_rows = sorted((metadata_names | excluded_names) - matrix_name_set)
     if extra_rows:
-        logging.warning(
+        LOGGER.warning(
             "Ignoring %d ANI metadata row(s) not present in the ANI matrix (first 20): %s",
             len(extra_rows),
             extra_rows[:20],
@@ -608,7 +611,7 @@ def load_cluster_metadata(
 
     extra_rows = sorted(set(accession_by_matrix_name) - matrix_name_set)
     if extra_rows:
-        logging.warning(
+        LOGGER.warning(
             "Ignoring %d ANI metadata row(s) not present in the ANI matrix (first 20): %s",
             len(extra_rows),
             extra_rows[:20],
@@ -622,10 +625,10 @@ def load_cluster_metadata(
 
 def subset_matrix(
     names: list[str],
-    ani: "np.ndarray",
+    ani: np.ndarray,
     eligible_names: Sequence[str],
     name_to_idx: dict[str, int],
-) -> tuple[list[str], "np.ndarray", dict[str, int]]:
+) -> tuple[list[str], np.ndarray, dict[str, int]]:
     """Restrict the ANI matrix to the ordered subset of eligible matrix names."""
     import numpy as np
 
@@ -636,7 +639,7 @@ def subset_matrix(
     indices = [name_to_idx[name] for name in eligible_name_list]
     subset = ani[np.ix_(indices, indices)]
     subset_name_to_idx = {name: index for index, name in enumerate(eligible_name_list)}
-    logging.info(
+    LOGGER.info(
         "Proceeding with %d ANI sample(s) after metadata filtering.",
         len(eligible_name_list),
     )

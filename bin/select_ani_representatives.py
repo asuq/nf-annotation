@@ -7,8 +7,8 @@ import argparse
 import csv
 import logging
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 import master_table_contract
 from ani_common import (
@@ -20,7 +20,6 @@ from ani_common import (
     subset_matrix,
 )
 from ani_representatives import build_ani_summary_from_clusters
-
 
 LOGGER = logging.getLogger(__name__)
 ANI_SUMMARY_COLUMNS = ("Accession", *master_table_contract.ANI_COLUMNS)

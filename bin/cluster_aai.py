@@ -2,12 +2,12 @@
 """Complete-linkage genus-scale clusters and quality-only representatives."""
 
 from __future__ import annotations
+
 import argparse
 import time
 from pathlib import Path
-import numpy as np
-from scipy.cluster.hierarchy import fcluster, linkage
 
+import numpy as np
 from aai_common import (
     AAI_COLUMNS,
     REP_COLUMNS,
@@ -16,11 +16,12 @@ from aai_common import (
     jaccard_cutoff,
 )
 from ani_common import build_genome_from_row
-from build_fastani_inputs import load_busco_index, load_index, load_metadata_index
-from build_master_table import resolve_assembly_metric_value
 from ani_representatives import select_representative_for_indices
 from annotation_common import AnnotationError, read_json, write_json, write_tsv
 from annotation_path_lists import read_path_list
+from build_fastani_inputs import load_busco_index, load_index, load_metadata_index
+from build_master_table import resolve_assembly_metric_value
+from scipy.cluster.hierarchy import fcluster, linkage
 
 
 def offset(n, i, j):
@@ -117,18 +118,18 @@ def cluster_domain(records, pairs, threshold, score_profile, domain):
                 None,
                 score_profile,
             )
-            traces.extend([dict(cluster=cluster, line=line) for line in trace])
+            traces.extend([{"cluster": cluster, "line": line} for line in trace])
         representatives.append(
-            dict(
-                AAI_Cluster_ID=cluster,
-                Domain=domain,
-                Cluster_Size=len(ids),
-                Representative_Accession=chosen or "NA",
-                Representative_Status="selected"
+            {
+                "AAI_Cluster_ID": cluster,
+                "Domain": domain,
+                "Cluster_Size": len(ids),
+                "Representative_Accession": chosen or "NA",
+                "Representative_Status": "selected"
                 if chosen
                 else "no_eligible_representative",
-                AAI_Score=f"{candidates[chosen].Score:.6f}" if chosen else "NA",
-            )
+                "AAI_Score": f"{candidates[chosen].Score:.6f}" if chosen else "NA",
+            }
         )
         for i in ids:
             name = names[i]
@@ -153,7 +154,9 @@ def cluster_domain(records, pairs, threshold, score_profile, domain):
                     if name == chosen
                     else aai_estimate(float(jaccard[offset(n, i, indices[chosen])]))
                 )
-            members.append(dict(Accession=name, AAI_Cluster_ID=cluster, Domain=domain))
+            members.append(
+                {"Accession": name, "AAI_Cluster_ID": cluster, "Domain": domain}
+            )
     return list(rows.values()), representatives, members, traces
 
 
@@ -218,19 +221,19 @@ def run(args):
     )
     write_json(
         args.output / "method.json",
-        dict(
-            threshold=args.threshold,
-            score_profile=args.score_profile,
-            linkage="complete",
-            distance="one_minus_native_mean_jaccard",
-            jaccard_cutoff=jaccard_cutoff(args.threshold),
-            centrality=False,
-        ),
+        {
+            "threshold": args.threshold,
+            "score_profile": args.score_profile,
+            "linkage": "complete",
+            "distance": "one_minus_native_mean_jaccard",
+            "jaccard_cutoff": jaccard_cutoff(args.threshold),
+            "centrality": False,
+        },
     )
     write_json(args.output / "scores.json", traces)
     write_json(
         args.output / "metrics.json",
-        dict(seconds=time.monotonic() - start, samples=len(expected)),
+        {"seconds": time.monotonic() - start, "samples": len(expected)},
     )
 
 

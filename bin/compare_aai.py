@@ -2,12 +2,14 @@
 """Run native FastAAI comparisons once and publish one record per unordered pair."""
 
 from __future__ import annotations
+
 import argparse
 import shutil
 import subprocess
 import tempfile
 import time
 from pathlib import Path
+
 from annotation_common import AnnotationError, read_json, write_json
 from annotation_path_lists import read_path_list
 
@@ -22,8 +24,8 @@ def compare(records, profiles, output, threads):
     expected = len(ready) * (len(ready) - 1) // 2
     count = 0
     phase_seconds = {}
-    from aai_evidence import create, offset
     import numpy as np
+    from aai_evidence import create, offset
 
     runtime = read_json(Path("/opt/nf-annotation/provenance/fastaai.json"))
     if runtime.get("export") != "native_condensed_v1":
@@ -117,20 +119,20 @@ def compare(records, profiles, output, threads):
         raise AnnotationError("Incomplete FastAAI pair coverage")
     write_json(
         output / "comparison.json",
-        dict(
-            accessions=[r["accession"] for r in ready],
-            pairs=count,
-            runtime=runtime,
-        ),
+        {
+            "accessions": [r["accession"] for r in ready],
+            "pairs": count,
+            "runtime": runtime,
+        },
     )
     write_json(
         output / "metrics.json",
-        dict(
-            seconds=time.monotonic() - start,
-            pairs=count,
-            workers=threads,
-            phases=phase_seconds,
-        ),
+        {
+            "seconds": time.monotonic() - start,
+            "pairs": count,
+            "workers": threads,
+            "phases": phase_seconds,
+        },
     )
     (output / "native.log").touch(exist_ok=True)
 

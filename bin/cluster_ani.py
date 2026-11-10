@@ -10,8 +10,9 @@ import logging
 import os
 import sys
 from collections import defaultdict
+from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, NoReturn, Sequence
+from typing import TYPE_CHECKING, Any, NoReturn
 
 if TYPE_CHECKING:
     import numpy as np
@@ -23,6 +24,8 @@ from ani_common import (
     load_matrix,
     subset_matrix,
 )
+
+LOGGER = logging.getLogger(__name__)
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -112,15 +115,16 @@ def configure_logging(quiet: bool, debug: bool) -> None:
 
 def die(message: str) -> NoReturn:
     """Log one fatal message and terminate."""
-    logging.critical(message)
+    LOGGER.critical(message)
     sys.exit(1)
 
 
 def _available_cpus() -> int:
     """Return the effective CPU count available to this process."""
+    affinity = getattr(os, "sched_getaffinity", None)
     try:
-        return len(os.sched_getaffinity(0))  # type: ignore[attr-defined]
-    except Exception:
+        return len(affinity(0)) if affinity is not None else os.cpu_count() or 1
+    except (AttributeError, OSError):
         return os.cpu_count() or 1
 
 
@@ -135,8 +139,8 @@ def _cgroup_cpu_cap() -> int | None:
                 period = int(parts[1])
                 if quota > 0 and period > 0:
                     return max(1, quota // period)
-    except Exception:
-        pass
+    except (OSError, ValueError) as error:
+        LOGGER.debug("CPU quota unavailable: %s", error)
 
     try:
         quota_file = Path("/sys/fs/cgroup/cpu/cpu.cfs_quota_us")
@@ -146,8 +150,8 @@ def _cgroup_cpu_cap() -> int | None:
             period = int(period_file.read_text(encoding="utf-8").strip())
             if quota > 0 and period > 0:
                 return max(1, quota // period)
-    except Exception:
-        pass
+    except (OSError, ValueError) as error:
+        LOGGER.debug("CPU quota unavailable: %s", error)
     return None
 
 
@@ -180,8 +184,8 @@ def set_thread_envs(n_threads: int) -> None:
                 parsed = int(existing)
                 if parsed > 0:
                     return str(min(parsed, limit))
-        except Exception:
-            pass
+        except ValueError:
+            LOGGER.debug("Ignoring invalid thread limit: %r", existing)
         return str(limit)
 
     for key in (
@@ -209,13 +213,13 @@ def load_scipy_complete_linkage() -> tuple[Any, Any, Any]:
 
 
 def cluster_complete_linkage(
-    ani: "np.ndarray",
+    ani: np.ndarray,
     names: Sequence[str],
     threshold: float,
 ) -> dict[int, list[int]]:
     """Cluster an ANI matrix by complete linkage and enforce the threshold post-check."""
     if len(names) == 1:
-        logging.info("Single ANI sample detected; emitting one singleton cluster.")
+        LOGGER.info("Single ANI sample detected; emitting one singleton cluster.")
         return {1: [0]}
 
     import numpy as np
@@ -242,14 +246,7 @@ def cluster_complete_linkage(
             if len(invalid):
                 right = others[int(invalid[0])]
                 raise AniInputError(
-                    "Post-check failed for complete-linkage cluster %s: pair (%s, %s) has ANI=%s below %.2f."
-                    % (
-                        label,
-                        names[left],
-                        names[right],
-                        ani[left, right],
-                        threshold * 100.0,
-                    )
+                    f"Post-check failed for complete-linkage cluster {label}: pair ({names[left]}, {names[right]}) has ANI={ani[left, right]} below {threshold * 100.0:.2f}."
                 )
     return dict(clusters)
 
@@ -310,7 +307,7 @@ def write_clusters(path: Path, rows: Sequence[dict[str, str]]) -> None:
 
 def run_pipeline(
     args: argparse.Namespace,
-) -> tuple[list[str], "np.ndarray", dict[str, int]] | None:
+) -> tuple[list[str], np.ndarray, dict[str, int]] | None:
     """Run ANI complete-linkage clustering and write cluster memberships."""
     if not (0.0 < float(args.threshold) < 1.0):
         raise AniInputError(
@@ -321,7 +318,7 @@ def run_pipeline(
         args.ani_metadata, args.ani_matrix, matrix_name_column=args.matrix_name_column
     ):
         write_clusters(args.outdir / "cluster.tsv", [])
-        logging.info("No ANI-eligible samples; wrote an empty cluster table.")
+        LOGGER.info("No ANI-eligible samples; wrote an empty cluster table.")
         return
 
     names, ani, name_to_idx = load_matrix(args.ani_matrix)
@@ -336,7 +333,7 @@ def run_pipeline(
     stable_clusters = assign_cluster_ids(clusters, names, accession_by_matrix_name)
     rows = build_cluster_rows(stable_clusters, names, accession_by_matrix_name)
     write_clusters(args.outdir / "cluster.tsv", rows)
-    logging.info("Wrote ANI cluster memberships for %d sample(s).", len(rows))
+    LOGGER.info("Wrote ANI cluster memberships for %d sample(s).", len(rows))
     return names, ani, name_to_idx
 
 
@@ -348,7 +345,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     requested_threads = max(1, int(args.threads))
     resolved_threads = resolve_thread_cap(requested_threads)
     if resolved_threads < requested_threads:
-        logging.info(
+        LOGGER.info(
             "Capping --threads from %d to %d based on hardware/scheduler limits.",
             requested_threads,
             resolved_threads,
@@ -358,7 +355,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         run_pipeline(args)
     except AniInputError as error:
-        logging.error(str(error))
+        LOGGER.error(str(error))
         return 1
     return 0
 
