@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import logging
+import re
 import shutil
 import sys
 from collections import defaultdict
@@ -75,6 +76,32 @@ def attributes(text: str) -> dict[str, str]:
     return result
 
 
+def compliant_contig_mapping(contigs: list[SeqRecord], source_ids: dict[str, str]) -> dict[str, str]:
+    """Verify the pinned Prokka compliant contract, including its 200-base filter.
+
+    Prokka 1.15.6 numbers retained records in input order, before masking IUPAC
+    bases. A complete numbered grid and every masked sequence must agree; a
+    missing, reordered or foreign retained contig cannot fall back to guessing.
+    """
+    if not any(record.id.startswith("gnl|Prokka|") for record in contigs):
+        return {}
+    retained = [(name, sequence) for name, sequence in source_ids.items() if len(sequence) >= 200]
+    if len(contigs) != len(retained):
+        raise AnnotationError("Compliant Prokka retained-contig count differs from source")
+    mapping, prefixes = {}, set()
+    for ordinal, (record, (source_id, expected)) in enumerate(zip(contigs, retained, strict=True), 1):
+        match = re.fullmatch(r"gnl\|Prokka\|([A-Z][A-Z0-9]*)_([1-9][0-9]*)", record.id)
+        if not match or int(match[2]) != ordinal:
+            raise AnnotationError(f"Invalid compliant Prokka contig numbering: {record.id}")
+        if str(record.seq).upper() != expected:
+            raise AnnotationError(f"Compliant Prokka contig sequence differs: {record.id}")
+        prefixes.add(match[1])
+        mapping[record.id] = source_id
+    if len(prefixes) != 1 or len(set(mapping.values())) != len(retained):
+        raise AnnotationError("Compliant Prokka contigs do not define a bijection")
+    return mapping
+
+
 def validate_genbank(
     gbk: Path,
     contigs: list[SeqRecord],
@@ -97,7 +124,7 @@ def validate_genbank(
         sequence = str(record.seq).upper()
         matches = {
             key
-            for key in (record.id, record.name)
+            for key in (record.id, record.name, f"gnl|Prokka|{record.id}", f"gnl|Prokka|{record.name}")
             if gff_sequences.get(key) == sequence
         }
         if not matches:
@@ -254,12 +281,15 @@ def build_bundle(
     source_by_sequence = defaultdict(list)
     for name, sequence in source_ids.items():
         source_by_sequence[sequence].append(name)
+    ordinal_sources = compliant_contig_mapping(contigs, source_ids)
     contig_sources = {}
     sequence_provenance = []
     lengths = {}
     for record in contigs:
         sequence = str(record.seq).upper()
-        if source_ids.get(record.id) == sequence:
+        if ordinal_sources:
+            source_id = ordinal_sources[record.id]
+        elif source_ids.get(record.id) == sequence:
             source_id = record.id
         else:
             matches = source_by_sequence.get(sequence, [])
@@ -433,6 +463,8 @@ def build_bundle(
         "source_genome_sha256": digest(genome),
         "source_sequence_policy": "prokka_uppercase_iupac_to_n",
         "contig_sequence_provenance": sequence_provenance,
+        "contig_mapping_policy": "prokka_compliant_retained_order_min200" if ordinal_sources else "native_id_or_unique_sequence",
+        "filtered_source_contigs": [name for name, sequence in source_ids.items() if ordinal_sources and len(sequence) < 200],
         "coordinate_convention": "1-based-closed; segments in GenBank biological order",
         "producer_sha256": digest(Path(__file__)),
         "common_contract_sha256": digest(

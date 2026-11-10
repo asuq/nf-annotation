@@ -66,6 +66,51 @@ class AnnotationBundleTests(unittest.TestCase):
         )
         return output
 
+    def compliant_duplicates(self, masked=False, filtered=False):
+        first = "ATGTGAGCTTAA" + "A" * 187 + "N"
+        second = first[:-1] + ("R" if masked else "N")
+        self.genome.write_text(">first\n" + first + "\n" +
+                               (">short\nACGT\n" if filtered else "") +
+                               ">second\n" + second + "\n")
+        self.faa.write_text(">gene_1\nMWA\n>gene_2\nMWA\n")
+        features, fasta, records = [], [], []
+        for n in (1, 2):
+            native = f"gnl|Prokka|TEST_{n}"
+            features.append(f"{native}\tProkka\tCDS\t1\t12\t.\t+\t0\tID=gene_{n};locus_tag=gene_{n}\n")
+            fasta.append(f">{native}\n{first}\n")
+            record = SeqRecord(Seq(first), id=f"TEST_{n}", name=f"TEST_{n}", description="native")
+            record.annotations["molecule_type"] = "DNA"
+            record.features = [SeqFeature(SimpleLocation(0, 12, strand=1), type="CDS", qualifiers={
+                "locus_tag": [f"gene_{n}"], "translation": ["MWA"], "transl_table": ["4"], "codon_start": ["1"]})]
+            records.append(record)
+        self.gff.write_text("##gff-version 3\n" + "".join(features) + "##FASTA\n" + "".join(fasta))
+        SeqIO.write(records, self.gbk, "genbank")
+
+    def test_compliant_exact_and_masked_duplicates_keep_distinct_sources(self):
+        for masked in (False, True):
+            with self.subTest(masked=masked):
+                self.compliant_duplicates(masked=masked, filtered=True)
+                output = self.build(name=f"duplicate-{masked}")
+                manifest, proteins = bundle_proteins(output)
+                self.assertEqual([p["source_contig_id"] for p in proteins], ["first", "second"])
+                self.assertEqual(manifest["filtered_source_contigs"], ["short"])
+                self.assertEqual(manifest["contig_mapping_policy"], "prokka_compliant_retained_order_min200")
+                self.assertEqual(manifest["contig_sequence_provenance"][1]["masked_iupac_bases"], int(masked))
+
+    def test_compliant_numbering_cannot_hide_omitted_or_foreign_contigs(self):
+        self.compliant_duplicates()
+        original = self.gff.read_text()
+        for changed in (original.replace("TEST_2", "TEST_3"),
+                        original.replace("TEST_2", "OTHER_2"),
+                        original.rsplit(">gnl|Prokka|TEST_2", 1)[0]):
+            self.gff.write_text(changed)
+            with self.assertRaises(AnnotationError):
+                self.build()
+        self.gff.write_text(original)
+        self.genome.write_text(self.genome.read_text() + ">omitted\n" + "A" * 200 + "\n")
+        with self.assertRaisesRegex(AnnotationError, "retained-contig count"):
+            self.build()
+
     def test_descriptions_do_not_become_ids_and_sequences_are_unchanged(self):
         output = self.build()
         manifest, proteins = bundle_proteins(output)
