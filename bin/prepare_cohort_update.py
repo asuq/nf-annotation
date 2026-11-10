@@ -27,6 +27,7 @@ import validate_inputs
 from annotation_common import AnnotationError
 from annotation_source import source_roots, validate_source
 from publication_references import Publication
+from reviewed_codes import recorded_candidates
 
 LOGGER = logging.getLogger(__name__)
 AUDIT_COLUMNS = (
@@ -315,6 +316,9 @@ def validate_qc(
         accession, native_reports.get(4), native_reports.get(11),
         warnings=[value for value in qc["warnings"].split(";") if value],
         gcode_rule=gcode_rule,
+        genome=root / f"staged/{sample['internal_id']}.fasta",
+        review_candidates=recorded_candidates(sample),
+        genome_id=sample["internal_id"],
     )
     for field in (
         "Gcode", *master_table_contract.GCODE_PROVENANCE_COLUMNS,
@@ -661,7 +665,7 @@ def write_update_tables(
             [
                 *validate_inputs.REQUIRED_SAMPLE_COLUMNS,
                 "internal_id",
-                *[name for name in (*sample_policy.DOMAIN_FIELDS, "qc_scope") if name in sample_header],
+                *[name for name in (*sample_policy.DOMAIN_FIELDS, "qc_scope", "review_candidates_base64") if name in sample_header],
                 "source_gcode",
                 "source_index",
             ],
@@ -688,6 +692,8 @@ def validate_requested_sample(job: dict) -> str:
     source = job["source"]
     fingerprint = None
     if source is not None:
+        if recorded_candidates(sample) != recorded_candidates(source):
+            raise CohortUpdateError("Reviewed genetic-code policy differs; regenerate the affected sample")
         if job["stage"] == "full" and sample_policy.qc_scope(source) == "qc":
             raise CohortUpdateError("QC-only publications support clustering and annotation-only reuse; full-stage reuse requires CRISPR evidence")
         for field in sample_policy.DOMAIN_FIELDS:

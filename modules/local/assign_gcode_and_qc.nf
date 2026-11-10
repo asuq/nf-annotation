@@ -12,7 +12,7 @@ process ASSIGN_GCODE_AND_QC {
     )
 
     input:
-    tuple val(meta), path(checkm2_gcode4_report, name: 'checkm2_gcode4_report.tsv'), path(checkm2_gcode11_report, name: 'checkm2_gcode11_report.tsv')
+    tuple val(meta), path(checkm2_gcode4_report, name: 'checkm2_gcode4_report.tsv'), path(checkm2_gcode11_report, name: 'checkm2_gcode11_report.tsv'), path(genome, name: 'review_genome.fasta')
 
     output:
     tuple val(meta), path('checkm2_summary.tsv'), emit: summary
@@ -26,6 +26,8 @@ process ASSIGN_GCODE_AND_QC {
         --gcode4-report "${checkm2_gcode4_report}" \
         --gcode11-report "${checkm2_gcode11_report}" \
         --gcode-rule '${params.gcode_rule}' \
+        --genome review_genome.fasta --genome-id=${Shell.quote(meta.internal_id ?: meta.accession)} \
+        --review-candidates-base64=${Shell.quote(meta.review_candidates_base64 ?: "W10=")} \
         --output checkm2_summary.tsv
 
     cp checkm2_summary.tsv "${meta.internal_id}_checkm2_summary.tsv"
@@ -44,6 +46,8 @@ process ASSIGN_GCODE_AND_QC {
         --gcode4-report "${checkm2_gcode4_report}" \
         --gcode11-report "${checkm2_gcode11_report}" \
         --gcode-rule '${params.gcode_rule}' \
+        --genome review_genome.fasta --genome-id=${Shell.quote(meta.internal_id ?: meta.accession)} \
+        --review-candidates-base64=${Shell.quote(meta.review_candidates_base64 ?: "W10=")} \
         --output checkm2_summary.tsv
     cp checkm2_summary.tsv "${meta.internal_id}_checkm2_summary.tsv"
     cat <<'EOF' > versions.yml

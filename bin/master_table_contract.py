@@ -35,6 +35,9 @@ ASSEMBLY_DERIVED_COLUMNS = ("GC_Content",)
 CODETTA_COLUMNS = ("Codetta_Genetic_Code", "Codetta_NCBI_Table_Candidates")
 GCODE_PROVENANCE_COLUMNS = (
     "Gcode_Rule",
+    "Gcode_Automatic",
+    "Gcode_Automatic_Reason",
+    "Gcode_Review",
     "Gcode_Length_Ratio",
     "Gcode_Length_Ratio_Threshold",
     "Gcode_Selection_Reason",

@@ -27,7 +27,7 @@ REQUIRED_SAMPLE_COLUMNS = (
     "assembly_level",
     "genome_fasta",
 )
-RESERVED_SAMPLE_COLUMNS = {"internal_id", "qc_scope", *sample_policy.DOMAIN_FIELDS}
+RESERVED_SAMPLE_COLUMNS = {"review_candidates_base64", "internal_id", "qc_scope", *sample_policy.DOMAIN_FIELDS}
 ACCESSION_MAP_COLUMNS = (
     "accession",
     "internal_id",
@@ -119,6 +119,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
                         help="Resolve relative genome paths against this explicit launch directory.")
     parser.add_argument("--sample-policy-base64")
     parser.add_argument("--qc-only", action="store_true")
+    parser.add_argument("--reviewed-codes", type=Path)
     return parser.parse_args(argv)
 
 
@@ -558,6 +559,7 @@ def run_validation(
     genome_base_dir: Path | None = None,
     policy_settings: dict | None = None,
     qc_only: bool = False,
+    reviewed_codes: Path | None = None,
 ) -> None:
     """Validate inputs and write the expected downstream TSV outputs."""
     sample_header, sample_rows = read_delimited_table(sample_csv, delimiter=",")
@@ -607,6 +609,14 @@ def run_validation(
         sample_header = [*sample_header, "qc_scope"]
         for record in validated_records:
             record.values["qc_scope"] = "qc"
+    from reviewed_codes import load_manifest, encode_candidates
+    try:
+        reviews = load_manifest(reviewed_codes)
+    except (ValueError, OSError) as error:
+        raise ValidationError(str(error)) from error
+    sample_header = [*sample_header, "review_candidates_base64"]
+    for record in validated_records:
+        record.values["review_candidates_base64"] = encode_candidates(reviews.get(record.values["accession"], []))
     sample_status_columns = resolve_sample_status_columns(
         sample_status_columns_path,
         busco_lineages=busco_lineages,
@@ -651,7 +661,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             busco_lineages=args.busco_lineage,
             defer_genome_fasta_check=args.defer_genome_fasta_check,
             genome_base_dir=args.genome_base_dir,
-            qc_only=args.qc_only,
+            qc_only=args.qc_only, reviewed_codes=args.reviewed_codes,
             policy_settings=(
                 json.loads(base64.b64decode(args.sample_policy_base64))
                 if args.sample_policy_base64 else None

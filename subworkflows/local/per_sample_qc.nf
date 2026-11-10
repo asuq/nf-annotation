@@ -58,12 +58,13 @@ workflow PER_SAMPLE_QC {
 
     paired_checkm2_reports = checkm2_gcode4_reports
         .join(checkm2_gcode11_reports)
+        .join(sample_genomes.map { tuple(it[0].accession, it[1]) }, failOnDuplicate: true, failOnMismatch: true)
         .map { item ->
-            def values = unpackTuple.call(item, 'paired_checkm2_reports', 4)
+            def values = unpackTuple.call(item, 'paired_checkm2_reports', 5)
             def meta = values[1]
             def gcode4Report = values[2]
             def gcode11Report = values[3]
-            tuple(meta, gcode4Report, gcode11Report)
+            tuple(meta, gcode4Report, gcode11Report, values[4])
         }
 
     ASSIGN_GCODE_AND_QC(paired_checkm2_reports)

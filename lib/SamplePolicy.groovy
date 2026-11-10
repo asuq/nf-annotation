@@ -3,8 +3,12 @@ import groovy.json.JsonOutput
 /** Resolve declared policy configuration; Python validates individual records. */
 class SamplePolicy {
     static String codeHash(Object projectDir) {
-        def source = new File(projectDir.toString(), 'bin/sample_policy.py')
-        java.security.MessageDigest.getInstance('SHA-256').digest(source.bytes).encodeHex().toString()
+        def digest = java.security.MessageDigest.getInstance('MD5')
+        ['sample_policy.py', 'validate_inputs.py', 'reviewed_codes.py'].each { name ->
+            digest.update(new File(projectDir.toString(), 'bin/' + name).bytes)
+            digest.update((byte) 0)
+        }
+        digest.digest().encodeHex().toString()
     }
 
     static String reuseCodeHash(Object projectDir) {

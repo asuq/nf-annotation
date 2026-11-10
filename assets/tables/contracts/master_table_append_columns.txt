@@ -19,6 +19,9 @@ Total_Coding_Sequences_gcode11
 GC_Content
 Gcode
 Gcode_Rule
+Gcode_Automatic
+Gcode_Automatic_Reason
+Gcode_Review
 Gcode_Length_Ratio
 Gcode_Length_Ratio_Threshold
 Gcode_Selection_Reason

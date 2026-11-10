@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import logging
 import math
 import sys
@@ -14,6 +15,7 @@ from pathlib import Path
 from typing import Sequence
 
 from master_table_contract import GCODE_PROVENANCE_COLUMNS
+from reviewed_codes import recorded_candidates, select_review
 
 LOGGER = logging.getLogger(__name__)
 MEAN_GENE_LENGTH_RATIO_RULE = "mean_gene_length_ratio"
@@ -100,6 +102,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--gcode-rule", choices=GCODE_RULE_CHOICES, default=DEFAULT_GCODE_RULE,
         help="Genetic-code selection criterion (default: mean_gene_length_ratio).",
     )
+    parser.add_argument("--genome", type=Path)
+    parser.add_argument("--review-candidates-base64", default="W10=")
+    parser.add_argument("--genome-id")
     return parser.parse_args(argv)
 
 
@@ -316,6 +321,9 @@ def build_output_row(
     *,
     warnings: list[str],
     gcode_rule: str = DEFAULT_GCODE_RULE,
+    genome: Path | None = None,
+    review_candidates: list[dict] | None = None,
+    genome_id: str | None = None,
 ) -> dict[str, str]:
     """Create the final output row from two optional parsed reports."""
     row = empty_output_row(accession, gcode_rule)
@@ -354,6 +362,7 @@ def build_output_row(
         and report_four.translation_table == 4
         and report_eleven.translation_table == 11
         and reports_have_consistent_shared_stats(report_four, report_eleven)
+        and (genome_id is None or report_four.shared_stats["Name"] == genome_id)
     )
     if valid_pair:
         assert report_four is not None and report_eleven is not None
@@ -380,6 +389,17 @@ def build_output_row(
         else "failed"
     )
     row["warnings"] = ";".join(dict.fromkeys(warnings))
+    row["Gcode_Automatic"] = row["Gcode"]
+    row["Gcode_Automatic_Reason"] = row["Gcode_Selection_Reason"]
+    row["Gcode_Review"] = "NA"
+    if review_candidates and row["checkm2_status"] != "done":
+        raise ValueError("A reviewed code requires a valid paired CheckM2 result")
+    review = select_review(accession, genome, [] if review_candidates is None else review_candidates)
+    if review is not None:
+        row["Gcode"] = str(review["genetic_code"])
+        row["Gcode_Selection_Reason"] = "reviewed_code_manifest"
+        row["Gcode_Review"] = json.dumps(review, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+        assign_low_quality(row, report_four if row["Gcode"] == "4" else report_eleven)
     return row
 
 
@@ -400,6 +420,9 @@ def run_summary(
     gcode11_report: Path,
     output: Path,
     gcode_rule: str = DEFAULT_GCODE_RULE,
+    genome: Path | None = None,
+    review_candidates: list[dict] | None = None,
+    genome_id: str | None = None,
 ) -> None:
     """Summarise paired CheckM2 reports into one per-sample TSV row."""
     warnings: list[str] = []
@@ -434,7 +457,7 @@ def run_summary(
         report_four,
         report_eleven,
         warnings=warnings,
-        gcode_rule=gcode_rule,
+        gcode_rule=gcode_rule, genome=genome, review_candidates=review_candidates, genome_id=genome_id,
     )
     write_output(output, row)
 
@@ -448,7 +471,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         gcode4_report=args.gcode4_report,
         gcode11_report=args.gcode11_report,
         output=args.output,
-        gcode_rule=args.gcode_rule,
+        gcode_rule=args.gcode_rule, genome=args.genome, genome_id=args.genome_id,
+        review_candidates=recorded_candidates({"review_candidates_base64": args.review_candidates_base64}),
     )
     LOGGER.info("Wrote CheckM2 summary for %s.", args.accession)
     return 0

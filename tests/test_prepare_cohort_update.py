@@ -114,6 +114,7 @@ class PrepareCohortUpdateTestCase(unittest.TestCase):
                 Gcode_Rule="mean_gene_length_ratio", Gcode_Length_Ratio="2",
                 Gcode_Length_Ratio_Threshold="1.5",
                 Gcode_Selection_Reason="length_ratio_above_threshold",
+                Gcode_Automatic="4", Gcode_Automatic_Reason="length_ratio_above_threshold", Gcode_Review="NA",
                 checkm2_status="done",
             )
             table(sample / "checkm2/checkm2_summary.tsv", list(qc), [qc])
@@ -522,6 +523,7 @@ class PrepareCohortUpdateTestCase(unittest.TestCase):
             rows[0].update(
                 Gcode_Rule="strict_delta", Gcode_Length_Ratio_Threshold="NA",
                 Gcode_Selection_Reason="completeness_gcode4_advantage_above_10",
+                Gcode_Automatic_Reason="completeness_gcode4_advantage_above_10",
             )
             table(path, header, rows)
         refresh_tables(self.source)

@@ -202,6 +202,7 @@ The most important implementation-level parameters are:
 | `cohort_time`, `cohort_memory` | cohort bookkeeping | Requests default to 8 h / 8 GB and remain subject to global/site caps. |
 | `pipeline_stage` | `main.nf` | `full` (default), `qc`, or `clustering`; clustering requires completed published sources for every sample. |
 | `domain` | `main.nf` | Required: `bacteria`, `archaea`, or `metadata`; metadata mode reads the exact `Domain` column. Prokka/Barrnap kingdoms are derived internally. |
+| `reviewed_codes` | `main.nf` | Optional reviewed genetic-code manifest, keyed by accession and ordered FASTA identity; see [reviewed codes](reviewed_codes.md). |
 | `busco_domain_lineages` | both | Explicit domain-to-lineage-list map; first entry per domain supplies the existing BUSCO scoring term. |
 | `busco_lineages` | both | Non-empty lineage list; defaults to `bacillota_odb12` and `mycoplasmatota_odb12`. |
 | `eggnog_db` | `main.nf`, `prepare_databases.nf` | eggNOG data directory. |

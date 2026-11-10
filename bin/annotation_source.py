@@ -22,7 +22,9 @@ from annotation_common import (
 )
 from annotation_result import NativeBatch, native_batch_index, validate_raw_evidence
 from annotation_summary import ANNOTATION_COLUMNS, MATRICES
+from master_table_contract import GCODE_PROVENANCE_COLUMNS
 from publication_references import REFERENCE_CONTRACTS, Publication, strict_path
+from reviewed_codes import validate_published_decision
 from validate_inputs import detect_metadata_key_column
 
 
@@ -250,7 +252,7 @@ def validate_source(
     ) as (header, rows):
         master_key = detect_metadata_key_column(header)
         masters = [
-            {key: row[key] for key in (master_key, "Gcode", *tool_statuses)}
+            {key: row.get(key, "NA") for key in (master_key, "Gcode", "Low_quality", *GCODE_PROVENANCE_COLUMNS, *tool_statuses)}
             for row in rows
         ]
     if not masters:
@@ -287,8 +289,17 @@ def validate_source(
         root, manifest, accessions, publication if publication.reference else None, checksum=checksum
     )
     referenced_members = {batch_id: set() for batch_id in batches}
+    samples = {}
+    sample_table = root / "tables/validated_samples.tsv"
+    if sample_table.is_file():
+        with source_rows(sample_table, ["accession"]) as (_, rows):
+            samples = {row["accession"]: row for row in rows}
     for master, status in zip(masters, statuses, strict=True):
         accession = master[master_key]
+        try:
+            validate_published_decision(samples.get(accession, {}), publication.native_root(accession), master)
+        except (ValueError, KeyError, OSError) as error:
+            raise AnnotationError(f"Invalid reviewed code evidence for {accession}: {error}") from error
         for tool in TOOLS:
             if (
                 grid[(accession, tool)] != status[f"{tool}_status"]
