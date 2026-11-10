@@ -156,30 +156,30 @@ def preflight(config: dict[str, Any]) -> dict[str, Any]:
             native_code["prepare_padloc_input.py"] = digest(
                 Path(__file__).with_name("prepare_padloc_input.py")
             )
-        search_method = dict(
-            tool=tool,
-            runtime_id=runtime,
-            resource_id=resource_id,
-            command=command,
-            native_code=native_code,
-        )
-        interpretation = dict(
-            schema_version=SCHEMA_VERSION,
-            runtime_id=helper_runtime,
-            code=code_identity(tool),
-            policy=POLICY[tool],
-        )
-        result["tools"][tool] = dict(
-            container=settings["container"],
-            resource_path=resource_path,
-            resource=resource,
-            resource_manifest_sha256=manifest_sha,
-            search_method=search_method,
-            interpretation=interpretation,
-            method_id=identity(
-                dict(search=search_method, interpretation=interpretation)
+        search_method = {
+            "tool": tool,
+            "runtime_id": runtime,
+            "resource_id": resource_id,
+            "command": command,
+            "native_code": native_code,
+        }
+        interpretation = {
+            "schema_version": SCHEMA_VERSION,
+            "runtime_id": helper_runtime,
+            "code": code_identity(tool),
+            "policy": POLICY[tool],
+        }
+        result["tools"][tool] = {
+            "container": settings["container"],
+            "resource_path": resource_path,
+            "resource": resource,
+            "resource_manifest_sha256": manifest_sha,
+            "search_method": search_method,
+            "interpretation": interpretation,
+            "method_id": identity(
+                {"search": search_method, "interpretation": interpretation}
             ),
-        )
+        }
     result["preflight_id"] = identity(result)
     return result
 
@@ -210,31 +210,31 @@ def task_identity(
     bundle: dict[str, Any], tool: str, entry: dict[str, Any]
 ) -> dict[str, Any]:
     """Separate native-search dependencies from report interpretation dependencies."""
-    search = dict(
-        input_id=bundle["input_id"],
-        genetic_code=bundle["genetic_code"],
-        source_genome_sha256=bundle["source_genome_sha256"],
-        method=entry["search_method"],
-    )
+    search = {
+        "input_id": bundle["input_id"],
+        "genetic_code": bundle["genetic_code"],
+        "source_genome_sha256": bundle["source_genome_sha256"],
+        "method": entry["search_method"],
+    }
     if tool == "padloc":
         search["coordinate_id"] = bundle["coordinate_id"]
         search["source_gff_sha256"] = bundle["files"]["source.gff"]
     search_id = identity(search)
-    return dict(
-        schema_version=SCHEMA_VERSION,
-        accession=bundle["accession"],
-        tool=tool,
-        input_id=bundle["input_id"],
-        coordinate_id=bundle["coordinate_id"],
-        input_proteins=bundle["protein_count"],
-        search=search,
-        search_fingerprint=search_id,
-        normalization_fingerprint=identity(
-            dict(search_fingerprint=search_id, interpretation=entry["interpretation"])
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "accession": bundle["accession"],
+        "tool": tool,
+        "input_id": bundle["input_id"],
+        "coordinate_id": bundle["coordinate_id"],
+        "input_proteins": bundle["protein_count"],
+        "search": search,
+        "search_fingerprint": search_id,
+        "normalization_fingerprint": identity(
+            {"search_fingerprint": search_id, "interpretation": entry["interpretation"]}
         ),
-        method_id=entry["method_id"],
-        interpretation=entry["interpretation"],
-        resource=(
+        "method_id": entry["method_id"],
+        "interpretation": entry["interpretation"],
+        "resource": (
             entry["resource"]
             if tool == "padloc"
             else {
@@ -244,8 +244,8 @@ def task_identity(
                 "manifest_sha256": entry["resource_manifest_sha256"],
             }
         ),
-        container=entry["container"],
-    )
+        "container": entry["container"],
+    }
 
 
 def plan_task(
@@ -296,6 +296,7 @@ def plan_task(
             )
         (outdir / "run.sh").write_text(shell_script(entry["search_method"]["command"]))
     else:
+        assert previous is not None
         task["previous_result"] = str(previous.resolve(strict=True))
     write_json(outdir / "task.json", task)
     return task
@@ -321,7 +322,7 @@ def normalize_task(
     task.pop("previous_result", None)
     outdir.mkdir()
     shutil.copytree(raw, outdir / "raw")
-    record = dict(
+    record: dict[str, Any] = dict(
         task,
         status="failed",
         reason="native_output_not_validated",
@@ -350,6 +351,8 @@ def normalize_task(
                     "PADLOC bundled resource differs from the pinned contract"
                 )
         else:
+            if resource is None:
+                raise AnnotationError("Annotation resource is required for this tool")
             prepared = read_json(resource / RESOURCE_FILE)
             if prepared.get("resource_id") != task["search"]["method"]["resource_id"]:
                 raise AnnotationError("Task/resource identity mismatch")

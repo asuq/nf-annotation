@@ -10,8 +10,10 @@ from pathlib import Path
 
 def main() -> int:
     """Export the native dataframe; database acquisition belongs to preparation."""
-    from cogclassifier.blast import BlastAlignmentRecord
-    from cogclassifier.cog import (
+    from cogclassifier.blast import (  # ty: ignore[unresolved-import]  # Provided by the pinned native image.
+        BlastAlignmentRecord,
+    )
+    from cogclassifier.cog import (  # ty: ignore[unresolved-import]  # Provided by the pinned native image.
         CogCddIdTable,
         CogClassifyStats,
         CogDefinitionRecord,

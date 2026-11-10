@@ -202,24 +202,27 @@ def validate_hmm_profiles(root: Path, profiles: list[Path]) -> None:
         )
         + "\n"
     )
-    with (directory / "hmmstat.log").open("wb") as output:
-        with subprocess.Popen(
+    with (
+        (directory / "hmmstat.log").open("wb") as output,
+        subprocess.Popen(
             command, stdin=subprocess.PIPE, stdout=output, stderr=subprocess.STDOUT
-        ) as process:
-            try:
-                for path in profiles:
-                    with path.open("rb") as handle:
-                        shutil.copyfileobj(handle, process.stdin, length=1024 * 1024)
-                process.stdin.close()
-            except (OSError, BrokenPipeError) as error:
-                process.terminate()
-                raise AnnotationResourceError(
-                    f"Could not validate the complete HMM profile subset: {error}"
-                ) from error
-            if process.wait() != 0:
-                raise AnnotationResourceError(
-                    f"HMM profile validation failed; see {directory / 'hmmstat.log'}"
-                )
+        ) as process,
+    ):
+        assert process.stdin is not None
+        try:
+            for path in profiles:
+                with path.open("rb") as handle:
+                    shutil.copyfileobj(handle, process.stdin, length=1024 * 1024)
+            process.stdin.close()
+        except (OSError, BrokenPipeError) as error:
+            process.terminate()
+            raise AnnotationResourceError(
+                f"Could not validate the complete HMM profile subset: {error}"
+            ) from error
+        if process.wait() != 0:
+            raise AnnotationResourceError(
+                f"HMM profile validation failed; see {directory / 'hmmstat.log'}"
+            )
 
 
 def extract(source: Path, target: Path) -> None:
@@ -420,7 +423,7 @@ def prepare_cogclassifier(source: Path, root: Path) -> dict[str, Any]:
     decompress(source / "cddid.tbl.gz", root / "cddid.tbl")
     for name in ("cog_definition.tsv", "cog_func_category.tsv"):
         shutil.copyfile(source / name, root / name)
-    from cogclassifier.cog import (
+    from cogclassifier.cog import (  # ty: ignore[unresolved-import]  # Provided by the pinned native image.
         CogCddIdTable,
         CogDefinitionRecord,
         CogFuncCategoryRecord,
@@ -487,11 +490,13 @@ def prepare_eggnog(source: Path, root: Path) -> dict[str, Any]:
     require_files(source, names)
     for name in names:
         shutil.copyfile(source / name, root / name)
-    from eggnogmapper.annotator.e7.annotate import (
+    from eggnogmapper.annotator.e7.annotate import (  # ty: ignore[unresolved-import]  # Provided by the pinned native image.
         AnnotationEngine,
         _load_go_namespace_map,
     )
-    from eggnogmapper.annotator.e7.db import EggnogDB
+    from eggnogmapper.annotator.e7.db import (  # ty: ignore[unresolved-import]  # Provided by the pinned native image.
+        EggnogDB,
+    )
 
     namespace_map = _load_go_namespace_map(str(root / "go-basic.obo"))
     if not namespace_map or set(namespace_map.values()) != {

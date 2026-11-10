@@ -96,7 +96,7 @@ def source_rows(
                         raise AnnotationError(f"Malformed table row in {path}:{line}")
                     yield row
 
-            yield header, rows()
+            yield list(header), rows()
     finally:
         csv.field_size_limit(previous_limit)
 

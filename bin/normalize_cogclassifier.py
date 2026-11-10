@@ -145,46 +145,45 @@ def normalize(raw: Path, proteins: list[dict[str, str]], resource: Path) -> Norm
             raise AnnotationError(
                 "Native COGclassifier assignment set disagrees with its definitions"
             )
-        if accepted and (
-            native_by_query[identifier]["COG_ID"] != cog_id
-            or native_by_query[identifier]["CDD_ID"] != cdd_id
-            or native_by_query[identifier]["COG_LETTER"] != definition[1][0]
-        ):
-            raise AnnotationError(
-                "Native COGclassifier assignment differs from its first reported hit"
-            )
         if definition is not None:
+            if (
+                native_by_query[identifier]["COG_ID"] != cog_id
+                or native_by_query[identifier]["CDD_ID"] != cdd_id
+                or native_by_query[identifier]["COG_LETTER"] != definition[1][0]
+            ):
+                raise AnnotationError(
+                    "Native COGclassifier assignment differs from its first reported hit"
+                )
             try:
                 fields = ordered_categories(definition[1], vocabulary)
                 result.add("categories", gene, fields)
             except AnnotationError as error:
                 result.error(gene, "categories", definition[1], str(error))
-        if accepted:
             result.add("cog", gene, [cog_id])
             result.definitions.setdefault("cog", {})[cog_id] = definition[2]
-        row = dict(
-            accession=protein["accession"],
-            gene_id=gene,
-            protein_id=protein["protein_id"],
-            cog_id=cog_id,
-            cdd_id=cdd_id,
-            native_primary_category=native_by_query[identifier]["COG_LETTER"]
+        row = {
+            "accession": protein["accession"],
+            "gene_id": gene,
+            "protein_id": protein["protein_id"],
+            "cog_id": cog_id,
+            "cdd_id": cdd_id,
+            "native_primary_category": native_by_query[identifier]["COG_LETTER"]
             if accepted
             else None,
-            categories_raw=definition[1] if definition else None,
-            categories=json_cell(fields),
-            definition=definition[2] if definition else None,
-            accepted=str(accepted).lower(),
-            reason="native_assignment" if accepted else "missing_native_definition",
-            evalue=aln["evalue"],
-            bitscore=aln["bitscore"],
-            identity=aln["identity"],
-            query_start=aln["query_start"],
-            query_end=aln["query_end"],
-            subject_start=aln["subject_start"],
-            subject_end=aln["subject_end"],
-            field_errors=json_cell(result.errors[errors_before:]),
-        )
+            "categories_raw": definition[1] if definition else None,
+            "categories": json_cell(fields),
+            "definition": definition[2] if definition else None,
+            "accepted": str(accepted).lower(),
+            "reason": "native_assignment" if accepted else "missing_native_definition",
+            "evalue": aln["evalue"],
+            "bitscore": aln["bitscore"],
+            "identity": aln["identity"],
+            "query_start": aln["query_start"],
+            "query_end": aln["query_end"],
+            "subject_start": aln["subject_start"],
+            "subject_end": aln["subject_end"],
+            "field_errors": json_cell(result.errors[errors_before:]),
+        }
         evidence.append(row)
     if not set(native_by_query) <= set(top_hits):
         raise AnnotationError(

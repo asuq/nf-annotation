@@ -20,8 +20,9 @@ from annotation_common import (
     write_tsv,
 )
 from annotation_path_lists import read_path_list
-from cohort_evidence import inventory as cohort_inventory, read_entries
 from annotation_summary import genome_summary
+from cohort_evidence import inventory as cohort_inventory
+from cohort_evidence import read_entries
 from publication_references import PORTABLE_CONTRACT, REFERENCE_CONTRACT
 from validate_inputs import detect_metadata_key_column
 
@@ -75,21 +76,22 @@ def report(
         records[accession] = {
             key: metadata.get(key) for key in ("status", "protein_count")
         }
-        bundle_manifest[accession] = dict(
-            path=f"samples/{accession}/annotation/bundle", manifest_sha256=digest(path)
-        )
+        bundle_manifest[accession] = {
+            "path": f"samples/{accession}/annotation/bundle",
+            "manifest_sha256": digest(path),
+        }
     annotation_status, provenance = [], []
     for row in masters:
         accession = row[master_key]
         group = {
-            tool: dict(
-                accession=accession,
-                tool=tool,
-                status="skipped_disabled",
-                reason=intended[accession, tool]["reason"],
-                input_proteins=intended[accession, tool]["input_proteins"],
-                evidence=None,
-            )
+            tool: {
+                "accession": accession,
+                "tool": tool,
+                "status": "skipped_disabled",
+                "reason": intended[accession, tool]["reason"],
+                "input_proteins": intended[accession, tool]["input_proteins"],
+                "evidence": None,
+            }
             for tool in TOOLS
         }
         metadata = records.get(accession, {})
@@ -118,25 +120,25 @@ def report(
     )
     write_tsv(tables / "annotation_status.tsv", STATUS_COLUMNS, annotation_status)
     write_tsv(tables / "annotation_provenance.tsv", PROVENANCE_COLUMNS, provenance)
-    manifest = dict(
-        schema_version=SCHEMA_VERSION,
-        pipeline_contract=REFERENCE_CONTRACT if reference else PORTABLE_CONTRACT,
-        report_scope="genome",
-        accessions=accessions,
-        enabled_tools=[],
-        complete=True,
-        plan_id=plan["plan_id"],
-        bundles=bundle_manifest,
-        results={},
-        cohort_artifacts=cohort_inventory(cohort_entries),
-        tables={f"tables/{p.name}": digest(p) for p in sorted(tables.iterdir())},
-    )
+    manifest = {
+        "schema_version": SCHEMA_VERSION,
+        "pipeline_contract": REFERENCE_CONTRACT if reference else PORTABLE_CONTRACT,
+        "report_scope": "genome",
+        "accessions": accessions,
+        "enabled_tools": [],
+        "complete": True,
+        "plan_id": plan["plan_id"],
+        "bundles": bundle_manifest,
+        "results": {},
+        "cohort_artifacts": cohort_inventory(cohort_entries),
+        "tables": {f"tables/{p.name}": digest(p) for p in sorted(tables.iterdir())},
+    }
     if reference:
         manifest["reference_manifest_sha256"] = digest(reference)
     write_json(output / "annotation_results.json", manifest)
     write_json(
         output / "annotation_acceptance.json",
-        dict(complete=True, failures=[], plan_id=plan["plan_id"]),
+        {"complete": True, "failures": [], "plan_id": plan["plan_id"]},
     )
     return manifest
 

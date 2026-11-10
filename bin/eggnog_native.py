@@ -121,7 +121,7 @@ def member_name(index: int) -> str:
 def stage_plan(batch: dict[str, Any]) -> list[dict[str, Any]]:
     """Resolve the recorded annotation template for each complete proteome."""
     commands = batch["search_method"]["command"]["native_stages"]
-    stages = [
+    stages: list[dict[str, Any]] = [
         {
             "name": "search",
             "accession": None,

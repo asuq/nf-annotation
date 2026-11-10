@@ -68,11 +68,11 @@ PATTERNS = {
 FEATURE_NAMES = {"KEGG_ko": "ko", "GOs": "go", "EC": "ec", "PFAMs": "pfam"}
 # COG's official vocabulary; X (mobilome) is included, and R/S remain valid.
 COG_CATEGORIES = set("JAKLBDYVTMNZWUOCEFGHIPQRSX")
-GO_NAMESPACES = dict(
-    gos_mf="molecular_function",
-    gos_bp="biological_process",
-    gos_cc="cellular_component",
-)
+GO_NAMESPACES = {
+    "gos_mf": "molecular_function",
+    "gos_bp": "biological_process",
+    "gos_cc": "cellular_component",
+}
 
 
 def ontology_terms(path: Path) -> dict[str, tuple[str, str]]:
@@ -309,7 +309,7 @@ def _normalize_annotations(
         merged, go_accepted, namespace_evidence = set(), set(), {}
         for name in GO_FIELDS:
             value, conf = go[row["query"]][name], go[row["query"]][name + "_confidence"]
-            namespace_evidence[name] = dict(terms=value, confidence=conf)
+            namespace_evidence[name] = {"terms": value, "confidence": conf}
             try:
                 terms = values(value, "GOs")
                 if any(

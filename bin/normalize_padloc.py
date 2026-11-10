@@ -159,14 +159,14 @@ def normalize(raw: Path, proteins: list[dict[str, str]], bundle: Path) -> Normal
         seen.add(key)
         system = systems.setdefault(
             system_id,
-            dict(
-                accession=accession,
-                system_id=system_id,
-                native_system_number=number_id,
-                system=row["system"],
-                contig_id=row["seqid"],
-                genes=set(),
-            ),
+            {
+                "accession": accession,
+                "system_id": system_id,
+                "native_system_number": number_id,
+                "system": row["system"],
+                "contig_id": row["seqid"],
+                "genes": set(),
+            },
         )
         if system["system"] != row["system"] or system["contig_id"] != row["seqid"]:
             raise AnnotationError(

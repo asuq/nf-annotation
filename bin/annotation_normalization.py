@@ -33,7 +33,9 @@ class Normalized:
 
     def error(self, gene: str, name: str, raw: str, reason: str) -> None:
         """Flag an optional field; aggregation must invalidate its whole genome cell."""
-        self.errors.append(dict(gene_id=gene, field=name, raw_value=raw, reason=reason))
+        self.errors.append(
+            {"gene_id": gene, "field": name, "raw_value": raw, "reason": reason}
+        )
 
     def publish(self, root: Path) -> dict[str, Any]:
         """Write declared evidence tables and return JSON-compatible summary data."""

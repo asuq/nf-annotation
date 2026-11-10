@@ -123,7 +123,7 @@ def normalize(raw: Path, proteins: list[dict[str, str]], resource: Path) -> Norm
             env_start,
             env_end,
             accuracy,
-            description,
+            _description,
         ) = columns
         protein = query(lookup, identifier)
         gene = protein["gene_id"]
@@ -208,32 +208,32 @@ def normalize(raw: Path, proteins: list[dict[str, str]], resource: Path) -> Norm
                 "DE", model
             )
         evidence.append(
-            dict(
-                accession=protein["accession"],
-                gene_id=gene,
-                protein_id=protein["protein_id"],
-                pfam_accession=accession,
-                family=accession.split(".")[0],
-                model=model,
-                clan=clan,
-                sequence_evalue=seq_evalue,
-                sequence_score=seq_score,
-                conditional_evalue=conditional_evalue,
-                independent_evalue=independent_evalue,
-                domain_score=domain_score,
-                domain_number=ordinal,
-                domain_total=total,
-                protein_start=ali_start,
-                protein_end=ali_end,
-                envelope_start=env_start,
-                envelope_end=env_end,
-                hmm_start=hmm_start,
-                hmm_end=hmm_end,
-                hmm_length=model_length,
-                accepted=str(accepted).lower(),
-                state=state,
-                native_scan=json_cell(native),
-            )
+            {
+                "accession": protein["accession"],
+                "gene_id": gene,
+                "protein_id": protein["protein_id"],
+                "pfam_accession": accession,
+                "family": accession.split(".")[0],
+                "model": model,
+                "clan": clan,
+                "sequence_evalue": seq_evalue,
+                "sequence_score": seq_score,
+                "conditional_evalue": conditional_evalue,
+                "independent_evalue": independent_evalue,
+                "domain_score": domain_score,
+                "domain_number": ordinal,
+                "domain_total": total,
+                "protein_start": ali_start,
+                "protein_end": ali_end,
+                "envelope_start": env_start,
+                "envelope_end": env_end,
+                "hmm_start": hmm_start,
+                "hmm_end": hmm_end,
+                "hmm_length": model_length,
+                "accepted": str(accepted).lower(),
+                "state": state,
+                "native_scan": json_cell(native),
+            }
         )
     if not set(original) <= seen:
         raise AnnotationError(

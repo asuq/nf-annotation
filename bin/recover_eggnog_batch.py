@@ -22,7 +22,7 @@ from annotation_normalization import Normalized
 from annotation_resources import RESOURCE_FILE, validate_resource
 from annotation_result import inventory, validate_native_batch, validate_raw_evidence
 from eggnog_batches import validate_batch
-from eggnog_database import ANNOTATION_FILES, stage_database
+from eggnog_database import stage_database
 from eggnog_native import (
     DERIVED_HEADER,
     EXECUTION_SCHEMA,

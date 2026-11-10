@@ -12,7 +12,7 @@ import sys
 import tempfile
 from collections.abc import Iterator, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 from annotation_common import (
     COORDINATE_COLUMNS,
@@ -47,6 +47,8 @@ from annotation_summary import (
     genome_summary,
 )
 
+LOGGER = logging.getLogger(__name__)
+
 PROVENANCE_COLUMNS = (
     "accession",
     "tool",
@@ -78,6 +80,13 @@ def header(path: Path) -> list[str]:
         return next(csv.reader(handle, delimiter="\t"))
 
 
+class MatrixState(TypedDict):
+    features: set[str]
+    definitions: dict[str, str]
+    method_ids: set[str]
+    resource_ids: set[str]
+
+
 class TableWriter:
     """Stream sample-ordered tables with bounded sparse feature counts."""
 
@@ -87,7 +96,7 @@ class TableWriter:
         self.directory.mkdir()
         self.pending = {}
         self.accession = None
-        self.schemas = {
+        self.schemas: dict[str, Sequence[str]] = {
             "proteins": PROTEIN_COLUMNS,
             "coordinates": COORDINATE_COLUMNS,
             "summaries": PROTEIN_SUMMARY_COLUMNS,
@@ -242,7 +251,9 @@ def protein_summaries(
         for error in (record.get("evidence") or {}).get("field_errors", []):
             errors[tool].setdefault(error["gene_id"], set()).add(error["field"])
     for protein in proteins:
-        row = {name: protein[name] for name in PROTEIN_SUMMARY_COLUMNS[:6]}
+        row: dict[str, Any] = {
+            name: protein[name] for name in PROTEIN_SUMMARY_COLUMNS[:6]
+        }
         gene = protein["gene_id"]
         for tool in TOOLS:
             record = group[tool]
@@ -375,10 +386,10 @@ def aggregate_samples(
         if accession not in order or accession in bundle_index:
             raise AnnotationError("Duplicate or undeclared bundle during aggregation")
         bundle_index[accession] = (source_order, bundle)
-        bundle_records[accession] = dict(
-            path=f"samples/{accession}/annotation/bundle",
-            manifest_sha256=digest(bundle / "bundle.json"),
-        )
+        bundle_records[accession] = {
+            "path": f"samples/{accession}/annotation/bundle",
+            "manifest_sha256": digest(bundle / "bundle.json"),
+        }
     # Carry producer identities with paths; read full evidence only for its sample.
     if not isinstance(result_dirs, list):
         raise AnnotationError("Annotation results require a keyed path list")
@@ -401,8 +412,13 @@ def aggregate_samples(
             "normalize_" + tool
         ).TABLE_COLUMNS.items():
             details[name] = list(columns)
-    matrices = {
-        name: dict(features=set(), definitions={}, method_ids=set(), resource_ids=set())
+    matrices: dict[str, MatrixState] = {
+        name: {
+            "features": set(),
+            "definitions": {},
+            "method_ids": set(),
+            "resource_ids": set(),
+        }
         for name in MATRICES
     }
     methods = {tool: set() for tool in TOOLS}
@@ -426,7 +442,8 @@ def aggregate_samples(
                     coordinate=True,
                     source_order=source_order,
                 )
-        group = {}
+        group: dict[str, dict[str, Any]] = {}
+        record: dict[str, Any]
         for tool in TOOLS:
             key = accession, tool
             intended = planned[key]
@@ -439,10 +456,10 @@ def aggregate_samples(
                 record = result_record(directory, intended, metadata, proteins, batches)
                 if "native_batch" in record:
                     batch_members[record["native_batch"]["batch_id"]].add(accession)
-                result_manifest.setdefault(accession, {})[tool] = dict(
-                    path=f"samples/{accession}/annotation/{tool}",
-                    result_id=record["result_id"],
-                )
+                result_manifest.setdefault(accession, {})[tool] = {
+                    "path": f"samples/{accession}/annotation/{tool}",
+                    "result_id": record["result_id"],
+                }
                 if record["status"] == "success":
                     methods[tool].add(record["method_id"])
                     if len(methods[tool]) > 1:
@@ -464,22 +481,22 @@ def aggregate_samples(
                             source_order=source_order,
                         )
             else:
-                record = dict(
-                    accession=accession,
-                    tool=tool,
-                    status=intended["status"]
+                record = {
+                    "accession": accession,
+                    "tool": tool,
+                    "status": intended["status"]
                     if intended["action"] == "skip"
                     else "failed",
-                    reason=intended["reason"]
+                    "reason": intended["reason"]
                     if intended["action"] == "skip"
                     else "missing_planned_result",
-                    input_proteins=intended["input_proteins"],
-                    evidence=None,
-                )
+                    "input_proteins": intended["input_proteins"],
+                    "evidence": None,
+                }
             group[tool] = record
             if record["status"] in ("failed", "upstream_failed", "incompatible_input"):
                 failures.append(
-                    dict(accession=accession, tool=tool, reason=record["reason"])
+                    {"accession": accession, "tool": tool, "reason": record["reason"]}
                 )
             status_index[accession][f"{tool}_status"] = record["status"]
         complete = all(
@@ -564,35 +581,35 @@ def aggregate_samples(
         )
         for feature in features:
             catalogue.append(
-                dict(
-                    matrix=matrix + ".tsv",
-                    feature_id=feature,
-                    definition=state["definitions"].get(feature),
-                    source=tool,
-                    resource_id=next(iter(state["resource_ids"])),
-                    method_id=next(iter(state["method_ids"])),
-                )
+                {
+                    "matrix": matrix + ".tsv",
+                    "feature_id": feature,
+                    "definition": state["definitions"].get(feature),
+                    "source": tool,
+                    "resource_id": next(iter(state["resource_ids"])),
+                    "method_id": next(iter(state["method_ids"])),
+                }
             )
     write_tsv(
         matrix_root / "feature_catalogue.tsv",
         ("matrix", "feature_id", "definition", "source", "resource_id", "method_id"),
         catalogue,
     )
-    manifest = dict(
-        schema_version=SCHEMA_VERSION,
-        pipeline_contract="nf-annotation-v0.5",
-        accessions=accessions,
-        enabled_tools=plan["enabled_tools"],
-        complete=not failures,
-        plan_id=plan["plan_id"],
-        bundles=bundle_records,
-        results=result_manifest,
-        cohort_artifacts={},
-        tables={
+    manifest = {
+        "schema_version": SCHEMA_VERSION,
+        "pipeline_contract": "nf-annotation-v0.5",
+        "accessions": accessions,
+        "enabled_tools": plan["enabled_tools"],
+        "complete": not failures,
+        "plan_id": plan["plan_id"],
+        "bundles": bundle_records,
+        "results": result_manifest,
+        "cohort_artifacts": {},
+        "tables": {
             str(path.relative_to(work)): digest(path)
             for path in sorted(tables.rglob("*.tsv"))
         },
-    )
+    }
     if batches:
         manifest["native_batches"] = {
             batch_id: {
@@ -606,7 +623,7 @@ def aggregate_samples(
     tables.rename(output / "tables")
     write_json(
         output / "annotation_acceptance.json",
-        dict(complete=not failures, failures=failures, plan_id=plan["plan_id"]),
+        {"complete": not failures, "failures": failures, "plan_id": plan["plan_id"]},
     )
     write_json(output / "annotation_results.json", manifest)
     return manifest
@@ -645,7 +662,8 @@ def main() -> int:
             args.output,
             batch_dirs=read_path_list(args.batch_list),
         )
-        from cohort_evidence import inventory as cohort_inventory, read_entries
+        from cohort_evidence import inventory as cohort_inventory
+        from cohort_evidence import read_entries
 
         manifest["cohort_artifacts"] = cohort_inventory(
             read_entries(args.cohort_entries)
@@ -663,6 +681,7 @@ def main() -> int:
                     "Reference aggregation requires the publication root"
                 )
             view = Publication(args.publication, pending=True)
+            assert view.document is not None
             if (
                 set(view.document["samples"]) != set(manifest["accessions"])
                 or manifest["enabled_tools"]
@@ -674,7 +693,7 @@ def main() -> int:
             manifest["reference_manifest_sha256"] = digest(view.root / REFERENCE_FILE)
             write_json(args.output / "annotation_results.json", manifest)
     except (AnnotationError, OSError) as error:
-        logging.error("%s", error)
+        LOGGER.error("%s", error)
         return 1
     return 0
 

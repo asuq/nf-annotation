@@ -40,6 +40,8 @@ from annotation_tasks import (
 )
 from eggnog_batches import prepare_batches
 
+LOGGER = logging.getLogger(__name__)
+
 PLAN_COLUMNS = (
     "accession",
     "tool",
@@ -148,6 +150,7 @@ def plan(
         bundle, bundle_record = by_accession.get(accession, (None, {}))
         proteins = []
         if bundle_record.get("status") == "success" and not metadata_only:
+            assert bundle is not None
             bundle_record, proteins = bundle_proteins(bundle)
             if bundle_record["accession"] != accession:
                 raise AnnotationError(
@@ -198,6 +201,7 @@ def plan(
                         else batchdir.resolve()
                     )
                 else:
+                    assert bundle is not None
                     task = plan_task(
                         bundle,
                         tool,
@@ -240,13 +244,13 @@ def plan(
         )
         for accession in member_accessions:
             eggnog_rows[accession].update(action=task["action"], reason=task["reason"])
-    record = dict(
-        schema_version=SCHEMA_VERSION,
-        accessions=accessions,
-        enabled_tools=checked["enabled_tools"],
-        preflight_id=checked["preflight_id"],
-        tasks=tasks,
-    )
+    record = {
+        "schema_version": SCHEMA_VERSION,
+        "accessions": accessions,
+        "enabled_tools": checked["enabled_tools"],
+        "preflight_id": checked["preflight_id"],
+        "tasks": tasks,
+    }
     record["plan_id"] = identity(record)
     write_json(output / "annotation_plan.json", record)
     write_tsv(output / "annotation_plan.tsv", PLAN_COLUMNS, tasks)
@@ -310,28 +314,30 @@ def execution_groups(
         raise AnnotationError("Invalid grouping sample manifest")
     for accession in accessions:
         validate_accession(accession)
-    groups = []
+    groups: list[dict[str, Any]] = []
     remaining = set(accessions)
     if "eggnog" in checked["enabled_tools"]:
         previous = validate_sources(source)
         for batch_id, native in sorted(previous.items()):
             members = sorted(remaining.intersection(native.members))
             if members:
-                groups.append(dict(accessions=members, previous_batch_ids=[batch_id]))
+                groups.append({"accessions": members, "previous_batch_ids": [batch_id]})
                 remaining.difference_update(members)
         new_members = sorted(remaining)
         for offset in range(0, len(new_members), size):
             groups.append(
-                dict(
-                    accessions=new_members[offset : offset + size],
-                    previous_batch_ids=[],
-                )
+                {
+                    "accessions": new_members[offset : offset + size],
+                    "previous_batch_ids": [],
+                }
             )
     for group in groups:
         group["key"] = identity(group)
-    record = dict(
-        accessions=accessions, preflight_id=checked["preflight_id"], groups=groups
-    )
+    record = {
+        "accessions": accessions,
+        "preflight_id": checked["preflight_id"],
+        "groups": groups,
+    }
     record["groups_id"] = identity(record)
     return record
 
@@ -355,7 +361,7 @@ def plan_part(
         raise AnnotationError("Changed eggNOG readiness group")
     sample_file = output.parent / "part_samples.tsv"
     write_tsv(
-        sample_file, ("accession",), [dict(accession=value) for value in accessions]
+        sample_file, ("accession",), [{"accession": value} for value in accessions]
     )
     tools = (
         ("eggnog",)
@@ -412,13 +418,13 @@ def merge_plans(
                     reason="no_valid_protein_bundle" if enabled else "tool_disabled",
                 )
             tasks.append(row)
-    record = dict(
-        schema_version=SCHEMA_VERSION,
-        accessions=accessions,
-        enabled_tools=checked["enabled_tools"],
-        preflight_id=checked["preflight_id"],
-        tasks=tasks,
-    )
+    record = {
+        "schema_version": SCHEMA_VERSION,
+        "accessions": accessions,
+        "enabled_tools": checked["enabled_tools"],
+        "preflight_id": checked["preflight_id"],
+        "tasks": tasks,
+    }
     record["plan_id"] = identity(record)
     output.mkdir()
     write_json(output / "annotation_plan.json", record)
@@ -533,7 +539,7 @@ def main() -> int:
         else:
             import_source(args.source, args.output)
     except (AnnotationError, AnnotationResourceError, OSError) as error:
-        logging.error("%s", error)
+        LOGGER.error("%s", error)
         return 1
     return 0
 

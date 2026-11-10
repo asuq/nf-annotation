@@ -59,10 +59,10 @@ def member_task_identity(
     member["search"]["batch"] = batch_search_identity(batch_record)
     member["search_fingerprint"] = identity(member["search"])
     member["normalization_fingerprint"] = identity(
-        dict(
-            search_fingerprint=member["search_fingerprint"],
-            interpretation=member["interpretation"],
-        )
+        {
+            "search_fingerprint": member["search_fingerprint"],
+            "interpretation": member["interpretation"],
+        }
     )
     return member
 
@@ -79,7 +79,10 @@ def _validate_members(
         or entry["interpretation"].get("code") != code_identity("eggnog")
         or entry["method_id"]
         != identity(
-            dict(search=entry["search_method"], interpretation=entry["interpretation"])
+            {
+                "search": entry["search_method"],
+                "interpretation": entry["interpretation"],
+            }
         )
     ):
         raise AnnotationError("Invalid or changed eggNOG batch member method/code")
@@ -100,19 +103,20 @@ def _entry_from_member(member: dict[str, Any]) -> dict[str, Any]:
     """Recover the shared planned entry without adding external path dependencies."""
     try:
         resource = member["resource"]
-        return dict(
-            search_method=member["search"]["method"],
-            interpretation=member["interpretation"],
-            method_id=member["method_id"],
-            container=member["container"],
-            resource_manifest_sha256=resource["manifest_sha256"],
-            resource=dict(
-                resource_id=resource["resource_id"],
-                contract=dict(
-                    version=resource["version"], settings=resource["settings"]
-                ),
-            ),
-        )
+        return {
+            "search_method": member["search"]["method"],
+            "interpretation": member["interpretation"],
+            "method_id": member["method_id"],
+            "container": member["container"],
+            "resource_manifest_sha256": resource["manifest_sha256"],
+            "resource": {
+                "resource_id": resource["resource_id"],
+                "contract": {
+                    "version": resource["version"],
+                    "settings": resource["settings"],
+                },
+            },
+        }
     except (KeyError, TypeError) as error:
         raise AnnotationError("Malformed eggNOG batch member provenance") from error
 
@@ -204,14 +208,14 @@ def plan_batch(
                 selected[member["accession"]] = old_path, checked
         if len(selected) == len(members):
             action, reason = "reuse", "matching_batch_search_and_member_interpretation"
-    task = dict(
-        schema_version=SCHEMA_VERSION,
-        kind="eggnog_batch",
-        batch_id=batch["batch_id"],
-        action=action,
-        reason=reason,
-        members=[dict(member, action=action, reason=reason) for member in members],
-    )
+    task = {
+        "schema_version": SCHEMA_VERSION,
+        "kind": "eggnog_batch",
+        "batch_id": batch["batch_id"],
+        "action": action,
+        "reason": reason,
+        "members": [dict(member, action=action, reason=reason) for member in members],
+    }
     outdir.mkdir(parents=True)
     if action == "run":
         shutil.copyfile(batchdir / "input.faa", outdir / "input.faa")
@@ -230,10 +234,12 @@ def plan_batch(
         )
         (outdir / "run.sh").write_text(shell_script(entry["search_method"]["command"]))
     else:
+        assert previous is not None
         copied = _copy_native(previous, outdir / "previous_batch")
-        task["native_batch"] = dict(
-            batch_id=batch["batch_id"], batch_result_id=copied.record["batch_result_id"]
-        )
+        task["native_batch"] = {
+            "batch_id": batch["batch_id"],
+            "batch_result_id": copied.record["batch_result_id"],
+        }
         if action == "reuse":
             task["previous_result_ids"] = {}
             for accession, (old_path, old) in selected.items():
@@ -418,13 +424,13 @@ def complete_batch(
         raise AnnotationError(
             "Copied native packet differs from the validated batch input/evidence"
         )
-    packet = dict(
-        schema_version=SCHEMA_VERSION,
-        kind="eggnog_native_batch",
-        batch=batch,
-        exit_code=exit_code,
-        raw_files=raw_files,
-    )
+    packet = {
+        "schema_version": SCHEMA_VERSION,
+        "kind": "eggnog_native_batch",
+        "batch": batch,
+        "exit_code": exit_code,
+        "raw_files": raw_files,
+    }
     packet["batch_result_id"] = identity(packet)
     if previous is not None and packet != previous.record:
         raise AnnotationError("Reused native packet identity changed")
@@ -459,9 +465,10 @@ def complete_batch(
             evidence=None,
             normalized_files={},
             raw_files=raw_files,
-            native_batch=dict(
-                batch_id=batch["batch_id"], batch_result_id=packet["batch_result_id"]
-            ),
+            native_batch={
+                "batch_id": batch["batch_id"],
+                "batch_result_id": packet["batch_result_id"],
+            },
         )
         if error_message is not None:
             (destination / "validation_error.txt").write_text(error_message + "\n")
@@ -499,9 +506,9 @@ def complete_batch(
         record["result_id"] = identity(record)
         write_json(destination / "result.json", record)
         results[accession] = record
-    return dict(
-        batch_id=batch["batch_id"],
-        batch_result_id=packet["batch_result_id"],
-        action=action,
-        results=results,
-    )
+    return {
+        "batch_id": batch["batch_id"],
+        "batch_result_id": packet["batch_result_id"],
+        "action": action,
+        "results": results,
+    }

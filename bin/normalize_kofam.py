@@ -109,21 +109,21 @@ def normalize(raw: Path, proteins: list[dict[str, str]], resource: Path) -> Norm
                 result.add("ko", gene, [ko])
                 result.definitions.setdefault("ko", {})[ko] = definition
             evidence.append(
-                dict(
-                    accession=protein["accession"],
-                    gene_id=gene,
-                    protein_id=protein["protein_id"],
-                    ko=ko,
-                    native_marker=mark,
-                    threshold=data["threshold"],
-                    printed_threshold=printed_threshold,
-                    score_type=data["score_type"],
-                    score=score,
-                    evalue=evalue,
-                    definition=definition,
-                    accepted=str(accepted).lower(),
-                    state=state,
-                )
+                {
+                    "accession": protein["accession"],
+                    "gene_id": gene,
+                    "protein_id": protein["protein_id"],
+                    "ko": ko,
+                    "native_marker": mark,
+                    "threshold": data["threshold"],
+                    "printed_threshold": printed_threshold,
+                    "score_type": data["score_type"],
+                    "score": score,
+                    "evalue": evalue,
+                    "definition": definition,
+                    "accepted": str(accepted).lower(),
+                    "state": state,
+                }
             )
     result.reported_hits = len(evidence)
     columns = COLUMNS

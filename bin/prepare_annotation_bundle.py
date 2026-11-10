@@ -13,6 +13,7 @@ import sys
 from collections import defaultdict
 from io import StringIO
 from pathlib import Path
+from typing import cast
 from urllib.parse import unquote
 
 from annotation_common import (
@@ -21,10 +22,10 @@ from annotation_common import (
     SCHEMA_VERSION,
     AnnotationError,
     canonical_gene_id,
-    protein_query_id,
     digest,
     identity,
     integer,
+    protein_query_id,
     write_json,
     write_tsv,
 )
@@ -34,7 +35,13 @@ from Bio.SeqRecord import SeqRecord
 LOGGER = logging.getLogger(__name__)
 
 
-def fasta_records(text: str, label: str) -> list[SeqRecord]:
+class FastaRecord(SeqRecord):
+    """A parsed FASTA record whose nonempty identifier has been checked."""
+
+    id: str
+
+
+def fasta_records(text: str, label: str) -> list[FastaRecord]:
     """Read unique non-empty records without silently removing sequence whitespace."""
     if not text.strip().startswith(">"):
         reason = (
@@ -53,11 +60,12 @@ def fasta_records(text: str, label: str) -> list[SeqRecord]:
     ids = [record.id for record in records]
     if (
         not records
+        or any(not isinstance(identifier, str) or not identifier for identifier in ids)
         or len(ids) != len(set(ids))
         or any(not record.seq for record in records)
     ):
         raise AnnotationError(f"Empty sequences or duplicate identifiers: {label}")
-    return records
+    return cast(list[FastaRecord], records)
 
 
 def attributes(text: str) -> dict[str, str]:
@@ -77,7 +85,7 @@ def attributes(text: str) -> dict[str, str]:
 
 
 def compliant_contig_mapping(
-    contigs: list[SeqRecord], source_ids: dict[str, str]
+    contigs: list[FastaRecord], source_ids: dict[str, str]
 ) -> dict[str, str]:
     """Verify the pinned Prokka compliant contract, including its 200-base filter.
 
@@ -118,8 +126,8 @@ def compliant_contig_mapping(
 
 def validate_genbank(
     gbk: Path,
-    contigs: list[SeqRecord],
-    proteins: list[SeqRecord],
+    contigs: list[FastaRecord],
+    proteins: list[FastaRecord],
     cds_by_protein: dict,
     gcode: int,
 ) -> dict:
