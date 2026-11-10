@@ -60,11 +60,12 @@ class EggnogBatchNormalizationTests(unittest.TestCase):
 
     def test_native_tables_are_parsed_per_proteome_with_one_ontology_load(self):
         before = inventory(self.raw)
-        with patch.object(
-            egg, "_normalize_annotations", wraps=egg._normalize_annotations
-        ) as parser, patch.object(
-            egg, "ontology_terms", wraps=egg.ontology_terms
-        ) as ontology:
+        with (
+            patch.object(
+                egg, "_normalize_annotations", wraps=egg._normalize_annotations
+            ) as parser,
+            patch.object(egg, "ontology_terms", wraps=egg.ontology_terms) as ontology,
+        ):
             members = self.normalize()
         self.assertEqual(parser.call_count, 3)
         self.assertEqual(ontology.call_count, 1)

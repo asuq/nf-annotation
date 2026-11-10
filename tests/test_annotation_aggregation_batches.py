@@ -337,7 +337,12 @@ class AnnotationAggregationBatchTests(unittest.TestCase):
             ("batch-list", [self.native]),
         ):
             path = self.root / (name + " with spaces.json")
-            write_json(path, indexed_results(paths) if name == "result-list" else [str(item) for item in paths])
+            write_json(
+                path,
+                indexed_results(paths)
+                if name == "result-list"
+                else [str(item) for item in paths],
+            )
             command.extend(["--" + name, str(path)])
         return command
 

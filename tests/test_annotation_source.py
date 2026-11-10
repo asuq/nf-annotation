@@ -62,12 +62,15 @@ class AnnotationSourceTests(unittest.TestCase):
     def test_cohort_evidence_is_bound_to_publication_and_fingerprint(self):
         from cohort_evidence import inventory
         from fingerprinting.source_fingerprint import fingerprint
+
         evidence = self.source / "cohort/aai_clusters"
         evidence.mkdir(parents=True)
         table = evidence / "aai_summary.tsv"
         table.write_text("Accession\tAAI_Cluster_ID\nA\tAAI_B000001\n")
         manifest = read_json(self.source / "annotation_results.json")
-        manifest["cohort_artifacts"] = inventory([{"prefix": "cohort/aai_clusters", "path": str(evidence)}])
+        manifest["cohort_artifacts"] = inventory(
+            [{"prefix": "cohort/aai_clusters", "path": str(evidence)}]
+        )
         write_json(self.source / "annotation_results.json", manifest)
         validate_source(self.source)
         before = fingerprint(self.source)
@@ -84,11 +87,13 @@ class AnnotationSourceTests(unittest.TestCase):
             {"query": f"protein_{index}", "field": "categories", "value": "COG0123"}
             for index in range(3000)
         ]
-        expected = [{
-            "accession": "A",
-            "field_errors": json.dumps(errors),
-            "note": 'Quoted "native" evidence\tand a\nsecond line',
-        }]
+        expected = [
+            {
+                "accession": "A",
+                "field_errors": json.dumps(errors),
+                "note": 'Quoted "native" evidence\tand a\nsecond line',
+            }
+        ]
         self.assertGreater(len(expected[0]["field_errors"]), previous_limit)
         path = self.root / "large_status.tsv"
         write_tsv(path, expected[0], expected)

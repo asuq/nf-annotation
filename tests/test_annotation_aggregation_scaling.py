@@ -43,9 +43,12 @@ class AnnotationAggregationScalingTests(unittest.TestCase):
         indexed = indexed_results(args[4])
         counts = []
         original = aggregate_annotations.read_json
+
         def read(path):
-            if path.name == "result.json": counts.append(path)
+            if path.name == "result.json":
+                counts.append(path)
             return original(path)
+
         with patch.object(aggregate_annotations, "read_json", side_effect=read):
             aggregate_annotations.aggregate(*args[:4], indexed, self.root / "read-once")
         self.assertEqual(len(counts), len(args[4]))
@@ -332,9 +335,7 @@ class AnnotationAggregationScalingTests(unittest.TestCase):
         gc.collect()
         tracemalloc.start()
         try:
-            aggregate_fixture(
-                *args[:3], args[3][:1], args[4][:1], self.root / "one"
-            )
+            aggregate_fixture(*args[:3], args[3][:1], args[4][:1], self.root / "one")
             _, one_peak = tracemalloc.get_traced_memory()
         finally:
             tracemalloc.stop()

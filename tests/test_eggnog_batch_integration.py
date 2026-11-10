@@ -236,6 +236,7 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
         )
         if local_images:
             from prepare_annotation_runtime import prepare
+
             with configuration.open("a") as handle:
                 for tool in ("python", "eggnog"):
                     image = self.root / (tool + ".sif")
@@ -243,7 +244,7 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
                     prepare(image)
                     handle.write(f"params.{tool}_container = '{image}'\n")
         if node_scratch:
-            with configuration.open('a') as handle:
+            with configuration.open("a") as handle:
                 handle.write("process.scratch = true\nprocess.stageOutMode = 'copy'\n")
         output = self.root / name
         entrypoint = "reannotate.nf" if current is None else "batch_change_control.nf"
@@ -256,7 +257,9 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
             "-c",
             str(configuration),
             "--annotation_from",
-            ','.join(map(str, previous)) if isinstance(previous, list) else str(previous),
+            ",".join(map(str, previous))
+            if isinstance(previous, list)
+            else str(previous),
             "--outdir",
             str(output),
             "-work-dir",
@@ -413,58 +416,81 @@ class EggnogBatchIntegrationTests(unittest.TestCase):
         manifest, batches = validate_source(output)
         self.assertTrue(manifest["complete"])
         self.assertEqual(len(self.calls()), 1)
-        self.assertTrue(all(batch.record["batch"]["search_method"]["runtime_id"].startswith("sif-md5:") for batch in batches.values()))
+        self.assertTrue(
+            all(
+                batch.record["batch"]["search_method"]["runtime_id"].startswith(
+                    "sif-md5:"
+                )
+                for batch in batches.values()
+            )
+        )
 
     def test_ready_batch_starts_while_another_group_waits(self):
         fixture = bundle_fixture.AnnotationBundleTests()
         fixture.setUp()
         self.addCleanup(fixture.doCleanups)
-        third = fixture.build('C', name='streaming-C')
-        source = self.input_source('three-members', ['A', 'B', 'C'], {'C': third})
-        marker = self.root / 'first_batch_started'
-        caller = self.project / 'bin/emapper.py'
-        caller.write_text(caller.read_text().replace(
-            "input_count = len(proteins)",
-            "input_count = len(proteins)\n"
-            + f"if mode == 'diamond' and input_count == 2: Path({str(marker)!r}).write_text('started')",
-        ))
-        hold_bundle_until_search(self.project, marker, 'C')
-        output = self.run_pipeline('streaming-batches', source, group_samples=2)
+        third = fixture.build("C", name="streaming-C")
+        source = self.input_source("three-members", ["A", "B", "C"], {"C": third})
+        marker = self.root / "first_batch_started"
+        caller = self.project / "bin/emapper.py"
+        caller.write_text(
+            caller.read_text().replace(
+                "input_count = len(proteins)",
+                "input_count = len(proteins)\n"
+                + f"if mode == 'diamond' and input_count == 2: Path({str(marker)!r}).write_text('started')",
+            )
+        )
+        hold_bundle_until_search(self.project, marker, "C")
+        output = self.run_pipeline("streaming-batches", source, group_samples=2)
         manifest, batches = validate_source(output)
-        self.assertTrue(manifest['complete'])
+        self.assertTrue(manifest["complete"])
         self.assertTrue(marker.is_file())
-        self.assertEqual({tuple(sorted(batch.members)) for batch in batches.values()}, {('A', 'B'), ('C',)})
+        self.assertEqual(
+            {tuple(sorted(batch.members)) for batch in batches.values()},
+            {("A", "B"), ("C",)},
+        )
         self.assertEqual(sorted(len(call) for call in self.calls()), [1, 2])
 
     def test_node_scratch_keeps_generated_batch_paths_portable(self):
-        output = self.run_pipeline('scratch-batch', self.source, node_scratch=True)
-        self.assert_publication(output, ['B', 'A'], 'run')
+        output = self.run_pipeline("scratch-batch", self.source, node_scratch=True)
+        self.assert_publication(output, ["B", "A"], "run")
         planned = [
-            row for row in read_tsv(output / 'pipeline_info/annotation_plan.tsv')
-            if row['tool'] == 'eggnog'
+            row
+            for row in read_tsv(output / "pipeline_info/annotation_plan.tsv")
+            if row["tool"] == "eggnog"
         ]
-        self.assertEqual({row['bundle'] for row in planned}, {'batch_inputs/batch00000000'})
+        self.assertEqual(
+            {row["bundle"] for row in planned}, {"batch_inputs/batch00000000"}
+        )
 
     def test_multiple_publications_preserve_native_batches_without_searches(self):
-        source_a = self.input_source('source-a', ['A'])
-        source_b = self.input_source('source-b', ['B'])
-        first = self.run_pipeline('batch-a', source_a)
-        second = self.run_pipeline('batch-b', source_b)
+        source_a = self.input_source("source-a", ["A"])
+        source_b = self.input_source("source-b", ["B"])
+        first = self.run_pipeline("batch-a", source_a)
+        second = self.run_pipeline("batch-b", source_b)
         calls = self.calls()
         before = {**validate_source(first)[1], **validate_source(second)[1]}
-        shutil.rmtree(self.root / 'work-batch-a')
-        shutil.rmtree(self.root / 'work-batch-b')
-        merged = self.run_pipeline('merged-batches', [first, second], current=self.source, node_scratch=True)
+        shutil.rmtree(self.root / "work-batch-a")
+        shutil.rmtree(self.root / "work-batch-b")
+        merged = self.run_pipeline(
+            "merged-batches", [first, second], current=self.source, node_scratch=True
+        )
         manifest, batches = validate_source(merged)
-        self.assertTrue(manifest['complete'])
+        self.assertTrue(manifest["complete"])
         self.assertEqual(set(batches), set(before))
         self.assertEqual(self.calls(), calls)
-        plans = read_tsv(merged / 'pipeline_info/annotation_plan.tsv')
-        self.assertEqual({r['action'] for r in plans if r['tool'] == 'eggnog'}, {'reuse'})
-        for accession, source in [('A', first), ('B', second)]:
-            old = validate_result(source / 'samples' / accession / 'annotation/eggnog', batches=before)
-            new = validate_result(merged / 'samples' / accession / 'annotation/eggnog', batches=batches)
-            self.assertEqual(old['normalized_files'], new['normalized_files'])
+        plans = read_tsv(merged / "pipeline_info/annotation_plan.tsv")
+        self.assertEqual(
+            {r["action"] for r in plans if r["tool"] == "eggnog"}, {"reuse"}
+        )
+        for accession, source in [("A", first), ("B", second)]:
+            old = validate_result(
+                source / "samples" / accession / "annotation/eggnog", batches=before
+            )
+            new = validate_result(
+                merged / "samples" / accession / "annotation/eggnog", batches=batches
+            )
+            self.assertEqual(old["normalized_files"], new["normalized_files"])
 
     def test_one_native_batch_reuses_and_renormalizes_portably(self):
         first = self.run_pipeline("initial", self.source)

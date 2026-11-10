@@ -38,7 +38,13 @@ from annotation_tasks import (
     runtime_identity,
     task_identity,
 )
-from prepare_annotation_tasks import execution_groups, merge_plans, plan, plan_part, plan_disabled
+from prepare_annotation_tasks import (
+    execution_groups,
+    merge_plans,
+    plan,
+    plan_part,
+    plan_disabled,
+)
 
 
 class AnnotationTaskTests(unittest.TestCase):
@@ -53,45 +59,89 @@ class AnnotationTaskTests(unittest.TestCase):
     def test_normalisation_reads_only_tables_bound_to_the_planned_bundle(self):
         import hashlib
         from annotation_tasks import normalize_task
+
         task = self.root / "scoped-task"
-        plan_task(self.bundle, "kofam", self.entry(), task,
-                  bundle_data=(self.metadata, self.proteins))
+        plan_task(
+            self.bundle,
+            "kofam",
+            self.entry(),
+            task,
+            bundle_data=(self.metadata, self.proteins),
+        )
         raw = self.root / "failed-native"
         raw.mkdir()
         (raw / "exit_code.txt").write_text("1\n")
         original = hashlib.file_digest
         observed = []
+
         def checksum(handle, *args, **kwargs):
             path = Path(handle.name)
             if path.parent == self.bundle:
-                self.assertIn(path.name, ("bundle.json", "protein_manifest.tsv", "gene_coordinates.tsv"))
+                self.assertIn(
+                    path.name,
+                    ("bundle.json", "protein_manifest.tsv", "gene_coordinates.tsv"),
+                )
                 observed.append(path.name)
             return original(handle, *args, **kwargs)
+
         with patch("hashlib.file_digest", side_effect=checksum):
-            result = normalize_task(task, raw, self.bundle, None, self.root / "scoped-result")
+            result = normalize_task(
+                task, raw, self.bundle, None, self.root / "scoped-result"
+            )
         self.assertEqual(result["status"], "failed")
-        self.assertEqual(set(observed), {"bundle.json", "protein_manifest.tsv", "gene_coordinates.tsv"})
+        self.assertEqual(
+            set(observed),
+            {"bundle.json", "protein_manifest.tsv", "gene_coordinates.tsv"},
+        )
         (self.bundle / "protein_manifest.tsv").write_text("changed")
         with self.assertRaises(AnnotationError):
             normalize_task(task, raw, self.bundle, None, self.root / "changed-result")
 
-    def test_disabled_cohort_plan_matches_streaming_grid_without_revalidating_payloads(self):
+    def test_disabled_cohort_plan_matches_streaming_grid_without_revalidating_payloads(
+        self,
+    ):
         samples = self.root / "disabled-samples.tsv"
         write_tsv(samples, ("accession",), [{"accession": "A"}, {"accession": "B"}])
         members = self.root / "members.json"
         write_json(members, {"accessions": ["A"]})
         receipt = self.root / "disabled-preflight.json"
-        write_json(receipt, {"enabled_tools": [], "preflight_id": "fixture", "tools": {}})
+        write_json(
+            receipt, {"enabled_tools": [], "preflight_id": "fixture", "tools": {}}
+        )
         with patch("prepare_annotation_tasks.validate_preflight"):
-            plan_part(members, [self.bundle], receipt, self.root / "fragment", None, "individual")
-            expected = merge_plans(samples, receipt, [self.root / "fragment/annotation_plan.json"], self.root / "merged")
-            with patch("prepare_annotation_tasks.bundle_proteins", side_effect=AssertionError("unexpected payload reread")):
-                actual = plan_disabled(samples, [self.bundle], receipt, self.root / "disabled")
+            plan_part(
+                members,
+                [self.bundle],
+                receipt,
+                self.root / "fragment",
+                None,
+                "individual",
+            )
+            expected = merge_plans(
+                samples,
+                receipt,
+                [self.root / "fragment/annotation_plan.json"],
+                self.root / "merged",
+            )
+            with patch(
+                "prepare_annotation_tasks.bundle_proteins",
+                side_effect=AssertionError("unexpected payload reread"),
+            ):
+                actual = plan_disabled(
+                    samples, [self.bundle], receipt, self.root / "disabled"
+                )
         self.assertEqual(actual, expected)
         self.assertEqual(len(actual["tasks"]), 2 * len(TOOLS))
-        self.assertTrue(all(row["status"] == "skipped_disabled" for row in actual["tasks"]))
-        write_json(receipt, {"enabled_tools": ["pfam"], "preflight_id": "fixture", "tools": {}})
-        with patch("prepare_annotation_tasks.validate_preflight"), self.assertRaises(AnnotationError):
+        self.assertTrue(
+            all(row["status"] == "skipped_disabled" for row in actual["tasks"])
+        )
+        write_json(
+            receipt, {"enabled_tools": ["pfam"], "preflight_id": "fixture", "tools": {}}
+        )
+        with (
+            patch("prepare_annotation_tasks.validate_preflight"),
+            self.assertRaises(AnnotationError),
+        ):
             plan_disabled(samples, [self.bundle], receipt, self.root / "invalid")
 
     def test_disabled_planning_still_requires_content_integrity_at_aggregation(self):
@@ -102,12 +152,21 @@ class AnnotationTaskTests(unittest.TestCase):
         write_tsv(samples, ("accession",), [{"accession": "A"}])
         write_tsv(master, ("Accession", "Gcode"), [{"Accession": "A", "Gcode": "4"}])
         write_tsv(status, ("accession",), [{"accession": "A"}])
-        write_json(receipt, {"enabled_tools": [], "preflight_id": "fixture", "tools": {}})
+        write_json(
+            receipt, {"enabled_tools": [], "preflight_id": "fixture", "tools": {}}
+        )
         with patch("prepare_annotation_tasks.validate_preflight"):
             plan_disabled(samples, [self.bundle], receipt, self.root / "disabled-plan")
         (self.bundle / "proteins.faa").write_text(">tampered\nM\n")
         with self.assertRaisesRegex(AnnotationError, "content mismatch"):
-            aggregate(self.root / "disabled-plan/annotation_plan.json", master, status, [self.bundle], [], self.root / "report")
+            aggregate(
+                self.root / "disabled-plan/annotation_plan.json",
+                master,
+                status,
+                [self.bundle],
+                [],
+                self.root / "report",
+            )
 
     def entry(self, tool="kofam"):
         search = dict(
@@ -176,6 +235,7 @@ class AnnotationTaskTests(unittest.TestCase):
         sif = self.root / "tool.sif"
         sif.write_bytes(b"immutable runtime fixture")
         from prepare_annotation_runtime import prepare
+
         prepare(sif)
         self.assertTrue(runtime_identity(str(sif)).startswith("sif-md5:"))
         with self.assertRaisesRegex(AnnotationError, "memory"):
@@ -342,56 +402,87 @@ with tempfile.NamedTemporaryFile() as temporary:
             plan(samples, [self.bundle], receipt, self.root / "tampered-plan")
 
     def test_streaming_plan_preserves_missing_and_duplicate_accounting(self):
-        samples = self.root / 'streaming-samples.tsv'
-        write_tsv(samples, ('accession',), [{'accession': 'A'}, {'accession': 'B'}])
-        receipt = self.root / 'streaming-preflight.json'
+        samples = self.root / "streaming-samples.tsv"
+        write_tsv(samples, ("accession",), [{"accession": "A"}, {"accession": "B"}])
+        receipt = self.root / "streaming-preflight.json"
         entry = self.entry()
-        entry['resource_path'] = str(self.root / 'resource')
-        write_json(receipt, dict(enabled_tools=['kofam'], preflight_id='fixture', tools={'kofam': entry}))
-        members = self.root / 'members.json'
-        write_json(members, dict(accessions=['A']))
-        with patch('prepare_annotation_tasks.validate_preflight'):
-            plan_part(members, [self.bundle], receipt, self.root / 'part', None, 'individual')
-            fragment = self.root / 'part/annotation_plan.json'
-            merged = merge_plans(samples, receipt, [fragment], self.root / 'merged')
-            by_key = {(row['accession'], row['tool']): row for row in merged['tasks']}
+        entry["resource_path"] = str(self.root / "resource")
+        write_json(
+            receipt,
+            dict(
+                enabled_tools=["kofam"], preflight_id="fixture", tools={"kofam": entry}
+            ),
+        )
+        members = self.root / "members.json"
+        write_json(members, dict(accessions=["A"]))
+        with patch("prepare_annotation_tasks.validate_preflight"):
+            plan_part(
+                members, [self.bundle], receipt, self.root / "part", None, "individual"
+            )
+            fragment = self.root / "part/annotation_plan.json"
+            merged = merge_plans(samples, receipt, [fragment], self.root / "merged")
+            by_key = {(row["accession"], row["tool"]): row for row in merged["tasks"]}
             self.assertEqual(len(by_key), 2 * len(TOOLS))
-            self.assertEqual(by_key['A', 'kofam']['action'], 'run')
-            self.assertEqual(by_key['B', 'kofam']['status'], 'upstream_failed')
-            self.assertEqual(by_key['B', 'kofam']['reason'], 'no_valid_protein_bundle')
-            self.assertEqual(by_key['B', 'eggnog']['status'], 'skipped_disabled')
-            with self.assertRaisesRegex(AnnotationError, 'Duplicate or foreign'):
-                merge_plans(samples, receipt, [fragment, fragment], self.root / 'duplicate')
+            self.assertEqual(by_key["A", "kofam"]["action"], "run")
+            self.assertEqual(by_key["B", "kofam"]["status"], "upstream_failed")
+            self.assertEqual(by_key["B", "kofam"]["reason"], "no_valid_protein_bundle")
+            self.assertEqual(by_key["B", "eggnog"]["status"], "skipped_disabled")
+            with self.assertRaisesRegex(AnnotationError, "Duplicate or foreign"):
+                merge_plans(
+                    samples, receipt, [fragment, fragment], self.root / "duplicate"
+                )
 
     def test_individual_plan_reuses_result_from_second_source(self):
-        first = self.root / 'first-source'
+        first = self.root / "first-source"
         first.mkdir()
-        second = self.root / 'second-source'
-        old = self.write_result(self.result(), 'second-source/samples/A/annotation/kofam')
-        receipt = self.root / 'multi-preflight.json'
+        second = self.root / "second-source"
+        old = self.write_result(
+            self.result(), "second-source/samples/A/annotation/kofam"
+        )
+        receipt = self.root / "multi-preflight.json"
         entry = self.entry()
-        entry['resource_path'] = str(self.root / 'resource')
-        write_json(receipt, dict(enabled_tools=['kofam'], preflight_id='fixture', tools={'kofam': entry}))
-        members = self.root / 'multi-members.json'
-        write_json(members, dict(accessions=['A']))
-        with patch('prepare_annotation_tasks.validate_preflight'):
-            record = plan_part(members, [self.bundle], receipt, self.root / 'multi-plan', [first, second], 'individual')
-        row = next(r for r in record['tasks'] if r['tool'] == 'kofam')
-        self.assertEqual(row['action'], 'reuse')
-        self.assertEqual(row['search_fingerprint'], validate_result(old)['search_fingerprint'])
+        entry["resource_path"] = str(self.root / "resource")
+        write_json(
+            receipt,
+            dict(
+                enabled_tools=["kofam"], preflight_id="fixture", tools={"kofam": entry}
+            ),
+        )
+        members = self.root / "multi-members.json"
+        write_json(members, dict(accessions=["A"]))
+        with patch("prepare_annotation_tasks.validate_preflight"):
+            record = plan_part(
+                members,
+                [self.bundle],
+                receipt,
+                self.root / "multi-plan",
+                [first, second],
+                "individual",
+            )
+        row = next(r for r in record["tasks"] if r["tool"] == "kofam")
+        self.assertEqual(row["action"], "reuse")
+        self.assertEqual(
+            row["search_fingerprint"], validate_result(old)["search_fingerprint"]
+        )
 
     def test_readiness_groups_do_not_depend_on_manifest_order(self):
-        samples = self.root / 'grouping-samples.tsv'
-        receipt = self.root / 'grouping-preflight.json'
-        write_json(receipt, dict(enabled_tools=['eggnog'], preflight_id='fixture'))
-        with patch('prepare_annotation_tasks.validate_preflight'):
-            write_tsv(samples, ('accession',), [{'accession': a} for a in ('C', 'A', 'B')])
+        samples = self.root / "grouping-samples.tsv"
+        receipt = self.root / "grouping-preflight.json"
+        write_json(receipt, dict(enabled_tools=["eggnog"], preflight_id="fixture"))
+        with patch("prepare_annotation_tasks.validate_preflight"):
+            write_tsv(
+                samples, ("accession",), [{"accession": a} for a in ("C", "A", "B")]
+            )
             first = execution_groups(samples, receipt, None, 2)
-            write_tsv(samples, ('accession',), [{'accession': a} for a in ('B', 'C', 'A')])
+            write_tsv(
+                samples, ("accession",), [{"accession": a} for a in ("B", "C", "A")]
+            )
             second = execution_groups(samples, receipt, None, 2)
-            self.assertEqual(first['groups'], second['groups'])
-            self.assertEqual([g['accessions'] for g in first['groups']], [['A', 'B'], ['C']])
-            with self.assertRaisesRegex(AnnotationError, 'positive'):
+            self.assertEqual(first["groups"], second["groups"])
+            self.assertEqual(
+                [g["accessions"] for g in first["groups"]], [["A", "B"], ["C"]]
+            )
+            with self.assertRaisesRegex(AnnotationError, "positive"):
                 execution_groups(samples, receipt, None, 0)
 
     def test_field_errors_invalidate_every_dependent_count(self):

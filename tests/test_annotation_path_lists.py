@@ -68,7 +68,9 @@ class AnnotationPathListTests(unittest.TestCase):
         bundle.mkdir(parents=True)
         (bundle / "bundle.json").write_text("{}")
         write_json(self.manifest, [str(bundle)])
-        self.assertEqual(read_publication_paths(self.manifest, publication), [bundle.resolve()])
+        self.assertEqual(
+            read_publication_paths(self.manifest, publication), [bundle.resolve()]
+        )
         alias = publication / "alias"
         alias.symlink_to(bundle, target_is_directory=True)
         write_json(self.manifest, [str(alias)])
@@ -268,7 +270,11 @@ class AnnotationPathListTests(unittest.TestCase):
         ]
         bundles = [f"bundles/bundle{i:02d}" for i in range(10000)]
         results = [f"results/result{i:03d}" for i in range(50000)]
-        for process in ("PLAN_ANNOTATION_PART", "MERGE_ANNOTATION_PLANS", "AGGREGATE_ANNOTATIONS"):
+        for process in (
+            "PLAN_ANNOTATION_PART",
+            "MERGE_ANNOTATION_PLANS",
+            "AGGREGATE_ANNOTATIONS",
+        ):
             with self.subTest(process=process):
                 empty = self.execute_shell(process, [], [], process + "-empty")
                 small = self.execute_shell(
@@ -280,7 +286,12 @@ class AnnotationPathListTests(unittest.TestCase):
                 self.assertEqual(empty, small)
                 self.assertEqual(small, large)
                 self.assertLess(sum(len(value.encode()) + 1 for value in large), 1024)
-                self.assertIn("--fragment-list" if process == "MERGE_ANNOTATION_PLANS" else "--bundle-list", large)
+                self.assertIn(
+                    "--fragment-list"
+                    if process == "MERGE_ANNOTATION_PLANS"
+                    else "--bundle-list",
+                    large,
+                )
                 self.assertNotIn("--bundle", large)
                 self.assertNotIn("--result", large)
 

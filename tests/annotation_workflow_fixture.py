@@ -58,7 +58,7 @@ os.execvpe(command[0], command, os.environ)
 
 def hold_bundle_until_search(project: Path, marker: Path, accession: str) -> None:
     """Withhold a bundle until an independent native search writes its marker."""
-    entrypoint = project / 'reannotate.nf'
+    entrypoint = project / "reannotate.nf"
     text = entrypoint.read_text()
     delay = '''process HOLD_SLOW_BUNDLE {
     label 'process_single'
@@ -78,16 +78,19 @@ def hold_bundle_until_search(project: Path, marker: Path, accession: str) -> Non
     """
 }
 
-'''.replace('MARKER', str(marker))
-    branch = f'''    HOLD_SLOW_BUNDLE(bundles.filter {{ item -> item[0].accession == {accession!r} }})
+'''.replace("MARKER", str(marker))
+    branch = f"""    HOLD_SLOW_BUNDLE(bundles.filter {{ item -> item[0].accession == {accession!r} }})
     ready_bundles = bundles.filter {{ item -> item[0].accession != {accession!r} }}.mix(HOLD_SLOW_BUNDLE.out)
-    FUNCTIONAL_ANNOTATION('''
-    if text.count('IMPORT_ANNOTATION_SOURCE.out.samples, bundles,') != 1:
-        raise AssertionError('Streaming fixture entrypoint changed')
-    text = text.replace('workflow {', delay + 'workflow {', 1)
-    text = text.replace('    FUNCTIONAL_ANNOTATION(', branch, 1)
-    text = text.replace('IMPORT_ANNOTATION_SOURCE.out.samples, bundles,',
-                        'IMPORT_ANNOTATION_SOURCE.out.samples, ready_bundles,', 1)
+    FUNCTIONAL_ANNOTATION("""
+    if text.count("IMPORT_ANNOTATION_SOURCE.out.samples, bundles,") != 1:
+        raise AssertionError("Streaming fixture entrypoint changed")
+    text = text.replace("workflow {", delay + "workflow {", 1)
+    text = text.replace("    FUNCTIONAL_ANNOTATION(", branch, 1)
+    text = text.replace(
+        "IMPORT_ANNOTATION_SOURCE.out.samples, bundles,",
+        "IMPORT_ANNOTATION_SOURCE.out.samples, ready_bundles,",
+        1,
+    )
     entrypoint.write_text(text)
 
 
@@ -139,7 +142,9 @@ def indexed_results(paths):
     result = []
     for path in paths:
         record = read_json(path / "result.json")
-        result.append(dict(accession=record["accession"], tool=record["tool"], path=str(path)))
+        result.append(
+            dict(accession=record["accession"], tool=record["tool"], path=str(path))
+        )
     return result
 
 

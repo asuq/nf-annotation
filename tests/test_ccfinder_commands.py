@@ -65,7 +65,8 @@ print {$out} encode_json({Sequences=>\@rows});
                 env=dict(os.environ, NXF_DISABLE_CHECK_LATEST="true"),
                 capture_output=True,
                 text=True,
-                timeout=180, check=False,
+                timeout=180,
+                check=False,
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             for length in (10, 20, 30):

@@ -15,7 +15,9 @@ IMAGE = "codex-prokka:test"
 RUN_DOCKER_TESTS = os.environ.get("RUN_DOCKER_TESTS") == "1"
 
 
-def run_command(args: list[str], *, timeout: int | None = None) -> subprocess.CompletedProcess[str]:
+def run_command(
+    args: list[str], *, timeout: int | None = None
+) -> subprocess.CompletedProcess[str]:
     """Run one subprocess and return the completed process."""
     return subprocess.run(
         args,
@@ -35,15 +37,26 @@ class ProkkaContainerContractTestCase(unittest.TestCase):
         dockerfile_text = DOCKERFILE.read_text(encoding="utf-8")
         wrapper_text = WRAPPER.read_text(encoding="utf-8")
 
-        self.assertIn("FROM quay.io/biocontainers/prokka:1.15.6--pl5321hdfd78af_0", dockerfile_text)
+        self.assertIn(
+            "FROM quay.io/biocontainers/prokka:1.15.6--pl5321hdfd78af_0",
+            dockerfile_text,
+        )
         self.assertIn('MINCED_BIN="$(command -v minced)"', dockerfile_text)
         self.assertIn('mv "${MINCED_BIN}" "${MINCED_BIN}.real"', dockerfile_text)
-        self.assertIn("COPY docker/prokka/minced-wrapper.sh /usr/local/bin/minced", dockerfile_text)
+        self.assertIn(
+            "COPY docker/prokka/minced-wrapper.sh /usr/local/bin/minced",
+            dockerfile_text,
+        )
         self.assertIn('test "${first_line}" = "minced 0.4.2"', dockerfile_text)
         self.assertIn("-XX:+PerfDisableSharedMem", wrapper_text)
-        self.assertIn('real_path="$(readlink -f "${script_dir}/minced.real")"', wrapper_text)
+        self.assertIn(
+            'real_path="$(readlink -f "${script_dir}/minced.real")"', wrapper_text
+        )
         self.assertIn('jar_dir="$(dirname "${real_path}")"', wrapper_text)
-        self.assertIn('exec "${java_bin}" -XX:+PerfDisableSharedMem -jar "${jar_dir}/minced.jar" "$@"', wrapper_text)
+        self.assertIn(
+            'exec "${java_bin}" -XX:+PerfDisableSharedMem -jar "${jar_dir}/minced.jar" "$@"',
+            wrapper_text,
+        )
 
     @unittest.skipUnless(
         RUN_DOCKER_TESTS,
@@ -82,10 +95,10 @@ class ProkkaContainerContractTestCase(unittest.TestCase):
                 "-lc",
                 (
                     "set -euo pipefail; "
-                    'first_line="$(minced --version 2>&1 | sed -n \'1p\')"; '
+                    "first_line=\"$(minced --version 2>&1 | sed -n '1p')\"; "
                     'test "$first_line" = "minced 0.4.2"; '
                     'case "$first_line" in *hsperfdata*) exit 1 ;; esac; '
-                    'test -L /usr/local/bin/minced.real; '
+                    "test -L /usr/local/bin/minced.real; "
                     "prokka --version"
                 ),
             ],

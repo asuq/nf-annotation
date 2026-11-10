@@ -59,6 +59,7 @@ class EggnogBatchTests(unittest.TestCase):
     def test_prepared_sif_md5_identity_reaches_batch_validation(self):
         from annotation_tasks import runtime_identity
         from prepare_annotation_runtime import prepare
+
         image = self.root / "native.sif"
         image.write_bytes(b"Synthetic runtime identity control")
         prepare(image)
@@ -67,7 +68,11 @@ class EggnogBatchTests(unittest.TestCase):
         batches = self.batches("sif-batches", method=method)
         for directory, expected in batches:
             self.assertEqual(validate_batch(directory)[0], expected)
-        for invalid in ("sif-md5:" + "a" * 64, "sha256:" + "a" * 32, "sif-sha256:" + "a" * 64):
+        for invalid in (
+            "sif-md5:" + "a" * 64,
+            "sha256:" + "a" * 32,
+            "sif-sha256:" + "a" * 64,
+        ):
             method["runtime_id"] = invalid
             with self.assertRaisesRegex(AnnotationError, "immutable runtime"):
                 self.batches("invalid-sif", method=method)
