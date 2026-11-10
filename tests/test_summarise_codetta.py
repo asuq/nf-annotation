@@ -10,13 +10,12 @@ from pathlib import Path
 
 from Bio.Data import CodonTable
 
-
 ROOT = Path(__file__).resolve().parents[1]
 BIN_DIR = ROOT / "bin"
 if str(BIN_DIR) not in sys.path:
     sys.path.insert(0, str(BIN_DIR))
 
-import summarise_codetta  # noqa: E402
+import summarise_codetta
 
 
 def read_tsv_row(path: Path) -> dict[str, str]:

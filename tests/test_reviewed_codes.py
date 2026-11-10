@@ -14,6 +14,7 @@ import test_summarise_checkm2 as fixture
 
 
 class ReviewedCodeTests(unittest.TestCase):
+    root: Path
     setUp = fixture.SummariseCheckM2TestCase.setUp
     write_report = fixture.SummariseCheckM2TestCase.write_report
 

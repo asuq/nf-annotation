@@ -9,13 +9,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 BIN_DIR = ROOT / "bin"
 if str(BIN_DIR) not in sys.path:
     sys.path.insert(0, str(BIN_DIR))
 
-import summarise_busco  # noqa: E402
+import summarise_busco
 
 
 def read_tsv(path: Path) -> tuple[list[str], list[dict[str, str]]]:
@@ -23,7 +22,7 @@ def read_tsv(path: Path) -> tuple[list[str], list[dict[str, str]]]:
     with path.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle, delimiter="\t")
         assert reader.fieldnames is not None
-        return reader.fieldnames, list(reader)
+        return list(reader.fieldnames or []), list(reader)
 
 
 def read_tsv_row(path: Path) -> dict[str, str]:

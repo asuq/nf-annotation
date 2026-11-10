@@ -6,13 +6,12 @@ import sys
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 BIN_DIR = ROOT / "bin"
 if str(BIN_DIR) not in sys.path:
     sys.path.insert(0, str(BIN_DIR))
 
-import master_table_contract  # noqa: E402
+import master_table_contract
 
 
 class MasterTableContractTestCase(unittest.TestCase):
@@ -90,12 +89,10 @@ class MasterTableContractTestCase(unittest.TestCase):
                     )
                 ) :
             ],
-            list(
-                (
-                    *master_table_contract.SAMPLE_STATUS_SUFFIX_COLUMNS,
-                    *master_table_contract.AAI_STATUS_COLUMNS,
-                )
-            ),
+            [
+                *master_table_contract.SAMPLE_STATUS_SUFFIX_COLUMNS,
+                *master_table_contract.AAI_STATUS_COLUMNS,
+            ],
         )
 
     def test_codetta_columns_follow_gcode_immediately(self) -> None:

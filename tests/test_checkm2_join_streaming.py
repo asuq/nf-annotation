@@ -10,8 +10,7 @@ import textwrap
 import unittest
 from pathlib import Path
 
-
-NEXTFLOW = shutil.which("nextflow")
+NEXTFLOW = shutil.which("nextflow") or ""
 
 
 class Checkm2JoinStreamingTestCase(unittest.TestCase):
@@ -84,7 +83,7 @@ class Checkm2JoinStreamingTestCase(unittest.TestCase):
         return emissions
 
     @unittest.skipUnless(
-        NEXTFLOW is not None, "nextflow is required for join-streaming tests."
+        bool(NEXTFLOW), "nextflow is required for join-streaming tests."
     )
     def test_join_emits_early_pair_before_late_pair_finishes(self) -> None:
         """Emit the first accession well before the slow second pair completes."""

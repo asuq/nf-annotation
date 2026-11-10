@@ -7,7 +7,6 @@ import subprocess
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 DOCKERFILE = ROOT / "docker" / "codetta" / "Dockerfile"
 IMAGE = "quay.io/asuq1617/codetta:2.0"

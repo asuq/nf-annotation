@@ -8,14 +8,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 BIN_DIR = ROOT / "bin"
 if str(BIN_DIR) not in sys.path:
     sys.path.insert(0, str(BIN_DIR))
 
-import concat_best_16s  # noqa: E402
-import summarise_16s  # noqa: E402
+import concat_best_16s
+import summarise_16s
 
 CohortInputRow = tuple[str, str, Path, Path] | tuple[str, str, Path, Path, Path]
 
@@ -71,12 +70,10 @@ class Summarise16STestCase(unittest.TestCase):
             best_header = self.barrnap_header("16S_rRNA", "contig1", 119, 260, "+")
             gff = self.write_text_file(
                 tmpdir / "rrna.gff",
-                "\n".join(
-                    [
-                        "contig1\tbarrnap\trRNA\t1\t100\t5.0\t+\t.\tName=16S_rRNA;product=16S ribosomal RNA",
-                        "contig1\tbarrnap\trRNA\t120\t260\t5.0\t+\t.\tName=16S_rRNA;product=16S ribosomal RNA",
-                        "contig1\tbarrnap\trRNA\t300\t360\t7.0\t+\t.\tName=23S_rRNA;product=23S ribosomal RNA",
-                    ]
+                (
+                    "contig1\tbarrnap\trRNA\t1\t100\t5.0\t+\t.\tName=16S_rRNA;product=16S ribosomal RNA\n"
+                    "contig1\tbarrnap\trRNA\t120\t260\t5.0\t+\t.\tName=16S_rRNA;product=16S ribosomal RNA\n"
+                    "contig1\tbarrnap\trRNA\t300\t360\t7.0\t+\t.\tName=23S_rRNA;product=23S ribosomal RNA"
                 )
                 + "\n",
             )
@@ -232,13 +229,11 @@ class Summarise16STestCase(unittest.TestCase):
             best_header = self.barrnap_header("16S_rRNA", "contig1", 319, 470, "+")
             gff = self.write_text_file(
                 tmpdir / "rrna.gff",
-                "\n".join(
-                    [
-                        "contig1\tbarrnap\trRNA\t1\t100\t8.0\t+\t.\tName=16S_rRNA;product=16S ribosomal RNA",
-                        "contig1\tbarrnap\trRNA\t120\t220\t1.0\t+\t.\tName=23S_rRNA;product=23S ribosomal RNA",
-                        "contig1\tbarrnap\trRNA\t240\t300\t1.0\t+\t.\tName=5S_rRNA;product=5S ribosomal RNA",
-                        "contig1\tbarrnap\trRNA\t320\t470\t4.0\t+\t.\tName=16S_rRNA;product=16S ribosomal RNA",
-                    ]
+                (
+                    "contig1\tbarrnap\trRNA\t1\t100\t8.0\t+\t.\tName=16S_rRNA;product=16S ribosomal RNA\n"
+                    "contig1\tbarrnap\trRNA\t120\t220\t1.0\t+\t.\tName=23S_rRNA;product=23S ribosomal RNA\n"
+                    "contig1\tbarrnap\trRNA\t240\t300\t1.0\t+\t.\tName=5S_rRNA;product=5S ribosomal RNA\n"
+                    "contig1\tbarrnap\trRNA\t320\t470\t4.0\t+\t.\tName=16S_rRNA;product=16S ribosomal RNA"
                 )
                 + "\n",
             )
@@ -557,13 +552,7 @@ class ConcatBest16STestCase(unittest.TestCase):
             )
             metadata = self.write_text_file(
                 tmpdir / "metadata.tsv",
-                "\n".join(
-                    [
-                        "Accession\tAtypical_Warnings",
-                        "ACC_PART\tNA",
-                        "ACC_ATYP_PART\tcell culture adapted",
-                    ]
-                )
+                "Accession\tAtypical_Warnings\nACC_PART\tNA\nACC_ATYP_PART\tcell culture adapted"
                 + "\n",
             )
             cohort_inputs = self.write_cohort_inputs(
@@ -771,13 +760,7 @@ class ConcatBest16STestCase(unittest.TestCase):
             )
             metadata = self.write_text_file(
                 tmpdir / "metadata.tsv",
-                "\n".join(
-                    [
-                        "Accession\tAtypical_Warnings",
-                        "ACC_ATYP_LOW\tcell culture adapted",
-                        "ACC_ATYP_LOW_PART\tcell culture adapted",
-                    ]
-                )
+                "Accession\tAtypical_Warnings\nACC_ATYP_LOW\tcell culture adapted\nACC_ATYP_LOW_PART\tcell culture adapted"
                 + "\n",
             )
             cohort_inputs = self.write_cohort_inputs(
@@ -979,12 +962,7 @@ class ConcatBest16STestCase(unittest.TestCase):
             tmpdir = Path(tmpdir_name)
             status_path = self.write_text_file(
                 tmpdir / "16S_status.tsv",
-                "\n".join(
-                    [
-                        "accession\t16S\tbest_16S_header\tbest_16S_length\twarnings",
-                        "ACC_BAD\tYes\thit_bad\t100\t",
-                    ]
-                )
+                "accession\t16S\tbest_16S_header\tbest_16S_length\twarnings\nACC_BAD\tYes\thit_bad\t100\t"
                 + "\n",
             )
             best_fasta = self.write_text_file(tmpdir / "best_16S.fna", "")

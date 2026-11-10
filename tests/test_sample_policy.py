@@ -38,7 +38,7 @@ class SamplePolicyTests(unittest.TestCase):
     def test_missing_unknown_or_conflicting_domains_fail(self):
         for value in (None, "", "NA", "unknown", "Eukaryota", "Bacteria;Archaea"):
             with self.subTest(value=value), self.assertRaises(ValueError):
-                policy.resolve_sample({"Domain": value}, self.config())
+                policy.resolve_sample({"Domain": value}, self.config())  # ty: ignore[invalid-argument-type]  # Deliberately malformed input.
         for changed in (
             {"prokka_kingdom": "Bacteria"},
             {"barrnap_kingdom": "bac"},

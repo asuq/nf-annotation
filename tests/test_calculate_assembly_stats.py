@@ -11,7 +11,6 @@ import textwrap
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "bin" / "calculate_assembly_stats.sh"
 
@@ -151,7 +150,7 @@ class CalculateAssemblyStatsTestCase(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir_name:
             tmpdir = Path(tmpdir_name)
             self.install_fake_seqtk(tmpdir)
-            fasta = self.write_text_file(tmpdir / "ACC1.fasta", ">contig1\nAACCGGTT\n")
+            self.write_text_file(tmpdir / "ACC1.fasta", ">contig1\nAACCGGTT\n")
             manifest = self.write_text_file(
                 tmpdir / "staged_manifest.tsv",
                 "accession\tinternal_id\tstaged_filename\nACC1\tid_1\tACC1.fasta\n",

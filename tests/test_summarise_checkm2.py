@@ -14,7 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "bin"))
 
-import summarise_checkm2  # noqa: E402
+import summarise_checkm2
 
 
 class SummariseCheckM2TestCase(unittest.TestCase):
@@ -305,22 +305,24 @@ class SummariseCheckM2TestCase(unittest.TestCase):
 
     def test_unknown_rule_option_is_rejected(self) -> None:
         """An invalid rule cannot silently run a different scientific method."""
-        with contextlib.redirect_stderr(io.StringIO()):
-            with self.assertRaises(SystemExit) as error:
-                summarise_checkm2.parse_args(
-                    [
-                        "--accession",
-                        "ACC1",
-                        "--gcode4-report",
-                        "four.tsv",
-                        "--gcode11-report",
-                        "eleven.tsv",
-                        "--output",
-                        "result.tsv",
-                        "--gcode-rule",
-                        "unknown_rule",
-                    ]
-                )
+        with (
+            contextlib.redirect_stderr(io.StringIO()),
+            self.assertRaises(SystemExit) as error,
+        ):
+            summarise_checkm2.parse_args(
+                [
+                    "--accession",
+                    "ACC1",
+                    "--gcode4-report",
+                    "four.tsv",
+                    "--gcode11-report",
+                    "eleven.tsv",
+                    "--output",
+                    "result.tsv",
+                    "--gcode-rule",
+                    "unknown_rule",
+                ]
+            )
         self.assertEqual(error.exception.code, 2)
 
 

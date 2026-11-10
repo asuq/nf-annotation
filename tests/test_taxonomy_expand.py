@@ -8,13 +8,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 BIN_DIR = ROOT / "bin"
 if str(BIN_DIR) not in sys.path:
     sys.path.insert(0, str(BIN_DIR))
 
-import taxonomy_expand  # noqa: E402
+import taxonomy_expand
 
 
 def read_tsv(path: Path) -> list[dict[str, str]]:
@@ -38,56 +37,43 @@ class TaxonomyExpandTestCase(unittest.TestCase):
             tmpdir = Path(tmpdir_name)
             validated_samples = self.write_text_file(
                 tmpdir / "validated_samples.tsv",
-                "\n".join(
-                    [
-                        "accession\tis_new\tassembly_level\tgenome_fasta\tinternal_id",
-                        "ACC1\tfalse\tNA\t/tmp/acc1.fna\tACC1",
-                        "ACC2\tfalse\tNA\t/tmp/acc2.fna\tACC2",
-                    ]
+                (
+                    "accession\tis_new\tassembly_level\tgenome_fasta\tinternal_id\n"
+                    "ACC1\tfalse\tNA\t/tmp/acc1.fna\tACC1\n"
+                    "ACC2\tfalse\tNA\t/tmp/acc2.fna\tACC2"
                 )
                 + "\n",
             )
             metadata = self.write_text_file(
                 tmpdir / "metadata.tsv",
-                "\n".join(
-                    [
-                        "Accession\tTax_ID",
-                        "ACC1\t8",
-                        "ACC2\t999999",
-                    ]
-                )
-                + "\n",
+                "Accession\tTax_ID\nACC1\t8\nACC2\t999999" + "\n",
             )
             taxdump = tmpdir / "taxdump"
             self.write_text_file(
                 taxdump / "nodes.dmp",
-                "\n".join(
-                    [
-                        "1\t|\t1\t|\tno rank\t|",
-                        "2\t|\t1\t|\tsuperkingdom\t|",
-                        "3\t|\t2\t|\tphylum\t|",
-                        "4\t|\t3\t|\tclass\t|",
-                        "5\t|\t4\t|\torder\t|",
-                        "6\t|\t5\t|\tfamily\t|",
-                        "7\t|\t6\t|\tgenus\t|",
-                        "8\t|\t7\t|\tspecies\t|",
-                    ]
+                (
+                    "1\t|\t1\t|\tno rank\t|\n"
+                    "2\t|\t1\t|\tsuperkingdom\t|\n"
+                    "3\t|\t2\t|\tphylum\t|\n"
+                    "4\t|\t3\t|\tclass\t|\n"
+                    "5\t|\t4\t|\torder\t|\n"
+                    "6\t|\t5\t|\tfamily\t|\n"
+                    "7\t|\t6\t|\tgenus\t|\n"
+                    "8\t|\t7\t|\tspecies\t|"
                 )
                 + "\n",
             )
             self.write_text_file(
                 taxdump / "names.dmp",
-                "\n".join(
-                    [
-                        "1\t|\troot\t|\t\t|\tscientific name\t|",
-                        "2\t|\tBacteria\t|\t\t|\tscientific name\t|",
-                        "3\t|\tFirmicutes\t|\t\t|\tscientific name\t|",
-                        "4\t|\tMollicutes\t|\t\t|\tscientific name\t|",
-                        "5\t|\tMycoplasmatales\t|\t\t|\tscientific name\t|",
-                        "6\t|\tMycoplasmataceae\t|\t\t|\tscientific name\t|",
-                        "7\t|\tMycoplasma\t|\t\t|\tscientific name\t|",
-                        "8\t|\tMycoplasma testus\t|\t\t|\tscientific name\t|",
-                    ]
+                (
+                    "1\t|\troot\t|\t\t|\tscientific name\t|\n"
+                    "2\t|\tBacteria\t|\t\t|\tscientific name\t|\n"
+                    "3\t|\tFirmicutes\t|\t\t|\tscientific name\t|\n"
+                    "4\t|\tMollicutes\t|\t\t|\tscientific name\t|\n"
+                    "5\t|\tMycoplasmatales\t|\t\t|\tscientific name\t|\n"
+                    "6\t|\tMycoplasmataceae\t|\t\t|\tscientific name\t|\n"
+                    "7\t|\tMycoplasma\t|\t\t|\tscientific name\t|\n"
+                    "8\t|\tMycoplasma testus\t|\t\t|\tscientific name\t|"
                 )
                 + "\n",
             )

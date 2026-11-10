@@ -8,14 +8,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 BIN_DIR = ROOT / "bin"
 if str(BIN_DIR) not in sys.path:
     sys.path.insert(0, str(BIN_DIR))
 
-import master_table_contract  # noqa: E402
-import validate_inputs  # noqa: E402
+import master_table_contract
+import validate_inputs
 
 
 def read_tsv(path: Path) -> list[dict[str, str]]:
@@ -34,12 +33,12 @@ class ValidateInputsTestCase(unittest.TestCase):
             rows, _ = validate_inputs.validate_samples(
                 validate_inputs.REQUIRED_SAMPLE_COLUMNS,
                 [
-                    dict(
-                        accession="A",
-                        is_new="true",
-                        assembly_level="Scaffold",
-                        genome_fasta="genome.fna",
-                    )
+                    {
+                        "accession": "A",
+                        "is_new": "true",
+                        "assembly_level": "Scaffold",
+                        "genome_fasta": "genome.fna",
+                    }
                 ],
                 {},
                 genome_base_dir=launch,
@@ -79,13 +78,7 @@ class ValidateInputsTestCase(unittest.TestCase):
             )
             metadata_csv = self.write_text_file(
                 tmpdir / "metadata.csv",
-                "\n".join(
-                    [
-                        "accession,Tax_ID,Organism_Name",
-                        "ACC-1,123,Known one",
-                    ]
-                )
-                + "\n",
+                "accession,Tax_ID,Organism_Name\nACC-1,123,Known one" + "\n",
             )
             outdir = tmpdir / "validated"
 
@@ -200,13 +193,7 @@ class ValidateInputsTestCase(unittest.TestCase):
             )
             metadata_csv = self.write_text_file(
                 tmpdir / "metadata.csv",
-                "\n".join(
-                    [
-                        "accession,Tax_ID",
-                        "ACC3,3",
-                    ]
-                )
-                + "\n",
+                "accession,Tax_ID\nACC3,3" + "\n",
             )
             outdir = tmpdir / "validated"
 
@@ -255,13 +242,7 @@ class ValidateInputsTestCase(unittest.TestCase):
             )
             metadata_csv = self.write_text_file(
                 tmpdir / "metadata.csv",
-                "\n".join(
-                    [
-                        "accession,Tax_ID,Organism_Name",
-                        "ACC1,123,Known one",
-                    ]
-                )
-                + "\n",
+                "accession,Tax_ID,Organism_Name\nACC1,123,Known one" + "\n",
             )
             sample_status_columns = self.write_text_file(
                 tmpdir / "sample_status_columns.txt",
@@ -757,14 +738,7 @@ class ValidateInputsTestCase(unittest.TestCase):
             )
             metadata_csv = self.write_text_file(
                 tmpdir / "metadata.csv",
-                "\n".join(
-                    [
-                        "accession,Tax_ID",
-                        "ACC1,1",
-                        "ACC1,2",
-                    ]
-                )
-                + "\n",
+                "accession,Tax_ID\nACC1,1\nACC1,2" + "\n",
             )
 
             exit_code = validate_inputs.main(
