@@ -132,6 +132,19 @@ class AnnotationSourceScalingTests(unittest.TestCase):
             )
         # Both optional metadata tables can carry large quoted notes as well.
         note = 'Quoted "native" metadata\twith a\nsecond line\n' * 6000
+        write_tsv(
+            output / "tables/validated_samples.tsv",
+            ("accession", "internal_id", "review_candidates_base64", "analysis_note"),
+            [
+                {
+                    "accession": accession,
+                    "internal_id": accession,
+                    "review_candidates_base64": "W10=",
+                    "analysis_note": note,
+                }
+                for accession in manifest["accessions"]
+            ],
+        )
         for table_name in ("master_table.tsv", "sample_status.tsv"):
             path = output / "tables" / table_name
             rows = read_tsv(path)

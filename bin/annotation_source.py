@@ -307,7 +307,14 @@ def validate_source(
     sample_table = root / "tables/validated_samples.tsv"
     if sample_table.is_file():
         with source_rows(sample_table, ["accession"]) as (_, rows):
-            samples = {row["accession"]: row for row in rows}
+            samples = {
+                row["accession"]: {
+                    key: row[key]
+                    for key in ("accession", "internal_id", "review_candidates_base64")
+                    if key in row
+                }
+                for row in rows
+            }
     for master, status in zip(masters, statuses, strict=True):
         accession = master[master_key]
         try:

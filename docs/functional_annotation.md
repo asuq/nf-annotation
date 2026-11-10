@@ -99,6 +99,9 @@ Main-workflow cohort updates reuse recorded canonical bundles. They repeat neith
 gene prediction nor bundle construction. Recorded bundle failures remain failures;
 regenerate the affected QC publication to replace them. Valid functional searches
 remain reusable through their protein/coordinate and method identities.
+Source validation retains only the sample fields needed for reviewed-code replay;
+unrelated, potentially large manifest metadata is streamed rather than kept for
+the whole cohort.
 
 ## Configuration
 
