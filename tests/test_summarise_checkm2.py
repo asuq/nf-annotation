@@ -48,17 +48,26 @@ class SummariseCheckM2TestCase(unittest.TestCase):
         return path
 
     def run_summary(
-        self, report4: Path, report11: Path, rule: str | None = None,
+        self,
+        report4: Path,
+        report11: Path,
+        rule: str | None = None,
     ) -> dict[str, str]:
         """Run the real summary CLI and read its single output row."""
         output = self.root / "summary.tsv"
-        result = summarise_checkm2.main([
-            "--accession", "ACC1",
-            "--gcode4-report", str(report4),
-            "--gcode11-report", str(report11),
-            "--output", str(output),
-            *(["--gcode-rule", rule] if rule is not None else []),
-        ])
+        result = summarise_checkm2.main(
+            [
+                "--accession",
+                "ACC1",
+                "--gcode4-report",
+                str(report4),
+                "--gcode11-report",
+                str(report11),
+                "--output",
+                str(output),
+                *(["--gcode-rule", rule] if rule is not None else []),
+            ]
+        )
         self.assertEqual(result, 0)
         with output.open(newline="") as handle:
             reader = csv.DictReader(handle, delimiter="\t")
@@ -68,7 +77,10 @@ class SummariseCheckM2TestCase(unittest.TestCase):
         self.assertEqual(rows[0]["accession"], "ACC1")
         expected_rule = rule or "mean_gene_length_ratio"
         self.assertEqual(rows[0]["Gcode_Rule"], expected_rule)
-        self.assertEqual(rows[0]["Gcode_Length_Ratio_Threshold"], "1.5" if expected_rule == "mean_gene_length_ratio" else "NA")
+        self.assertEqual(
+            rows[0]["Gcode_Length_Ratio_Threshold"],
+            "1.5" if expected_rule == "mean_gene_length_ratio" else "NA",
+        )
         return rows[0]
 
     def test_paired_metrics_and_selection_provenance(self) -> None:
@@ -143,10 +155,13 @@ class SummariseCheckM2TestCase(unittest.TestCase):
                 with self.subTest(code=code, completeness=completeness):
                     report4 = self.write_report(4)
                     report11 = self.write_report(
-                        11, Average_Gene_Length="300" if code == 11 else "150",
+                        11,
+                        Average_Gene_Length="300" if code == 11 else "150",
                     )
                     selected = self.write_report(
-                        code, Completeness=completeness, Contamination=contamination,
+                        code,
+                        Completeness=completeness,
+                        Contamination=contamination,
                         Average_Gene_Length="300",
                     )
                     row = self.run_summary(
@@ -177,7 +192,8 @@ class SummariseCheckM2TestCase(unittest.TestCase):
         for values in invalid_fields:
             with self.subTest(values=values):
                 row = self.run_summary(
-                    self.write_report(4, **values), self.write_report(11),
+                    self.write_report(4, **values),
+                    self.write_report(11),
                 )
                 self.assertEqual(row["Gcode"], "NA")
                 self.assertEqual(row["Low_quality"], "NA")
@@ -192,7 +208,10 @@ class SummariseCheckM2TestCase(unittest.TestCase):
         report4 = self.write_report(4)
         report11 = self.root / "gcode11.tsv"
         for invalid_text in (
-            None, "", "Name\tName\nsample\tsample\n", "Name\tx\nsample\n",
+            None,
+            "",
+            "Name\tName\nsample\tsample\n",
+            "Name\tx\nsample\n",
         ):
             with self.subTest(invalid_text=invalid_text):
                 if invalid_text is not None:
@@ -206,11 +225,14 @@ class SummariseCheckM2TestCase(unittest.TestCase):
     def test_mismatched_genomes_and_shared_statistics_fail(self) -> None:
         """Do not compare different genomes even when both reports are valid."""
         for values in (
-            {"Name": "other"}, {"Genome_Size": "2999999"}, {"GC_Content": "0.4"},
+            {"Name": "other"},
+            {"Genome_Size": "2999999"},
+            {"GC_Content": "0.4"},
         ):
             with self.subTest(values=values):
                 row = self.run_summary(
-                    self.write_report(4), self.write_report(11, **values),
+                    self.write_report(4),
+                    self.write_report(11, **values),
                 )
                 self.assertEqual(row["Gcode"], "NA")
                 self.assertEqual(row["checkm2_status"], "failed")
@@ -222,32 +244,50 @@ class SummariseCheckM2TestCase(unittest.TestCase):
         """Preserve both original criteria, including strict >10-point boundaries."""
         for rule in ("strict_delta", "delta_then_11"):
             for c4, c11, strict_code in (
-                ("95", "80", "4"), ("80", "95", "11"),
-                ("90", "80", "NA"), ("80", "90", "NA"),
-                ("80", "80", "NA"), ("89.999999", "80", "NA"),
+                ("95", "80", "4"),
+                ("80", "95", "11"),
+                ("90", "80", "NA"),
+                ("80", "90", "NA"),
+                ("80", "80", "NA"),
+                ("89.999999", "80", "NA"),
                 ("90.000000000000000000001", "80", "4"),
                 ("80", "90.000000000000000000001", "11"),
             ):
                 with self.subTest(rule=rule, c4=c4, c11=c11):
-                    expected = "11" if strict_code == "NA" and rule == "delta_then_11" else strict_code
+                    expected = (
+                        "11"
+                        if strict_code == "NA" and rule == "delta_then_11"
+                        else strict_code
+                    )
                     # Deliberately make the length criterion oppose code 4.
                     row = self.run_summary(
-                        self.write_report(4, Completeness=c4, Average_Gene_Length="150"),
-                        self.write_report(11, Completeness=c11), rule,
+                        self.write_report(
+                            4, Completeness=c4, Average_Gene_Length="150"
+                        ),
+                        self.write_report(11, Completeness=c11),
+                        rule,
                     )
                     self.assertEqual(row["Gcode"], expected)
                     self.assertEqual(row["Gcode_Length_Ratio"], "1")
                     self.assertEqual(row["checkm2_status"], "done")
-                    self.assertEqual(row["Low_quality"], "NA" if expected == "NA" else "false")
-                    self.assertEqual(row["warnings"], "gcode_na" if expected == "NA" else "")
-                    self.assertTrue(row["Gcode_Selection_Reason"].startswith("completeness_"))
+                    self.assertEqual(
+                        row["Low_quality"], "NA" if expected == "NA" else "false"
+                    )
+                    self.assertEqual(
+                        row["warnings"], "gcode_na" if expected == "NA" else ""
+                    )
+                    self.assertTrue(
+                        row["Gcode_Selection_Reason"].startswith("completeness_")
+                    )
 
     def test_retained_rules_fail_closed_on_invalid_pairs(self) -> None:
         """An invalid pair cannot become table 11 under delta_then_11."""
         for rule in ("strict_delta", "delta_then_11"):
             for invalid in ({"Average_Gene_Length": "0"}, {"Name": "other"}):
                 with self.subTest(rule=rule, invalid=invalid):
-                    row = self.run_summary(self.write_report(4, **invalid), self.write_report(11), rule)
+                    row = self.run_summary(
+                        self.write_report(4, **invalid), self.write_report(11), rule
+                    )
                     self.assertEqual(row["Gcode"], "NA")
                     self.assertEqual(row["Low_quality"], "NA")
                     self.assertEqual(row["checkm2_status"], "failed")
@@ -257,7 +297,8 @@ class SummariseCheckM2TestCase(unittest.TestCase):
         for rule in ("strict_delta", "delta_then_11"):
             row = self.run_summary(
                 self.write_report(4, Completeness="40"),
-                self.write_report(11, Completeness="60", Contamination="2"), rule,
+                self.write_report(11, Completeness="60", Contamination="2"),
+                rule,
             )
             self.assertEqual(row["Gcode"], "11")
             self.assertEqual(row["Low_quality"], "true")
@@ -266,11 +307,20 @@ class SummariseCheckM2TestCase(unittest.TestCase):
         """An invalid rule cannot silently run a different scientific method."""
         with contextlib.redirect_stderr(io.StringIO()):
             with self.assertRaises(SystemExit) as error:
-                summarise_checkm2.parse_args([
-                    "--accession", "ACC1", "--gcode4-report", "four.tsv",
-                    "--gcode11-report", "eleven.tsv", "--output", "result.tsv",
-                    "--gcode-rule", "unknown_rule",
-                ])
+                summarise_checkm2.parse_args(
+                    [
+                        "--accession",
+                        "ACC1",
+                        "--gcode4-report",
+                        "four.tsv",
+                        "--gcode11-report",
+                        "eleven.tsv",
+                        "--output",
+                        "result.tsv",
+                        "--gcode-rule",
+                        "unknown_rule",
+                    ]
+                )
         self.assertEqual(error.exception.code, 2)
 
 

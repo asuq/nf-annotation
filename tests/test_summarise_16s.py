@@ -83,9 +83,15 @@ class Summarise16STestCase(unittest.TestCase):
             fasta = self.write_barrnap_fasta(
                 tmpdir / "rrna.fa",
                 [
-                    (self.barrnap_header("16S_rRNA", "contig1", 0, 100, "+"), "A" * 100),
+                    (
+                        self.barrnap_header("16S_rRNA", "contig1", 0, 100, "+"),
+                        "A" * 100,
+                    ),
                     (best_header, "C" * 141),
-                    (self.barrnap_header("23S_rRNA", "contig1", 299, 360, "+"), "G" * 61),
+                    (
+                        self.barrnap_header("23S_rRNA", "contig1", 299, 360, "+"),
+                        "G" * 61,
+                    ),
                 ],
             )
             outdir = tmpdir / "out"
@@ -120,7 +126,9 @@ class Summarise16STestCase(unittest.TestCase):
         """Emit `partial` when all 16S hits are partial."""
         with tempfile.TemporaryDirectory() as tmpdir_name:
             tmpdir = Path(tmpdir_name)
-            partial_header = self.barrnap_header("16S_rRNA", "KB890753.1", 102, 1222, "+")
+            partial_header = self.barrnap_header(
+                "16S_rRNA", "KB890753.1", 102, 1222, "+"
+            )
             gff = self.write_text_file(
                 tmpdir / "rrna.gff",
                 (
@@ -237,10 +245,19 @@ class Summarise16STestCase(unittest.TestCase):
             fasta = self.write_barrnap_fasta(
                 tmpdir / "rrna.fa",
                 [
-                    (self.barrnap_header("23S_rRNA", "contig1", 119, 220, "+"), "G" * 101),
+                    (
+                        self.barrnap_header("23S_rRNA", "contig1", 119, 220, "+"),
+                        "G" * 101,
+                    ),
                     (best_header, "C" * 151),
-                    (self.barrnap_header("5S_rRNA", "contig1", 239, 300, "+"), "T" * 61),
-                    (self.barrnap_header("16S_rRNA", "contig1", 0, 100, "+"), "A" * 100),
+                    (
+                        self.barrnap_header("5S_rRNA", "contig1", 239, 300, "+"),
+                        "T" * 61,
+                    ),
+                    (
+                        self.barrnap_header("16S_rRNA", "contig1", 0, 100, "+"),
+                        "A" * 100,
+                    ),
                 ],
             )
             outdir = tmpdir / "out"
@@ -424,7 +441,9 @@ class ConcatBest16STestCase(unittest.TestCase):
 
             self.assertEqual(exit_code, 0)
             manifest_rows = read_tsv_rows(tmpdir / "all_best_16S_manifest.tsv")
-            self.assertEqual([row["accession"] for row in manifest_rows], ["ACC_EXCEPTION"])
+            self.assertEqual(
+                [row["accession"] for row in manifest_rows], ["ACC_EXCEPTION"]
+            )
 
     def test_concat_best_16s_excludes_other_atypical_intact_rows(self) -> None:
         """Exclude intact 16S rows when the atypical reason is not the exception."""
@@ -462,7 +481,9 @@ class ConcatBest16STestCase(unittest.TestCase):
             )
 
             self.assertEqual(exit_code, 0)
-            self.assertEqual((tmpdir / "all_best_16S.fna").read_text(encoding="utf-8"), "")
+            self.assertEqual(
+                (tmpdir / "all_best_16S.fna").read_text(encoding="utf-8"), ""
+            )
             self.assertEqual(read_tsv_rows(tmpdir / "all_best_16S_manifest.tsv"), [])
 
     def test_concat_best_16s_excludes_mixed_atypical_reasons(self) -> None:
@@ -501,10 +522,14 @@ class ConcatBest16STestCase(unittest.TestCase):
             )
 
             self.assertEqual(exit_code, 0)
-            self.assertEqual((tmpdir / "all_best_16S.fna").read_text(encoding="utf-8"), "")
+            self.assertEqual(
+                (tmpdir / "all_best_16S.fna").read_text(encoding="utf-8"), ""
+            )
             self.assertEqual(read_tsv_rows(tmpdir / "all_best_16S_manifest.tsv"), [])
 
-    def test_concat_best_16s_builds_partial_cohort_including_atypical_samples(self) -> None:
+    def test_concat_best_16s_builds_partial_cohort_including_atypical_samples(
+        self,
+    ) -> None:
         """Build the partial cohort from all partial rows, including atypical ones."""
         with tempfile.TemporaryDirectory() as tmpdir_name:
             tmpdir = Path(tmpdir_name)
@@ -520,13 +545,15 @@ class ConcatBest16STestCase(unittest.TestCase):
                 header="hit_partial",
                 length=90,
             )
-            atypical_partial_status, atypical_partial_best = self.write_status_and_fasta(
-                atypical_partial_dir,
-                accession="ACC_ATYP_PART",
-                status_value="partial",
-                header="hit_atyp_partial",
-                length=80,
-                warnings="atypical",
+            atypical_partial_status, atypical_partial_best = (
+                self.write_status_and_fasta(
+                    atypical_partial_dir,
+                    accession="ACC_ATYP_PART",
+                    status_value="partial",
+                    header="hit_atyp_partial",
+                    length=80,
+                    warnings="atypical",
+                )
             )
             metadata = self.write_text_file(
                 tmpdir / "metadata.tsv",
@@ -705,7 +732,9 @@ class ConcatBest16STestCase(unittest.TestCase):
             manifest_rows = read_tsv_rows(
                 tmpdir / "low_quality_partial_16S_manifest.tsv"
             )
-            self.assertEqual([row["accession"] for row in manifest_rows], ["ACC_LOW_PART"])
+            self.assertEqual(
+                [row["accession"] for row in manifest_rows], ["ACC_LOW_PART"]
+            )
             self.assertEqual(manifest_rows[0]["low_quality"], "true")
 
     def test_concat_best_16s_includes_low_quality_atypical_rows(self) -> None:
@@ -754,7 +783,13 @@ class ConcatBest16STestCase(unittest.TestCase):
             cohort_inputs = self.write_cohort_inputs(
                 tmpdir / "cohort_inputs.tsv",
                 [
-                    ("ACC_ATYP_LOW", "acc_atyp_low_id", intact_status, intact_fasta, intact_qc),
+                    (
+                        "ACC_ATYP_LOW",
+                        "acc_atyp_low_id",
+                        intact_status,
+                        intact_fasta,
+                        intact_qc,
+                    ),
                     (
                         "ACC_ATYP_LOW_PART",
                         "acc_atyp_low_part_id",

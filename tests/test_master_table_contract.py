@@ -45,11 +45,20 @@ class MasterTableContractTestCase(unittest.TestCase):
         self.assertIn("BUSCO_lineage_a", columns)
         self.assertIn("BUSCO_lineage_b", columns)
         self.assertIn("BUSCO_lineage_c", columns)
-        self.assertLess(columns.index("BUSCO_lineage_a"), columns.index("BUSCO_lineage_b"))
-        self.assertLess(columns.index("BUSCO_lineage_b"), columns.index("BUSCO_lineage_c"))
-        self.assertEqual(columns[-len(master_table_contract.ANNOTATION_COLUMNS):], list(master_table_contract.ANNOTATION_COLUMNS))
+        self.assertLess(
+            columns.index("BUSCO_lineage_a"), columns.index("BUSCO_lineage_b")
+        )
+        self.assertLess(
+            columns.index("BUSCO_lineage_b"), columns.index("BUSCO_lineage_c")
+        )
+        self.assertEqual(
+            columns[-len(master_table_contract.ANNOTATION_COLUMNS) :],
+            list(master_table_contract.ANNOTATION_COLUMNS),
+        )
         start = columns.index("Cluster_ID")
-        self.assertEqual(columns[start:start + 4], list(master_table_contract.ANI_COLUMNS))
+        self.assertEqual(
+            columns[start : start + 4], list(master_table_contract.ANI_COLUMNS)
+        )
 
     def test_build_sample_status_columns_supports_custom_busco_order(self) -> None:
         """Insert BUSCO status columns in caller-provided lineage order."""
@@ -73,8 +82,20 @@ class MasterTableContractTestCase(unittest.TestCase):
             columns.index("busco_lineage_c_status"),
         )
         self.assertEqual(
-            columns[-len((*master_table_contract.SAMPLE_STATUS_SUFFIX_COLUMNS, *master_table_contract.AAI_STATUS_COLUMNS)) :],
-            list((*master_table_contract.SAMPLE_STATUS_SUFFIX_COLUMNS, *master_table_contract.AAI_STATUS_COLUMNS)),
+            columns[
+                -len(
+                    (
+                        *master_table_contract.SAMPLE_STATUS_SUFFIX_COLUMNS,
+                        *master_table_contract.AAI_STATUS_COLUMNS,
+                    )
+                ) :
+            ],
+            list(
+                (
+                    *master_table_contract.SAMPLE_STATUS_SUFFIX_COLUMNS,
+                    *master_table_contract.AAI_STATUS_COLUMNS,
+                )
+            ),
         )
 
     def test_codetta_columns_follow_gcode_immediately(self) -> None:
@@ -83,7 +104,10 @@ class MasterTableContractTestCase(unittest.TestCase):
 
         provenance_start = columns.index("Gcode") + 1
         self.assertEqual(
-            columns[provenance_start:provenance_start + len(master_table_contract.GCODE_PROVENANCE_COLUMNS)],
+            columns[
+                provenance_start : provenance_start
+                + len(master_table_contract.GCODE_PROVENANCE_COLUMNS)
+            ],
             list(master_table_contract.GCODE_PROVENANCE_COLUMNS),
         )
         self.assertEqual(
@@ -116,11 +140,17 @@ class MasterTableContractTestCase(unittest.TestCase):
 
     def test_extract_busco_lineages_from_runtime_contracts(self) -> None:
         """Recover BUSCO lineage order from generated reporting contracts."""
-        append_lineages = master_table_contract.extract_busco_lineages_from_append_columns(
-            master_table_contract.build_append_columns(["lineage_b", "lineage_a"])
+        append_lineages = (
+            master_table_contract.extract_busco_lineages_from_append_columns(
+                master_table_contract.build_append_columns(["lineage_b", "lineage_a"])
+            )
         )
-        status_lineages = master_table_contract.extract_busco_lineages_from_sample_status_columns(
-            master_table_contract.build_sample_status_columns(["lineage_b", "lineage_a"])
+        status_lineages = (
+            master_table_contract.extract_busco_lineages_from_sample_status_columns(
+                master_table_contract.build_sample_status_columns(
+                    ["lineage_b", "lineage_a"]
+                )
+            )
         )
 
         self.assertEqual(append_lineages, ("lineage_b", "lineage_a"))
@@ -131,8 +161,10 @@ class MasterTableContractTestCase(unittest.TestCase):
         append_columns, append_lineages = master_table_contract.resolve_append_columns(
             busco_lineages=["lineage_b", "lineage_a"]
         )
-        status_columns, status_lineages = master_table_contract.resolve_sample_status_columns(
-            busco_lineages=["lineage_b", "lineage_a"]
+        status_columns, status_lineages = (
+            master_table_contract.resolve_sample_status_columns(
+                busco_lineages=["lineage_b", "lineage_a"]
+            )
         )
 
         self.assertEqual(append_lineages, ("lineage_b", "lineage_a"))

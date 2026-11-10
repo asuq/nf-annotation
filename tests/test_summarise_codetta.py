@@ -42,10 +42,14 @@ class SummariseCodettaTestCase(unittest.TestCase):
             "# Codon inferences",
             "# codon   inference  std code  diff?    N aligned  N used",
         ]
-        for codon, amino_acid in zip(summarise_codetta.CODON_ORDER, genetic_code, strict=True):
+        for codon, amino_acid in zip(
+            summarise_codetta.CODON_ORDER, genetic_code, strict=True
+        ):
             lines.append(f"{codon}\t{amino_acid}\tX\t.\t1\t1")
         lines.append("#")
-        self.write_text_file(directory / "codetta_inference.txt", "\n".join(lines) + "\n")
+        self.write_text_file(
+            directory / "codetta_inference.txt", "\n".join(lines) + "\n"
+        )
 
     def run_cli(self, *, accession: str, codetta_dir: Path) -> dict[str, str]:
         """Run the Codetta summariser and return the emitted row."""
@@ -63,7 +67,9 @@ class SummariseCodettaTestCase(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         return read_tsv_row(output)
 
-    def test_main_reconstructs_table_11_equivalent_candidates_from_inference_rows(self) -> None:
+    def test_main_reconstructs_table_11_equivalent_candidates_from_inference_rows(
+        self,
+    ) -> None:
         """Return every compatible table when table 11 is not uniquely identifiable."""
         with tempfile.TemporaryDirectory() as tmpdir_name:
             codetta_dir = Path(tmpdir_name)
@@ -116,7 +122,9 @@ class SummariseCodettaTestCase(unittest.TestCase):
                 CodonTable.generic_by_id[11]
             )
             self.write_text_file(codetta_dir / "codetta_inference.txt", "# broken\n")
-            self.write_text_file(codetta_dir / "codetta.log", f"Genetic code: {genetic_code}\n")
+            self.write_text_file(
+                codetta_dir / "codetta.log", f"Genetic code: {genetic_code}\n"
+            )
 
             row = self.run_cli(accession="ACC_LOG", codetta_dir=codetta_dir)
 
@@ -128,8 +136,12 @@ class SummariseCodettaTestCase(unittest.TestCase):
         """Return all compatible NCBI tables in stable ascending order."""
         with tempfile.TemporaryDirectory() as tmpdir_name:
             codetta_dir = Path(tmpdir_name)
-            table_4 = summarise_codetta.build_ncbi_table_string(CodonTable.generic_by_id[4])
-            table_11 = summarise_codetta.build_ncbi_table_string(CodonTable.generic_by_id[11])
+            table_4 = summarise_codetta.build_ncbi_table_string(
+                CodonTable.generic_by_id[4]
+            )
+            table_11 = summarise_codetta.build_ncbi_table_string(
+                CodonTable.generic_by_id[11]
+            )
             genetic_code = "".join(
                 observed if observed == expected else "?"
                 for observed, expected in zip(table_4, table_11, strict=True)
@@ -151,7 +163,9 @@ class SummariseCodettaTestCase(unittest.TestCase):
         """Return unassigned when the observed code fits no NCBI table."""
         with tempfile.TemporaryDirectory() as tmpdir_name:
             codetta_dir = Path(tmpdir_name)
-            table_11 = summarise_codetta.build_ncbi_table_string(CodonTable.generic_by_id[11])
+            table_11 = summarise_codetta.build_ncbi_table_string(
+                CodonTable.generic_by_id[11]
+            )
             genetic_code = "!" + table_11[1:]
             self.write_inference_table(codetta_dir, genetic_code)
 

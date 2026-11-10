@@ -14,7 +14,9 @@ IMAGE = "codex-python-helper:test"
 RUN_DOCKER_TESTS = os.environ.get("RUN_DOCKER_TESTS") == "1"
 
 
-def run_command(args: list[str], *, timeout: int | None = None) -> subprocess.CompletedProcess[str]:
+def run_command(
+    args: list[str], *, timeout: int | None = None
+) -> subprocess.CompletedProcess[str]:
     """Run one subprocess and return the completed process."""
     return subprocess.run(
         args,
@@ -42,7 +44,9 @@ class PythonHelperContainerContractTestCase(unittest.TestCase):
         RUN_DOCKER_TESTS,
         "Set RUN_DOCKER_TESTS=1 to run the shared Python helper image contract test.",
     )
-    def test_custom_image_imports_biopython_numpy_and_scipy_on_linux_amd64(self) -> None:
+    def test_custom_image_imports_biopython_numpy_and_scipy_on_linux_amd64(
+        self,
+    ) -> None:
         """Build the helper image and require imports to work on amd64."""
         build_result = run_command(
             [

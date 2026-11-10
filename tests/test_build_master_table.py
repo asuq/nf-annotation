@@ -76,9 +76,9 @@ class BuildMasterTableTestCase(unittest.TestCase):
                 tmpdir / "checkm2.tsv",
                 "\n".join(
                     [
-                        'accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings',
-                        'ACC1\t95\t80\t2\t1\t0.9\t0.8\t900\t450\t800\t780\t4\tmean_gene_length_ratio\t2\t1.5\tlength_ratio_above_threshold\t4\tlength_ratio_above_threshold\tNA\tfalse\tdone\t',
-                        'ACC2\tNA\t72\tNA\t4\tNA\t0.71\tNA\t710\tNA\t610\tNA\tmean_gene_length_ratio\tNA\t1.5\tinvalid_report_pair\tNA\tinvalid_report_pair\tNA\tNA\tfailed\tcheckm2_gcode4_failed',
+                        "accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings",
+                        "ACC1\t95\t80\t2\t1\t0.9\t0.8\t900\t450\t800\t780\t4\tmean_gene_length_ratio\t2\t1.5\tlength_ratio_above_threshold\t4\tlength_ratio_above_threshold\tNA\tfalse\tdone\t",
+                        "ACC2\tNA\t72\tNA\t4\tNA\t0.71\tNA\t710\tNA\t610\tNA\tmean_gene_length_ratio\tNA\t1.5\tinvalid_report_pair\tNA\tinvalid_report_pair\tNA\tNA\tfailed\tcheckm2_gcode4_failed",
                     ]
                 )
                 + "\n",
@@ -200,19 +200,25 @@ class BuildMasterTableTestCase(unittest.TestCase):
                 master_by_accession["ACC1"]["Codetta_Genetic_Code"],
                 "FFLLSSSSYY??CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG",
             )
-            self.assertEqual(master_by_accession["ACC1"]["Codetta_NCBI_Table_Candidates"], "11")
+            self.assertEqual(
+                master_by_accession["ACC1"]["Codetta_NCBI_Table_Candidates"], "11"
+            )
             self.assertEqual(master_by_accession["ACC1"]["CRISPRS"], "2")
             self.assertEqual(master_by_accession["ACC1"]["Cluster_ID"], "cluster_1")
 
             self.assertEqual(master_by_accession["ACC2"]["Accession"], "ACC2")
             self.assertEqual(master_by_accession["ACC2"]["is_new"], "true")
             self.assertEqual(master_by_accession["ACC2"]["Tax_ID"], "NA")
-            self.assertEqual(master_by_accession["ACC2"]["Organism_Name"], "Candidate two")
+            self.assertEqual(
+                master_by_accession["ACC2"]["Organism_Name"], "Candidate two"
+            )
             self.assertEqual(master_by_accession["ACC2"]["Atypical_Warnings"], "NA")
             self.assertEqual(master_by_accession["ACC2"]["superkingdom"], "NA")
             self.assertEqual(master_by_accession["ACC2"]["GC_Content"], "NA")
             self.assertEqual(master_by_accession["ACC2"]["Codetta_Genetic_Code"], "NA")
-            self.assertEqual(master_by_accession["ACC2"]["Codetta_NCBI_Table_Candidates"], "NA")
+            self.assertEqual(
+                master_by_accession["ACC2"]["Codetta_NCBI_Table_Candidates"], "NA"
+            )
             self.assertEqual(master_by_accession["ACC2"]["CRISPRS"], "NA")
             self.assertEqual(master_by_accession["ACC2"]["Cluster_ID"], "NA")
 
@@ -227,8 +233,7 @@ class BuildMasterTableTestCase(unittest.TestCase):
             )
             metadata = self.write_text_file(
                 tmpdir / "metadata.tsv",
-                "Accession\tTax_ID\tOrganism_Name\n"
-                "ACC1\t123\tKnown one\n",
+                "Accession\tTax_ID\tOrganism_Name\nACC1\t123\tKnown one\n",
             )
             busco_custom = self.write_text_file(
                 tmpdir / "busco_custom.tsv",
@@ -261,7 +266,10 @@ class BuildMasterTableTestCase(unittest.TestCase):
             header, rows = read_tsv_rows(output)
             self.assertIn("BUSCO_custom_odb12", header)
             self.assertNotIn("BUSCO_bacillota_odb12", header)
-            self.assertEqual(rows[0]["BUSCO_custom_odb12"], "C:99.0%[S:99.0%,D:0.0%],F:0.0%,M:1.0%,n:180")
+            self.assertEqual(
+                rows[0]["BUSCO_custom_odb12"],
+                "C:99.0%[S:99.0%,D:0.0%],F:0.0%,M:1.0%,n:180",
+            )
 
     def test_main_uses_keyed_joins_and_marks_missing_joins(self) -> None:
         """Join by accession only and propagate missing derived rows as NA."""
@@ -293,9 +301,9 @@ class BuildMasterTableTestCase(unittest.TestCase):
                 tmpdir / "checkm2.tsv",
                 "\n".join(
                     [
-                        'accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings',
-                        'ACC2\t60\t92\t6\t2\t0.6\t0.92\t600\t800\t500\t900\t11\tmean_gene_length_ratio\t0.75\t1.5\tlength_ratio_at_or_below_threshold\t11\tlength_ratio_at_or_below_threshold\tNA\tfalse\tdone\t',
-                        'ACC1\t94\t80\t1\t2\t0.95\t0.8\t940\t470\t910\t790\t4\tmean_gene_length_ratio\t2\t1.5\tlength_ratio_above_threshold\t4\tlength_ratio_above_threshold\tNA\tfalse\tdone\t',
+                        "accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings",
+                        "ACC2\t60\t92\t6\t2\t0.6\t0.92\t600\t800\t500\t900\t11\tmean_gene_length_ratio\t0.75\t1.5\tlength_ratio_at_or_below_threshold\t11\tlength_ratio_at_or_below_threshold\tNA\tfalse\tdone\t",
+                        "ACC1\t94\t80\t1\t2\t0.95\t0.8\t940\t470\t910\t790\t4\tmean_gene_length_ratio\t2\t1.5\tlength_ratio_above_threshold\t4\tlength_ratio_above_threshold\tNA\tfalse\tdone\t",
                     ]
                 )
                 + "\n",
@@ -359,9 +367,13 @@ class BuildMasterTableTestCase(unittest.TestCase):
             master_by_accession = {row["Accession"]: row for row in master_rows}
 
             self.assertEqual(master_by_accession["ACC1"]["Gcode"], "4")
-            self.assertEqual(master_by_accession["ACC1"]["Gcode_Rule"], "mean_gene_length_ratio")
+            self.assertEqual(
+                master_by_accession["ACC1"]["Gcode_Rule"], "mean_gene_length_ratio"
+            )
             self.assertEqual(master_by_accession["ACC1"]["Gcode_Length_Ratio"], "2")
-            self.assertEqual(master_by_accession["ACC1"]["Gcode_Length_Ratio_Threshold"], "1.5")
+            self.assertEqual(
+                master_by_accession["ACC1"]["Gcode_Length_Ratio_Threshold"], "1.5"
+            )
             self.assertEqual(master_by_accession["ACC1"]["16S"], "Yes")
             self.assertEqual(master_by_accession["ACC1"]["BUSCO_bacillota_odb12"], "NA")
             self.assertEqual(
@@ -379,7 +391,9 @@ class BuildMasterTableTestCase(unittest.TestCase):
                 master_by_accession["ACC2"]["BUSCO_bacillota_odb12"],
                 "C:96.0%[S:96.0%,D:0.0%],F:2.0%,M:2.0%,n:200",
             )
-            self.assertEqual(master_by_accession["ACC2"]["BUSCO_mycoplasmatota_odb12"], "NA")
+            self.assertEqual(
+                master_by_accession["ACC2"]["BUSCO_mycoplasmatota_odb12"], "NA"
+            )
 
     def test_main_consumes_precomputed_ani_summary_during_final_build(self) -> None:
         """Join ANI fields from a precomputed ANI summary TSV."""
@@ -411,9 +425,9 @@ class BuildMasterTableTestCase(unittest.TestCase):
                 tmpdir / "checkm2.tsv",
                 "\n".join(
                     [
-                        'accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings',
-                        'ACC1\t90\t97\t2\t1\t0.8\t0.95\t850\t1000\t780\t910\t11\tmean_gene_length_ratio\t0.85\t1.5\tlength_ratio_at_or_below_threshold\t11\tlength_ratio_at_or_below_threshold\tNA\tfalse\tdone\t',
-                        'ACC2\t88\t93\t3\t2\t0.75\t0.90\t800\t1000\t760\t880\t11\tmean_gene_length_ratio\t0.8\t1.5\tlength_ratio_at_or_below_threshold\t11\tlength_ratio_at_or_below_threshold\tNA\tfalse\tdone\t',
+                        "accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings",
+                        "ACC1\t90\t97\t2\t1\t0.8\t0.95\t850\t1000\t780\t910\t11\tmean_gene_length_ratio\t0.85\t1.5\tlength_ratio_at_or_below_threshold\t11\tlength_ratio_at_or_below_threshold\tNA\tfalse\tdone\t",
+                        "ACC2\t88\t93\t3\t2\t0.75\t0.90\t800\t1000\t760\t880\t11\tmean_gene_length_ratio\t0.8\t1.5\tlength_ratio_at_or_below_threshold\t11\tlength_ratio_at_or_below_threshold\tNA\tfalse\tdone\t",
                     ]
                 )
                 + "\n",
@@ -480,12 +494,16 @@ class BuildMasterTableTestCase(unittest.TestCase):
 
             self.assertEqual(master_by_accession["ACC1"]["Cluster_ID"], "C000001")
             self.assertEqual(master_by_accession["ACC1"]["Is_Representative"], "yes")
-            self.assertEqual(master_by_accession["ACC1"]["ANI_to_Representative"], "100.0000")
+            self.assertEqual(
+                master_by_accession["ACC1"]["ANI_to_Representative"], "100.0000"
+            )
             self.assertNotEqual(master_by_accession["ACC1"]["Score"], "NA")
 
             self.assertEqual(master_by_accession["ACC2"]["Cluster_ID"], "C000001")
             self.assertEqual(master_by_accession["ACC2"]["Is_Representative"], "no")
-            self.assertEqual(master_by_accession["ACC2"]["ANI_to_Representative"], "97.2500")
+            self.assertEqual(
+                master_by_accession["ACC2"]["ANI_to_Representative"], "97.2500"
+            )
             self.assertNotEqual(master_by_accession["ACC2"]["Score"], "NA")
 
     def test_main_handles_new_genome_with_sparse_metadata(self) -> None:
@@ -679,9 +697,9 @@ class BuildMasterTableTestCase(unittest.TestCase):
                 tmpdir / "checkm2.tsv",
                 "\n".join(
                     [
-                        'accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings',
-                        'ACC1\t95\t80\t2\t1\t0.9\t0.8\t900\t450\t800\t780\t4\tmean_gene_length_ratio\t2\t1.5\tlength_ratio_above_threshold\t4\tlength_ratio_above_threshold\tNA\tfalse\tdone\t',
-                        'ACC1\t95\t80\t2\t1\t0.9\t0.8\t900\t450\t800\t780\t4\tmean_gene_length_ratio\t2\t1.5\tlength_ratio_above_threshold\t4\tlength_ratio_above_threshold\tNA\tfalse\tdone\t',
+                        "accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings",
+                        "ACC1\t95\t80\t2\t1\t0.9\t0.8\t900\t450\t800\t780\t4\tmean_gene_length_ratio\t2\t1.5\tlength_ratio_above_threshold\t4\tlength_ratio_above_threshold\tNA\tfalse\tdone\t",
+                        "ACC1\t95\t80\t2\t1\t0.9\t0.8\t900\t450\t800\t780\t4\tmean_gene_length_ratio\t2\t1.5\tlength_ratio_above_threshold\t4\tlength_ratio_above_threshold\tNA\tfalse\tdone\t",
                     ]
                 )
                 + "\n",

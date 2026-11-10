@@ -14,7 +14,9 @@ IMAGE = "quay.io/asuq1617/codetta:2.0"
 RUN_DOCKER_TESTS = os.environ.get("RUN_DOCKER_TESTS") == "1"
 
 
-def run_command(args: list[str], *, timeout: int | None = None) -> subprocess.CompletedProcess[str]:
+def run_command(
+    args: list[str], *, timeout: int | None = None
+) -> subprocess.CompletedProcess[str]:
     """Run one subprocess and return the completed process."""
     return subprocess.run(
         args,
@@ -34,17 +36,34 @@ class CodettaContainerContractTestCase(unittest.TestCase):
         dockerfile_text = DOCKERFILE.read_text(encoding="utf-8")
 
         self.assertIn("FROM python:3.12-slim", dockerfile_text)
-        self.assertIn("ARG CODETTA_REF=863359ed326276602d44e48227b6003ac6ffd266", dockerfile_text)
+        self.assertIn(
+            "ARG CODETTA_REF=863359ed326276602d44e48227b6003ac6ffd266", dockerfile_text
+        )
         self.assertIn("ARG CODETTA_VERSION=v2.0", dockerfile_text)
         self.assertIn("ARG CODETTA_SOURCE_BRANCH=main", dockerfile_text)
         self.assertIn("procps", dockerfile_text)
-        self.assertIn('python3 -m pip install --no-cache-dir numpy scipy "setuptools<82"', dockerfile_text)
+        self.assertIn(
+            'python3 -m pip install --no-cache-dir numpy scipy "setuptools<82"',
+            dockerfile_text,
+        )
         self.assertIn('python3 -c "import pkg_resources"', dockerfile_text)
         self.assertIn("bash setup.sh", dockerfile_text)
-        self.assertIn("ln -s /opt/codetta/codetta_align.py /usr/local/bin/codetta_align.py", dockerfile_text)
-        self.assertIn("ln -s /opt/codetta/codetta_summary.py /usr/local/bin/codetta_summary.py", dockerfile_text)
-        self.assertIn("ln -s /opt/codetta/codetta_infer.py /usr/local/bin/codetta_infer.py", dockerfile_text)
-        self.assertIn('LABEL org.opencontainers.image.version="${CODETTA_VERSION}"', dockerfile_text)
+        self.assertIn(
+            "ln -s /opt/codetta/codetta_align.py /usr/local/bin/codetta_align.py",
+            dockerfile_text,
+        )
+        self.assertIn(
+            "ln -s /opt/codetta/codetta_summary.py /usr/local/bin/codetta_summary.py",
+            dockerfile_text,
+        )
+        self.assertIn(
+            "ln -s /opt/codetta/codetta_infer.py /usr/local/bin/codetta_infer.py",
+            dockerfile_text,
+        )
+        self.assertIn(
+            'LABEL org.opencontainers.image.version="${CODETTA_VERSION}"',
+            dockerfile_text,
+        )
         self.assertIn("ENV CODETTA_HOME=/opt/codetta", dockerfile_text)
 
     @unittest.skipUnless(
@@ -88,7 +107,7 @@ class CodettaContainerContractTestCase(unittest.TestCase):
                     "command -v codetta_align.py >/dev/null; "
                     "command -v codetta_summary.py >/dev/null; "
                     "command -v codetta_infer.py >/dev/null; "
-                    "python3 -c \"import pkg_resources\" >/dev/null; "
+                    'python3 -c "import pkg_resources" >/dev/null; '
                     "test -d /opt/codetta/resources; "
                     "test -f /opt/codetta/.codetta_version; "
                     "test -f /opt/codetta/.codetta_source_commit; "

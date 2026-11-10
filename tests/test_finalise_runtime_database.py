@@ -22,7 +22,9 @@ class FinaliseRuntimeDatabaseTestCase(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             destination = Path(temp_dir) / "padloc"
             (destination / "hmm").mkdir(parents=True)
-            (destination / "hmm" / "padlocdb.hmm").write_text("stub\n", encoding="utf-8")
+            (destination / "hmm" / "padlocdb.hmm").write_text(
+                "stub\n", encoding="utf-8"
+            )
 
             args = finalise_module.parse_args(
                 [

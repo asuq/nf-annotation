@@ -67,7 +67,9 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
 
     def create_taxdump_dir(self, path: Path) -> Path:
         """Create one valid taxdump source directory."""
-        self.write_text_file(path / "names.dmp", "1\t|\troot\t|\t\t|\tscientific name\t|\n")
+        self.write_text_file(
+            path / "names.dmp", "1\t|\troot\t|\t\t|\tscientific name\t|\n"
+        )
         self.write_text_file(path / "nodes.dmp", "1\t|\t1\t|\tno rank\t|\n")
         return path
 
@@ -85,11 +87,32 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
         """Create a synthetic, already prepared v0.4 eggNOG resource."""
         import annotation_resources
 
-        for name in ("eggnog.db", "eggnog_proteins.dmnd", "eggnog.db.taxids.bin", "eggnog.db.fieldpresence.bin", "eggnog.taxa.db", "eggnog.taxa.db.traverse.pkl", "go-basic.obo"):
+        for name in (
+            "eggnog.db",
+            "eggnog_proteins.dmnd",
+            "eggnog.db.taxids.bin",
+            "eggnog.db.fieldpresence.bin",
+            "eggnog.taxa.db",
+            "eggnog.taxa.db.traverse.pkl",
+            "go-basic.obo",
+        ):
             self.write_text_file(path / name, "synthetic-prepared-resource\n")
-        contract = {"component": "eggnog", "version": "eggNOG7-emapper3.0", "files": annotation_resources.file_records(path), "settings": {"synthetic_fixture": True}}
-        payload = {"schema_version": 2, "component": "eggnog", "resource_id": annotation_resources.identity(contract), "contract": contract, "acquisition": {"files": []}}
-        self.write_text_file(path / annotation_resources.RESOURCE_FILE, json.dumps(payload))
+        contract = {
+            "component": "eggnog",
+            "version": "eggNOG7-emapper3.0",
+            "files": annotation_resources.file_records(path),
+            "settings": {"synthetic_fixture": True},
+        }
+        payload = {
+            "schema_version": 2,
+            "component": "eggnog",
+            "resource_id": annotation_resources.identity(contract),
+            "contract": contract,
+            "acquisition": {"files": []},
+        }
+        self.write_text_file(
+            path / annotation_resources.RESOURCE_FILE, json.dumps(payload)
+        )
         return path
 
     def create_codetta_dir(self, path: Path) -> Path:
@@ -106,14 +129,18 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
         self.write_text_file(path / "hmm" / "padlocdb.hmm", "hmm-placeholder\n")
         return path
 
-    def create_tar_archive(self, source: Path, archive_path: Path, root_name: str) -> Path:
+    def create_tar_archive(
+        self, source: Path, archive_path: Path, root_name: str
+    ) -> Path:
         """Create one tar archive containing the source directory under one root."""
         archive_path.parent.mkdir(parents=True, exist_ok=True)
         with tarfile.open(archive_path, "w:gz") as handle:
             handle.add(source, arcname=root_name)
         return archive_path
 
-    def create_zip_archive(self, source: Path, archive_path: Path, root_name: str) -> Path:
+    def create_zip_archive(
+        self, source: Path, archive_path: Path, root_name: str
+    ) -> Path:
         """Create one zip archive containing the source directory under one root."""
         archive_path.parent.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(archive_path, "w") as handle:
@@ -323,7 +350,9 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
             self.assertEqual(row_map["checkm2"]["status"], "prepared")
             self.assertEqual(row_map["codetta"]["status"], "prepared")
             self.assertEqual(row_map["busco:bacillota_odb12"]["status"], "prepared")
-            self.assertEqual(row_map["busco:mycoplasmatota_odb12"]["status"], "prepared")
+            self.assertEqual(
+                row_map["busco:mycoplasmatota_odb12"]["status"], "prepared"
+            )
             self.assertEqual(
                 row_map["busco_root"]["destination"],
                 str((tmpdir / "prepared" / "busco").resolve()),
@@ -360,7 +389,9 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
         """Materialise one raw CheckM2 dmnd file into a prepared directory."""
         with tempfile.TemporaryDirectory() as tmpdir_name:
             tmpdir = Path(tmpdir_name)
-            dmnd_source = self.write_text_file(tmpdir / "sources" / "checkm2.dmnd", "fake\n")
+            dmnd_source = self.write_text_file(
+                tmpdir / "sources" / "checkm2.dmnd", "fake\n"
+            )
             destination = tmpdir / "prepared" / "checkm2"
 
             exit_code, _stdout, _stderr = self.run_cli(
@@ -475,7 +506,9 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir_name:
             tmpdir = Path(tmpdir_name)
             source = self.create_padloc_dir(tmpdir / "sources" / "padloc")
-            self.write_text_file(tmpdir / "prepared" / "padloc" / "broken.txt", "broken\n")
+            self.write_text_file(
+                tmpdir / "prepared" / "padloc" / "broken.txt", "broken\n"
+            )
 
             exit_code, _stdout, stderr = self.run_cli(
                 [
@@ -494,7 +527,9 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir_name:
             tmpdir = Path(tmpdir_name)
             source = self.create_padloc_dir(tmpdir / "sources" / "padloc")
-            self.write_text_file(tmpdir / "prepared" / "padloc" / "broken.txt", "broken\n")
+            self.write_text_file(
+                tmpdir / "prepared" / "padloc" / "broken.txt", "broken\n"
+            )
 
             exit_code, _stdout, _stderr = self.run_cli(
                 [
@@ -515,11 +550,17 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
     def test_preparation_lock_is_exclusive_and_keeps_a_replacement(self):
         import threading
         from concurrent.futures import ThreadPoolExecutor
+
         with tempfile.TemporaryDirectory() as directory:
             destination = Path(directory) / "database"
             start = threading.Barrier(2)
-            blocked, entered, release = threading.Event(), threading.Event(), threading.Event()
+            blocked, entered, release = (
+                threading.Event(),
+                threading.Event(),
+                threading.Event(),
+            )
             owners = []
+
             def attempt(index):
                 start.wait(timeout=5)
                 try:
@@ -530,6 +571,7 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
                             raise AssertionError("lock test timed out")
                 except prepare_runtime_databases.PrepareRuntimeDatabasesError:
                     blocked.set()
+
             with ThreadPoolExecutor(2) as pool:
                 jobs = [pool.submit(attempt, i) for i in range(2)]
                 try:
@@ -609,7 +651,9 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
             self.assertEqual(list((tmpdir / "prepared").glob(".prepare-*")), [])
             self.assertTrue((tmpdir / "prepared" / "taxdump" / "names.dmp").is_file())
             self.assertTrue(
-                (tmpdir / "prepared" / "busco" / "bacillota_odb12" / "dataset.cfg").is_file()
+                (
+                    tmpdir / "prepared" / "busco" / "bacillota_odb12" / "dataset.cfg"
+                ).is_file()
             )
             self.assertTrue(
                 (tmpdir / "prepared" / "padloc" / "hmm" / "padlocdb.hmm").is_file()
@@ -639,7 +683,9 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
                 "bacillota_payload",
             )
             myco_archive = self.create_tar_archive(
-                self.create_busco_lineage_dir(tmpdir / "fixtures" / "mycoplasmatota_odb12"),
+                self.create_busco_lineage_dir(
+                    tmpdir / "fixtures" / "mycoplasmatota_odb12"
+                ),
                 tmpdir / "fixtures" / "mycoplasmatota_odb12.tar.gz",
                 "myco_payload",
             )
@@ -677,7 +723,11 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
             recorded_calls: list[list[str]] = []
 
             with (
-                mock.patch.object(prepare_runtime_databases.shutil, "which", return_value="/usr/bin/aria2c"),
+                mock.patch.object(
+                    prepare_runtime_databases.shutil,
+                    "which",
+                    return_value="/usr/bin/aria2c",
+                ),
                 mock.patch.object(
                     prepare_runtime_databases.subprocess,
                     "run",
@@ -710,12 +760,22 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
                 (tmpdir / "prepared" / "checkm2" / "CheckM2_database.dmnd").is_file()
             )
             self.assertTrue(
-                (tmpdir / "prepared" / "busco" / "bacillota_odb12" / "dataset.cfg").is_file()
+                (
+                    tmpdir / "prepared" / "busco" / "bacillota_odb12" / "dataset.cfg"
+                ).is_file()
             )
             self.assertTrue(
-                (tmpdir / "prepared" / "busco" / "mycoplasmatota_odb12" / "dataset.cfg").is_file()
+                (
+                    tmpdir
+                    / "prepared"
+                    / "busco"
+                    / "mycoplasmatota_odb12"
+                    / "dataset.cfg"
+                ).is_file()
             )
-            self.assertTrue((tmpdir / "prepared" / "codetta" / "Pfam-A_enone.hmm").is_file())
+            self.assertTrue(
+                (tmpdir / "prepared" / "codetta" / "Pfam-A_enone.hmm").is_file()
+            )
             self.assertTrue(
                 (tmpdir / "prepared" / "padloc" / "hmm" / "padlocdb.hmm").is_file()
             )
@@ -747,36 +807,64 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
             lineage = "bacillota_odb12"
             archive = self.create_tar_archive(
                 self.create_busco_lineage_dir(root / "fixture"),
-                root / "lineage.tar.gz", "payload",
+                root / "lineage.tar.gz",
+                "payload",
             )
             config = {
                 "kind": "lineage_archives",
                 "lineage_url_template": "https://example.invalid/{lineage}.tar.gz",
-                "checksums": {lineage: {"type": "md5", "value": self.checksum_md5(archive)}},
+                "checksums": {
+                    lineage: {"type": "md5", "value": self.checksum_md5(archive)}
+                },
             }
-            manifest = {"busco": {"default_version": "pinned", "versions": {"pinned": config}}}
+            manifest = {
+                "busco": {"default_version": "pinned", "versions": {"pinned": config}}
+            }
             arguments = dict(
-                manifest=manifest, remote_component="busco", component_label=f"busco:{lineage}",
-                version="pinned", validator=prepare_runtime_databases.build_busco_lineage_validator(lineage),
-                scratch_root=None, lineage=lineage,
+                manifest=manifest,
+                remote_component="busco",
+                component_label=f"busco:{lineage}",
+                version="pinned",
+                validator=prepare_runtime_databases.build_busco_lineage_validator(
+                    lineage
+                ),
+                scratch_root=None,
+                lineage=lineage,
             )
             with (
-                mock.patch.object(prepare_runtime_databases.shutil, "which", return_value="aria2c"),
-                mock.patch.object(prepare_runtime_databases.subprocess, "run", self.make_fake_aria2(
-                    {f"https://example.invalid/{lineage}.tar.gz": archive}, [],
-                )),
+                mock.patch.object(
+                    prepare_runtime_databases.shutil, "which", return_value="aria2c"
+                ),
+                mock.patch.object(
+                    prepare_runtime_databases.subprocess,
+                    "run",
+                    self.make_fake_aria2(
+                        {f"https://example.invalid/{lineage}.tar.gz": archive},
+                        [],
+                    ),
+                ),
             ):
                 _, _, metadata = prepare_runtime_databases.prepare_remote_component(
-                    destination=root / "valid", **arguments,
+                    destination=root / "valid",
+                    **arguments,
                 )
-                self.assertEqual(metadata["checksum"], f"md5:{self.checksum_md5(archive)}")
+                self.assertEqual(
+                    metadata["checksum"], f"md5:{self.checksum_md5(archive)}"
+                )
                 config["checksums"][lineage]["value"] = "0" * 32
                 with self.assertRaises(prepare_runtime_databases.ChecksumMismatchError):
-                    prepare_runtime_databases.prepare_remote_component(destination=root / "bad", **arguments)
+                    prepare_runtime_databases.prepare_remote_component(
+                        destination=root / "bad", **arguments
+                    )
                 self.assertFalse((root / "bad").exists())
                 config["checksums"] = {}
-                with self.assertRaisesRegex(prepare_runtime_databases.PrepareRuntimeDatabasesError, "no checksum"):
-                    prepare_runtime_databases.prepare_remote_component(destination=root / "missing", **arguments)
+                with self.assertRaisesRegex(
+                    prepare_runtime_databases.PrepareRuntimeDatabasesError,
+                    "no checksum",
+                ):
+                    prepare_runtime_databases.prepare_remote_component(
+                        destination=root / "missing", **arguments
+                    )
 
     def test_main_remote_version_pin_selects_the_requested_release(self) -> None:
         """Use the requested remote version rather than the default remote version."""
@@ -787,7 +875,9 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
                 tmpdir / "fixtures" / "taxdump_v1.zip",
                 "taxdump_payload_v1",
             )
-            release_two_dir = self.create_taxdump_dir(tmpdir / "fixtures" / "taxdump_v2")
+            release_two_dir = self.create_taxdump_dir(
+                tmpdir / "fixtures" / "taxdump_v2"
+            )
             self.write_text_file(
                 release_two_dir / "names.dmp",
                 "2\t|\trelease-two\t|\t\t|\tscientific name\t|\n",
@@ -834,7 +924,11 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
             }
 
             with (
-                mock.patch.object(prepare_runtime_databases.shutil, "which", return_value="/usr/bin/aria2c"),
+                mock.patch.object(
+                    prepare_runtime_databases.shutil,
+                    "which",
+                    return_value="/usr/bin/aria2c",
+                ),
                 mock.patch.object(
                     prepare_runtime_databases.subprocess,
                     "run",
@@ -877,8 +971,14 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
             )
 
             with (
-                mock.patch.object(prepare_runtime_databases.shutil, "which", return_value="/usr/bin/aria2c"),
-                mock.patch.object(prepare_runtime_databases.subprocess, "run") as mocked_run,
+                mock.patch.object(
+                    prepare_runtime_databases.shutil,
+                    "which",
+                    return_value="/usr/bin/aria2c",
+                ),
+                mock.patch.object(
+                    prepare_runtime_databases.subprocess, "run"
+                ) as mocked_run,
             ):
                 exit_code, _stdout, _stderr = self.run_cli(
                     [
@@ -918,7 +1018,11 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
 
             recorded_calls: list[list[str]] = []
             with (
-                mock.patch.object(prepare_runtime_databases.shutil, "which", return_value="/usr/bin/aria2c"),
+                mock.patch.object(
+                    prepare_runtime_databases.shutil,
+                    "which",
+                    return_value="/usr/bin/aria2c",
+                ),
                 mock.patch.object(
                     prepare_runtime_databases.subprocess,
                     "run",
@@ -1014,7 +1118,11 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
                 raise AssertionError(f"Unexpected URL: {url}")
 
             with (
-                mock.patch.object(prepare_runtime_databases.shutil, "which", return_value="/usr/bin/aria2c"),
+                mock.patch.object(
+                    prepare_runtime_databases.shutil,
+                    "which",
+                    return_value="/usr/bin/aria2c",
+                ),
                 mock.patch.object(
                     prepare_runtime_databases.subprocess,
                     "run",
@@ -1061,14 +1169,20 @@ class PrepareRuntimeDatabasesTestCase(unittest.TestCase):
             )
 
             with (
-                mock.patch.object(prepare_runtime_databases.shutil, "which", return_value="/usr/bin/aria2c"),
+                mock.patch.object(
+                    prepare_runtime_databases.shutil,
+                    "which",
+                    return_value="/usr/bin/aria2c",
+                ),
                 mock.patch.object(
                     prepare_runtime_databases.subprocess,
                     "run",
                     self.make_fake_aria2(
                         {},
                         [],
-                        failures={"https://example.invalid/taxdump.zip": "404 Not Found"},
+                        failures={
+                            "https://example.invalid/taxdump.zip": "404 Not Found"
+                        },
                     ),
                 ),
             ):

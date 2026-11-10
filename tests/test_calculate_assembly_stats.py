@@ -426,7 +426,9 @@ class CalculateAssemblyStatsTestCase(unittest.TestCase):
             )
 
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("Failed to calculate assembly statistics for ACC2", result.stderr)
+            self.assertIn(
+                "Failed to calculate assembly statistics for ACC2", result.stderr
+            )
             self.assertIn(f"FASTA: {tmpdir / 'ACC2.fasta'}", result.stderr)
             self.assertIn(
                 "Reason: seqtk comp produced no valid contig rows.",
@@ -479,7 +481,9 @@ class CalculateAssemblyStatsTestCase(unittest.TestCase):
             )
 
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("Failed to calculate assembly statistics for ACC3", result.stderr)
+            self.assertIn(
+                "Failed to calculate assembly statistics for ACC3", result.stderr
+            )
             self.assertIn(f"FASTA: {tmpdir / 'ACC3.fasta'}", result.stderr)
             self.assertIn(
                 "Reason: seqtk comp produced no valid contig rows.",
@@ -508,7 +512,9 @@ class CalculateAssemblyStatsTestCase(unittest.TestCase):
             )
 
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("Failed to calculate assembly statistics for ACC6", result.stderr)
+            self.assertIn(
+                "Failed to calculate assembly statistics for ACC6", result.stderr
+            )
             self.assertIn(
                 "Reason: FASTA contains no canonical A/C/G/T bases.",
                 result.stderr,

@@ -84,7 +84,9 @@ class StubResumeStorageTestCase(unittest.TestCase):
 
     def task_work_leaf_dirs(self, workdir: Path) -> set[str]:
         """Return only real task work directories, excluding `work/tmp/*`."""
-        return {path for path in self.work_leaf_dirs(workdir) if not path.startswith("tmp/")}
+        return {
+            path for path in self.work_leaf_dirs(workdir) if not path.startswith("tmp/")
+        }
 
     @unittest.skipUnless(NEXTFLOW is not None, "nextflow is required for resume tests.")
     def test_stub_run_pruned_outputs_remain_resume_safe(self) -> None:
@@ -104,29 +106,44 @@ class StubResumeStorageTestCase(unittest.TestCase):
             second_work_dirs = self.task_work_leaf_dirs(workdir)
             self.assertGreater(len(second_work_dirs), len(first_work_dirs))
 
-            resumed = self.run_pipeline(run_dir=tmpdir, outdir=outdir, workdir=workdir, resume=True)
+            resumed = self.run_pipeline(
+                run_dir=tmpdir, outdir=outdir, workdir=workdir, resume=True
+            )
             self.assertEqual(resumed.returncode, 0, resumed.stderr)
             resumed_work_dirs = self.task_work_leaf_dirs(workdir)
             # Resource integrity and reporting are deliberately checked again;
             # expensive upstream tasks must continue to use the existing cache.
             added = resumed_work_dirs - second_work_dirs
             self.assertTrue(added)
-            allowed = ("annotation_preflight.json", "annotation_plan.json",
-                       "annotation_results.json", "annotation_complete.txt")
+            allowed = (
+                "annotation_preflight.json",
+                "annotation_plan.json",
+                "annotation_results.json",
+                "annotation_complete.txt",
+            )
             for directory in added:
                 contents = {path.name for path in (workdir / directory).rglob("*")}
-                if 'preprocessing_metrics.json' in contents:
-                    metrics = json.loads((workdir / directory / 'preprocessing_metrics.json').read_text())
-                    self.assertEqual(metrics['extracted'], 0, directory)
+                if "preprocessing_metrics.json" in contents:
+                    metrics = json.loads(
+                        (workdir / directory / "preprocessing_metrics.json").read_text()
+                    )
+                    self.assertEqual(metrics["extracted"], 0, directory)
                 else:
-                    self.assertTrue(any(name in contents for name in allowed), (directory, sorted(contents)))
+                    self.assertTrue(
+                        any(name in contents for name in allowed),
+                        (directory, sorted(contents)),
+                    )
             self.assertTrue((outdir / "tables" / "master_table.tsv").is_file())
             bundle = outdir / "samples/TEST_ACC/annotation/bundle"
             manifest, proteins = bundle_proteins(bundle)
             self.assertEqual(manifest["genetic_code"], 4)
             self.assertEqual(len(proteins), 1)
-            self.assertEqual((bundle / "proteins.faa").read_text().splitlines()[1], "MWA")
+            self.assertEqual(
+                (bundle / "proteins.faa").read_text().splitlines()[1], "MWA"
+            )
 
             resume_output = "\n".join((resumed.stdout, resumed.stderr))
             self.assertIn("cached", resume_output.lower())
-            self.assertTrue(any(process in resume_output for process in TARGET_PROCESSES))
+            self.assertTrue(
+                any(process in resume_output for process in TARGET_PROCESSES)
+            )

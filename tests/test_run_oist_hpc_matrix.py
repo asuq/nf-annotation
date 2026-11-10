@@ -173,9 +173,13 @@ class RunOistHpcMatrixScriptTestCase(unittest.TestCase):
             result.stdout,
         )
         self.assertIn("nextflow run . -profile oist", result.stdout)
-        self.assertIn("--sample_csv /tmp/hpc/acceptance/generated/sample_sheet.csv", result.stdout)
+        self.assertIn(
+            "--sample_csv /tmp/hpc/acceptance/generated/sample_sheet.csv", result.stdout
+        )
         self.assertIn("--codetta_db /tmp/hpc/db/codetta/Pfam-A_enone", result.stdout)
-        self.assertIn("--eggnog_db /tmp/hpc/db/Eggnog_db/Eggnog_Diamond_db", result.stdout)
+        self.assertIn(
+            "--eggnog_db /tmp/hpc/db/Eggnog_db/Eggnog_Diamond_db", result.stdout
+        )
         self.assertNotIn("--max_cpus", result.stdout)
         self.assertNotIn("--max_memory", result.stdout)
         self.assertNotIn("--max_time", result.stdout)
@@ -238,8 +242,12 @@ class RunOistHpcMatrixScriptTestCase(unittest.TestCase):
         """Refresh the tracked medium cohort instead of trusting stale generated files."""
         script_text = SCRIPT.read_text(encoding="utf-8")
 
-        self.assertIn('MEDIUM_SAMPLE_CSV="${MEDIUM_ROOT}/generated/sample_sheet.csv"', script_text)
-        self.assertIn('MEDIUM_METADATA="${MEDIUM_ROOT}/generated/metadata.tsv"', script_text)
+        self.assertIn(
+            'MEDIUM_SAMPLE_CSV="${MEDIUM_ROOT}/generated/sample_sheet.csv"', script_text
+        )
+        self.assertIn(
+            'MEDIUM_METADATA="${MEDIUM_ROOT}/generated/metadata.tsv"', script_text
+        )
         self.assertIn("run_medium_prepare", script_text)
         self.assertNotIn('! -f "${MEDIUM_SAMPLE_CSV}"', script_text)
         self.assertNotIn('! -f "${MEDIUM_METADATA}"', script_text)
@@ -355,7 +363,9 @@ class RunOistHpcMatrixScriptTestCase(unittest.TestCase):
         self.assertIn('readonly MINIMUM_HOST_PYTHON="3.12"', script_text)
         self.assertIn('resolved_case_root="$(python3 -c', script_text)
         self.assertIn('if [[ "${resolved_case_root}" == "/" ]]; then', script_text)
-        self.assertIn('if [[ "${resolved_case_root}" != */db_cases ]]; then', script_text)
+        self.assertIn(
+            'if [[ "${resolved_case_root}" != */db_cases ]]; then', script_text
+        )
 
     def test_wrapper_rejects_old_host_python_before_running_matrix_steps(self) -> None:
         """Fail fast with a clear message when python3 on PATH is too old."""
@@ -363,11 +373,11 @@ class RunOistHpcMatrixScriptTestCase(unittest.TestCase):
             fake_python = Path(tmpdir) / "python3"
             fake_python.write_text(
                 "#!/usr/bin/env bash\n"
-                "if [[ \"$1\" == \"--version\" ]]; then\n"
+                'if [[ "$1" == "--version" ]]; then\n'
                 "  printf 'Python 3.6.8\\n'\n"
                 "  exit 0\n"
                 "fi\n"
-                "if [[ \"$1\" == \"-c\" ]]; then\n"
+                'if [[ "$1" == "-c" ]]; then\n'
                 "  exit 1\n"
                 "fi\n"
                 "exit 99\n",

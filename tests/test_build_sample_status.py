@@ -68,7 +68,9 @@ class BuildSampleStatusTestCase(unittest.TestCase):
         if columns is None:
             columns = [
                 line.strip()
-                for line in SAMPLE_STATUS_COLUMNS_ASSET.read_text(encoding="utf-8").splitlines()
+                for line in SAMPLE_STATUS_COLUMNS_ASSET.read_text(
+                    encoding="utf-8"
+                ).splitlines()
                 if line.strip()
             ]
         row: dict[str, str] = {}
@@ -238,9 +240,9 @@ class BuildSampleStatusTestCase(unittest.TestCase):
                 tmpdir / "checkm2.tsv",
                 "\n".join(
                     [
-                        'accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings',
-                        'ACC1\t95\t80\t2\t1\t0.9\t0.8\t900\t450\t800\t780\t4\tmean_gene_length_ratio\t2\t1.5\tlength_ratio_above_threshold\t4\tlength_ratio_above_threshold\tNA\tfalse\tdone\t',
-                        'ACC2\tNA\t72\tNA\t4\tNA\t0.71\tNA\t710\tNA\t610\tNA\tmean_gene_length_ratio\tNA\t1.5\tinvalid_report_pair\tNA\tinvalid_report_pair\tNA\tNA\tfailed\tcheckm2_gcode4_failed',
+                        "accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings",
+                        "ACC1\t95\t80\t2\t1\t0.9\t0.8\t900\t450\t800\t780\t4\tmean_gene_length_ratio\t2\t1.5\tlength_ratio_above_threshold\t4\tlength_ratio_above_threshold\tNA\tfalse\tdone\t",
+                        "ACC2\tNA\t72\tNA\t4\tNA\t0.71\tNA\t710\tNA\t610\tNA\tmean_gene_length_ratio\tNA\t1.5\tinvalid_report_pair\tNA\tinvalid_report_pair\tNA\tNA\tfailed\tcheckm2_gcode4_failed",
                     ]
                 )
                 + "\n",
@@ -358,7 +360,9 @@ class BuildSampleStatusTestCase(unittest.TestCase):
                 header,
                 [
                     line.strip()
-                    for line in SAMPLE_STATUS_COLUMNS_ASSET.read_text(encoding="utf-8").splitlines()
+                    for line in SAMPLE_STATUS_COLUMNS_ASSET.read_text(
+                        encoding="utf-8"
+                    ).splitlines()
                     if line.strip()
                 ],
             )
@@ -408,7 +412,9 @@ class BuildSampleStatusTestCase(unittest.TestCase):
                 tmpdir / "initial_status.tsv",
                 [
                     line.strip()
-                    for line in SAMPLE_STATUS_COLUMNS_ASSET.read_text(encoding="utf-8").splitlines()
+                    for line in SAMPLE_STATUS_COLUMNS_ASSET.read_text(
+                        encoding="utf-8"
+                    ).splitlines()
                     if line.strip()
                 ],
                 [
@@ -461,7 +467,9 @@ class BuildSampleStatusTestCase(unittest.TestCase):
                 tmpdir / "initial_status.tsv",
                 [
                     line.strip()
-                    for line in SAMPLE_STATUS_COLUMNS_ASSET.read_text(encoding="utf-8").splitlines()
+                    for line in SAMPLE_STATUS_COLUMNS_ASSET.read_text(
+                        encoding="utf-8"
+                    ).splitlines()
                     if line.strip()
                 ],
                 [
@@ -474,7 +482,9 @@ class BuildSampleStatusTestCase(unittest.TestCase):
             )
             output_columns = [
                 line.strip()
-                for line in SAMPLE_STATUS_COLUMNS_ASSET.read_text(encoding="utf-8").splitlines()
+                for line in SAMPLE_STATUS_COLUMNS_ASSET.read_text(
+                    encoding="utf-8"
+                ).splitlines()
                 if line.strip()
             ]
 
@@ -516,7 +526,7 @@ class BuildSampleStatusTestCase(unittest.TestCase):
             )
             checkm2 = self.write_text_file(
                 tmpdir / "checkm2.tsv",
-                'accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings\nACC1\t80\t95\t3\t1\t0.8\t0.95\t800\t1000\t700\t920\t11\tmean_gene_length_ratio\t0.8\t1.5\tlength_ratio_at_or_below_threshold\t11\tlength_ratio_at_or_below_threshold\tNA\tfalse\tdone\t\n',
+                "accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings\nACC1\t80\t95\t3\t1\t0.8\t0.95\t800\t1000\t700\t920\t11\tmean_gene_length_ratio\t0.8\t1.5\tlength_ratio_at_or_below_threshold\t11\tlength_ratio_at_or_below_threshold\tNA\tfalse\tdone\t\n",
             )
             status_16s = self.write_text_file(
                 tmpdir / "16s.tsv",
@@ -596,7 +606,7 @@ class BuildSampleStatusTestCase(unittest.TestCase):
             )
             checkm2 = self.write_text_file(
                 tmpdir / "checkm2.tsv",
-                'accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings\nACC1\t80\t95\t3\t1\t0.8\t0.95\t800\t1000\t700\t920\t11\tmean_gene_length_ratio\t0.8\t1.5\tlength_ratio_at_or_below_threshold\t11\tlength_ratio_at_or_below_threshold\tNA\tfalse\tdone\t\n',
+                "accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings\nACC1\t80\t95\t3\t1\t0.8\t0.95\t800\t1000\t700\t920\t11\tmean_gene_length_ratio\t0.8\t1.5\tlength_ratio_at_or_below_threshold\t11\tlength_ratio_at_or_below_threshold\tNA\tfalse\tdone\t\n",
             )
             status_16s = self.write_text_file(
                 tmpdir / "16s.tsv",
@@ -650,7 +660,9 @@ class BuildSampleStatusTestCase(unittest.TestCase):
                 "missing_prokka_outputs",
             )
 
-    def test_main_uses_explicit_primary_busco_column_and_atypical_exception(self) -> None:
+    def test_main_uses_explicit_primary_busco_column_and_atypical_exception(
+        self,
+    ) -> None:
         """Use the configured primary BUSCO lineage and allow the locked exception."""
         with tempfile.TemporaryDirectory() as tmpdir_name:
             tmpdir = Path(tmpdir_name)
@@ -666,8 +678,12 @@ class BuildSampleStatusTestCase(unittest.TestCase):
                 + "\n",
             )
             initial_status_rows = [
-                self.make_initial_status_row(accession="ACC1", internal_id="id_1", is_new="false"),
-                self.make_initial_status_row(accession="ACC2", internal_id="id_2", is_new="false"),
+                self.make_initial_status_row(
+                    accession="ACC1", internal_id="id_1", is_new="false"
+                ),
+                self.make_initial_status_row(
+                    accession="ACC2", internal_id="id_2", is_new="false"
+                ),
             ]
             initial_status = self.write_tsv_rows(
                 tmpdir / "initial_status.tsv",
@@ -700,9 +716,9 @@ class BuildSampleStatusTestCase(unittest.TestCase):
                 tmpdir / "checkm2.tsv",
                 "\n".join(
                     [
-                        'accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings',
-                        'ACC1\t80\t95\t3\t1\t0.8\t0.95\t800\t1000\t700\t920\t11\tmean_gene_length_ratio\t0.8\t1.5\tlength_ratio_at_or_below_threshold\t11\tlength_ratio_at_or_below_threshold\tNA\tfalse\tdone\t',
-                        'ACC2\t80\t94\t3\t1\t0.8\t0.94\t800\t1000\t700\t910\t11\tmean_gene_length_ratio\t0.8\t1.5\tlength_ratio_at_or_below_threshold\t11\tlength_ratio_at_or_below_threshold\tNA\tfalse\tdone\t',
+                        "accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings",
+                        "ACC1\t80\t95\t3\t1\t0.8\t0.95\t800\t1000\t700\t920\t11\tmean_gene_length_ratio\t0.8\t1.5\tlength_ratio_at_or_below_threshold\t11\tlength_ratio_at_or_below_threshold\tNA\tfalse\tdone\t",
+                        "ACC2\t80\t94\t3\t1\t0.8\t0.94\t800\t1000\t700\t910\t11\tmean_gene_length_ratio\t0.8\t1.5\tlength_ratio_at_or_below_threshold\t11\tlength_ratio_at_or_below_threshold\tNA\tfalse\tdone\t",
                     ]
                 )
                 + "\n",
@@ -805,7 +821,9 @@ class BuildSampleStatusTestCase(unittest.TestCase):
                 "ACC1\tfalse\tNA\t/path/one.fna\tid_1\n",
             )
             initial_status_rows = [
-                self.make_initial_status_row(accession="ACC1", internal_id="id_1", is_new="false"),
+                self.make_initial_status_row(
+                    accession="ACC1", internal_id="id_1", is_new="false"
+                ),
             ]
             initial_status = self.write_tsv_rows(
                 tmpdir / "initial_status.tsv",
@@ -830,8 +848,8 @@ class BuildSampleStatusTestCase(unittest.TestCase):
                 tmpdir / "checkm2.tsv",
                 "\n".join(
                     [
-                        'accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings',
-                        'ACC1\t80\t95\t3\t1\t0.8\t0.95\t800\t1000\t700\t920\t11\tmean_gene_length_ratio\t0.8\t1.5\tlength_ratio_at_or_below_threshold\t11\tlength_ratio_at_or_below_threshold\tNA\tfalse\tdone\t',
+                        "accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings",
+                        "ACC1\t80\t95\t3\t1\t0.8\t0.95\t800\t1000\t700\t920\t11\tmean_gene_length_ratio\t0.8\t1.5\tlength_ratio_at_or_below_threshold\t11\tlength_ratio_at_or_below_threshold\tNA\tfalse\tdone\t",
                     ]
                 )
                 + "\n",
@@ -983,8 +1001,8 @@ class BuildSampleStatusTestCase(unittest.TestCase):
             )
             checkm2 = self.write_text_file(
                 tmpdir / "checkm2.tsv",
-                'accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings\n'
-                'ACC1\t80\t95\t3\t1\t0.8\t0.95\t800\t1000\t700\t920\t11\tmean_gene_length_ratio\t0.8\t1.5\tlength_ratio_at_or_below_threshold\t11\tlength_ratio_at_or_below_threshold\tNA\tfalse\tdone\t\n',
+                "accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings\n"
+                "ACC1\t80\t95\t3\t1\t0.8\t0.95\t800\t1000\t700\t920\t11\tmean_gene_length_ratio\t0.8\t1.5\tlength_ratio_at_or_below_threshold\t11\tlength_ratio_at_or_below_threshold\tNA\tfalse\tdone\t\n",
             )
             status_16s = self.write_text_file(
                 tmpdir / "16s.tsv",
@@ -1067,7 +1085,7 @@ class BuildSampleStatusTestCase(unittest.TestCase):
             )
             checkm2 = self.write_text_file(
                 tmpdir / "checkm2.tsv",
-                'accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings\nACC1\t80\t95\t3\t1\t0.8\t0.95\t800\t1000\t700\t920\t11\tmean_gene_length_ratio\t0.8\t1.5\tlength_ratio_at_or_below_threshold\t11\tlength_ratio_at_or_below_threshold\tNA\tfalse\tdone\t\n',
+                "accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings\nACC1\t80\t95\t3\t1\t0.8\t0.95\t800\t1000\t700\t920\t11\tmean_gene_length_ratio\t0.8\t1.5\tlength_ratio_at_or_below_threshold\t11\tlength_ratio_at_or_below_threshold\tNA\tfalse\tdone\t\n",
             )
             status_16s = self.write_text_file(
                 tmpdir / "16s.tsv",
@@ -1115,7 +1133,9 @@ class BuildSampleStatusTestCase(unittest.TestCase):
             self.assertEqual(rows[0]["ani_included"], "true")
             self.assertEqual(rows[0]["ani_exclusion_reason"], "")
 
-    def test_main_still_fails_when_eligible_sample_is_missing_from_ani_summary(self) -> None:
+    def test_main_still_fails_when_eligible_sample_is_missing_from_ani_summary(
+        self,
+    ) -> None:
         """Keep the hard-fail for truly eligible samples missing from ANI output."""
         with tempfile.TemporaryDirectory() as tmpdir_name:
             tmpdir = Path(tmpdir_name)
@@ -1146,7 +1166,7 @@ class BuildSampleStatusTestCase(unittest.TestCase):
             )
             checkm2 = self.write_text_file(
                 tmpdir / "checkm2.tsv",
-                'accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings\nACC1\t80\t95\t3\t1\t0.8\t0.95\t800\t1000\t700\t920\t11\tmean_gene_length_ratio\t0.8\t1.5\tlength_ratio_at_or_below_threshold\t11\tlength_ratio_at_or_below_threshold\tNA\tfalse\tdone\t\n',
+                "accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings\nACC1\t80\t95\t3\t1\t0.8\t0.95\t800\t1000\t700\t920\t11\tmean_gene_length_ratio\t0.8\t1.5\tlength_ratio_at_or_below_threshold\t11\tlength_ratio_at_or_below_threshold\tNA\tfalse\tdone\t\n",
             )
             status_16s = self.write_text_file(
                 tmpdir / "16s.tsv",
@@ -1219,7 +1239,7 @@ class BuildSampleStatusTestCase(unittest.TestCase):
             )
             checkm2 = self.write_text_file(
                 tmpdir / "checkm2.tsv",
-                'accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings\nACC1\t80\t95\t3\t1\t0.8\t0.95\t800\t1000\t700\t920\t11\tmean_gene_length_ratio\t0.8\t1.5\tlength_ratio_at_or_below_threshold\t11\tlength_ratio_at_or_below_threshold\tNA\tfalse\tdone\t\n',
+                "accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tCoding_Density_gcode4\tCoding_Density_gcode11\tAverage_Gene_Length_gcode4\tAverage_Gene_Length_gcode11\tTotal_Coding_Sequences_gcode4\tTotal_Coding_Sequences_gcode11\tGcode\tGcode_Rule\tGcode_Length_Ratio\tGcode_Length_Ratio_Threshold\tGcode_Selection_Reason\tGcode_Automatic\tGcode_Automatic_Reason\tGcode_Review\tLow_quality\tcheckm2_status\twarnings\nACC1\t80\t95\t3\t1\t0.8\t0.95\t800\t1000\t700\t920\t11\tmean_gene_length_ratio\t0.8\t1.5\tlength_ratio_at_or_below_threshold\t11\tlength_ratio_at_or_below_threshold\tNA\tfalse\tdone\t\n",
             )
             status_16s = self.write_text_file(
                 tmpdir / "16s.tsv",

@@ -35,7 +35,9 @@ class RunPipelineTestScriptTestCase(unittest.TestCase):
             "bin/run_pipeline_test.sh [--dry-run] <prepare|unit|stub|local|slurm|dbprep-slurm|all>",
             result.stdout,
         )
-        self.assertIn("Manual wrapper around bin/run_acceptance_tests.py.", result.stdout)
+        self.assertIn(
+            "Manual wrapper around bin/run_acceptance_tests.py.", result.stdout
+        )
         self.assertIn(
             "Host python3 must be >= 3.12 for the acceptance harness and validators.",
             result.stdout,
@@ -88,7 +90,10 @@ class RunPipelineTestScriptTestCase(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Error: unsupported mode bogus.", result.stderr)
-        self.assertIn("Expected one of: prepare unit stub local slurm dbprep-slurm all", result.stderr)
+        self.assertIn(
+            "Expected one of: prepare unit stub local slurm dbprep-slurm all",
+            result.stderr,
+        )
 
     def test_wrapper_forwards_mode_help_to_acceptance_harness(self) -> None:
         """Delegate per-mode help text to the Python harness."""
@@ -105,7 +110,9 @@ class RunPipelineTestScriptTestCase(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0)
         self.assertIn("--singularity-cache-dir SINGULARITY_CACHE_DIR", result.stdout)
-        self.assertIn("--singularity-run-options SINGULARITY_RUN_OPTIONS", result.stdout)
+        self.assertIn(
+            "--singularity-run-options SINGULARITY_RUN_OPTIONS", result.stdout
+        )
         self.assertIn("--slurm-qos SLURM_QOS", result.stdout)
         self.assertNotIn("--slurm-account", result.stdout)
 
@@ -161,7 +168,9 @@ class RunPipelineTestScriptTestCase(unittest.TestCase):
         self.assertIn("preflight_runtime_db_helper_image()", script_text)
         self.assertIn("preflight_host_python()", script_text)
         self.assertIn('readonly MINIMUM_HOST_PYTHON="3.12"', script_text)
-        self.assertIn('readonly NEXTFLOW_CONFIG="${REPO_ROOT}/nextflow.config"', script_text)
+        self.assertIn(
+            'readonly NEXTFLOW_CONFIG="${REPO_ROOT}/nextflow.config"', script_text
+        )
         self.assertIn("params.runtime_db_helper_container", script_text)
         self.assertIn("quay.io/asuq1617/nf-myco_db:0.3", script_text)
         self.assertIn("quay.io/asuq1617/nf-myco_db:0.2", script_text)
@@ -173,11 +182,11 @@ class RunPipelineTestScriptTestCase(unittest.TestCase):
             fake_python = Path(tmpdir) / "python3"
             fake_python.write_text(
                 "#!/usr/bin/env bash\n"
-                "if [[ \"$1\" == \"--version\" ]]; then\n"
+                'if [[ "$1" == "--version" ]]; then\n'
                 "  printf 'Python 3.6.8\\n'\n"
                 "  exit 0\n"
                 "fi\n"
-                "if [[ \"$1\" == \"-c\" ]]; then\n"
+                'if [[ "$1" == "-c" ]]; then\n'
                 "  exit 1\n"
                 "fi\n"
                 "exit 99\n",

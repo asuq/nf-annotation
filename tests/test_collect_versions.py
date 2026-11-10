@@ -99,7 +99,7 @@ class CollectVersionsTestCase(unittest.TestCase):
             tmpdir = Path(tmpdir_name)
             versions_a = self.write_text_file(
                 tmpdir / "validate_versions.yml",
-                '\n'.join(
+                "\n".join(
                     [
                         '"VALIDATE_INPUTS":',
                         '  python: "3.12.1"',
@@ -110,7 +110,7 @@ class CollectVersionsTestCase(unittest.TestCase):
             )
             versions_b = self.write_text_file(
                 tmpdir / "checkm2_versions.yml",
-                '\n'.join(
+                "\n".join(
                     [
                         '"CHECKM2":',
                         '  checkm2: "1.0.2"',
@@ -120,7 +120,7 @@ class CollectVersionsTestCase(unittest.TestCase):
             )
             versions_c = self.write_text_file(
                 tmpdir / "codetta_versions.yml",
-                '\n'.join(
+                "\n".join(
                     [
                         '"CODETTA":',
                         '  codetta: "v2.0"',
@@ -179,17 +179,16 @@ class CollectVersionsTestCase(unittest.TestCase):
             self.assertEqual(list(rows[0]), list(collect_versions.OUTPUT_COLUMNS))
 
             row_map = {
-                (row["component"], row["kind"], row["notes"]): row
-                for row in rows
+                (row["component"], row["kind"], row["notes"]): row for row in rows
             }
             self.assertEqual(
                 row_map[("nextflow", "runtime", "workflow")]["version"],
                 "25.04.8",
             )
             self.assertEqual(
-                row_map[("busco_datasets", "database", "Configured BUSCO lineages in order")][
-                    "version"
-                ],
+                row_map[
+                    ("busco_datasets", "database", "Configured BUSCO lineages in order")
+                ]["version"],
                 "bacillota_odb12;mycoplasmatota_odb12",
             )
             self.assertEqual(
@@ -205,7 +204,9 @@ class CollectVersionsTestCase(unittest.TestCase):
                 "python:3.12",
             )
             self.assertEqual(
-                row_map[("codetta_db", "database", "Codetta profile database")]["version"],
+                row_map[("codetta_db", "database", "Codetta profile database")][
+                    "version"
+                ],
                 "Pfam35_Shulgina21",
             )
             self.assertEqual(
@@ -229,11 +230,15 @@ class CollectVersionsTestCase(unittest.TestCase):
                 "v2.0",
             )
             self.assertEqual(
-                row_map[("codetta", "container", "params container reference")]["image_or_path"],
+                row_map[("codetta", "container", "params container reference")][
+                    "image_or_path"
+                ],
                 "quay.io/asuq1617/codetta:2.0",
             )
             self.assertEqual(
-                row_map[("python", "runtime", "reported by VALIDATE_INPUTS")]["version"],
+                row_map[("python", "runtime", "reported by VALIDATE_INPUTS")][
+                    "version"
+                ],
                 "3.12.1",
             )
             self.assertEqual(
@@ -270,7 +275,7 @@ class CollectVersionsTestCase(unittest.TestCase):
             tmpdir = Path(tmpdir_name)
             versions = self.write_text_file(
                 tmpdir / "versions.yml",
-                '\n'.join(
+                "\n".join(
                     [
                         '"DOWNLOAD_BUSCO_DATASET":',
                         '  busco: "BUSCO 6.0.0"',
@@ -302,7 +307,7 @@ class CollectVersionsTestCase(unittest.TestCase):
             tmpdir = Path(tmpdir_name)
             versions = self.write_text_file(
                 tmpdir / "versions.yml",
-                '\n'.join(
+                "\n".join(
                     [
                         '"STAGE_INPUTS":',
                         '  seqtk: "',
@@ -332,7 +337,7 @@ class CollectVersionsTestCase(unittest.TestCase):
             tmpdir = Path(tmpdir_name)
             versions = self.write_text_file(
                 tmpdir / "versions.yml",
-                '\n'.join(
+                "\n".join(
                     [
                         '    "PER_SAMPLE_ANNOTATION:EGGNOG":',
                         '      eggnog_mapper: "2.1.13"',
@@ -360,7 +365,7 @@ class CollectVersionsTestCase(unittest.TestCase):
             tmpdir = Path(tmpdir_name)
             versions = self.write_text_file(
                 tmpdir / "versions.yml",
-                '\n'.join(
+                "\n".join(
                     [
                         '"PER_SAMPLE_ANNOTATION:EGGNOG":',
                         '  eggnog_mapper: "2.1.13"',
@@ -381,9 +386,7 @@ class CollectVersionsTestCase(unittest.TestCase):
 
             self.assertEqual(exit_code, 0)
             rows = read_tsv(output)
-            eggnog_rows = [
-                row for row in rows if row["component"] == "eggnog_mapper"
-            ]
+            eggnog_rows = [row for row in rows if row["component"] == "eggnog_mapper"]
             self.assertEqual(len(eggnog_rows), 1)
             self.assertEqual(eggnog_rows[0]["version"], "2.1.13")
 
@@ -394,7 +397,7 @@ class CollectVersionsTestCase(unittest.TestCase):
             version_dir = tmpdir / "version_files"
             self.write_text_file(
                 version_dir / "versions01.yml",
-                '\n'.join(
+                "\n".join(
                     [
                         '"PER_SAMPLE_QC:BARRNAP":',
                         '  barrnap: "0.9"',
@@ -404,7 +407,7 @@ class CollectVersionsTestCase(unittest.TestCase):
             )
             self.write_text_file(
                 version_dir / "versions02.yml",
-                '\n'.join(
+                "\n".join(
                     [
                         '"PER_SAMPLE_QC:BARRNAP":',
                         '  barrnap: "0.9"',
@@ -440,7 +443,7 @@ class CollectVersionsTestCase(unittest.TestCase):
             version_dir = tmpdir / "version_files"
             self.write_text_file(
                 version_dir / "versions01.yml",
-                '\n'.join(
+                "\n".join(
                     [
                         '"PER_SAMPLE_QC:BARRNAP":',
                         '  barrnap: "0.9"',
@@ -450,7 +453,7 @@ class CollectVersionsTestCase(unittest.TestCase):
             )
             self.write_text_file(
                 version_dir / "versions02.yml",
-                '\n'.join(
+                "\n".join(
                     [
                         '"PER_SAMPLE_QC:BARRNAP":',
                         '  barrnap: "0.10"',
@@ -479,11 +482,11 @@ class CollectVersionsTestCase(unittest.TestCase):
             version_dir = tmpdir / "version_files"
             self.write_text_file(
                 version_dir / "versions01.yml",
-                '\n'.join(
+                "\n".join(
                     [
                         '    "COHORT_16S:BUILD_COHORT_16S":',
                         '      python: "3.12.13"',
-                        '    EOF',
+                        "    EOF",
                     ]
                 )
                 + "\n",
@@ -509,7 +512,7 @@ class CollectVersionsTestCase(unittest.TestCase):
             version_dir = tmpdir / "version_files"
             direct_file = self.write_text_file(
                 tmpdir / "direct_versions.yml",
-                '\n'.join(
+                "\n".join(
                     [
                         '"INPUT_VALIDATION_AND_STAGING:VALIDATE_INPUTS":',
                         '  python: "3.12.13"',
@@ -519,7 +522,7 @@ class CollectVersionsTestCase(unittest.TestCase):
             )
             self.write_text_file(
                 version_dir / "versions01.yml",
-                '\n'.join(
+                "\n".join(
                     [
                         '"PER_SAMPLE_QC:BARRNAP":',
                         '  barrnap: "0.9"',

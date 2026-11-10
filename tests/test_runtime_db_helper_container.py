@@ -38,12 +38,16 @@ class RuntimeDbHelperContainerContractTestCase(unittest.TestCase):
         self.assertIn("COPY bin/prepare_runtime_databases.py", dockerfile_text)
         self.assertIn("COPY bin/finalise_runtime_database.py", dockerfile_text)
         self.assertIn("COPY bin/merge_runtime_database_reports.py", dockerfile_text)
-        self.assertIn("COPY assets/runtime/runtime_database_sources.json", dockerfile_text)
         self.assertIn(
-            'ENV NF_MYCO_RUNTIME_DB_SOURCE_MANIFEST=/opt/nf-myco_annotation/runtime_database_sources.json',
+            "COPY assets/runtime/runtime_database_sources.json", dockerfile_text
+        )
+        self.assertIn(
+            "ENV NF_MYCO_RUNTIME_DB_SOURCE_MANIFEST=/opt/nf-myco_annotation/runtime_database_sources.json",
             dockerfile_text,
         )
-        helper_text = (ROOT / "bin" / "prepare_runtime_databases.py").read_text(encoding="utf-8")
+        helper_text = (ROOT / "bin" / "prepare_runtime_databases.py").read_text(
+            encoding="utf-8"
+        )
         self.assertIn("NF_MYCO_RUNTIME_DB_SOURCE_MANIFEST", helper_text)
         self.assertIn("--codetta-source", helper_text)
         self.assertIn("--codetta-dest", helper_text)

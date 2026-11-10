@@ -38,13 +38,18 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
         self.assertIn("download_missing_databases = false", config_text)
         self.assertIn("force_runtime_database_rebuild = false", config_text)
         self.assertIn("gcode_rule = 'mean_gene_length_ratio'", config_text)
-        self.assertIn("runtime_db_helper_container = 'quay.io/asuq1617/nf-myco_db:0.3'", config_text)
+        self.assertIn(
+            "runtime_db_helper_container = 'quay.io/asuq1617/nf-myco_db:0.3'",
+            config_text,
+        )
         self.assertIn("runtime_db_scratch_root = null", config_text)
         self.assertIn("task_attempts = 3", config_text)
         self.assertIn("soft_fail_attempts = 3", config_text)
         self.assertIn("taxdump_version = null", config_text)
         self.assertIn("db_download_attempts = 2", config_text)
-        self.assertIn("annotation_tools = 'eggnog,cogclassifier,pfam,kofam,padloc'", config_text)
+        self.assertIn(
+            "annotation_tools = 'eggnog,cogclassifier,pfam,kofam,padloc'", config_text
+        )
         self.assertIn("singularity_cache_dir = null", config_text)
         self.assertIn("singularity_run_options = ''", config_text)
         self.assertIn("slurm_qos = null", config_text)
@@ -92,13 +97,18 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
         self.assertTrue(OIST_CONFIG.is_file())
         self.assertTrue(shared_oist.is_file())
         self.assertIn("includeConfig 'conf/oist.config'", config_text)
-        self.assertIn('includeConfig "${projectDir}/external/nf-helper/conf/sites/oist.config"', oist_text)
+        self.assertIn(
+            'includeConfig "${projectDir}/external/nf-helper/conf/sites/oist.config"',
+            oist_text,
+        )
         self.assertIn("profiles {", oist_text)
         self.assertIn("oist {", oist_text)
         self.assertIn("max_memory = 500.GB", oist_text)
         self.assertIn("max_time = 2.h", oist_text)
         self.assertIn("queue = params.slurm_queue ?: 'short'", oist_text)
-        self.assertIn("containerOptions = params.singularity_run_options ?: ''", oist_text)
+        self.assertIn(
+            "containerOptions = params.singularity_run_options ?: ''", oist_text
+        )
         self.assertIn("withLabel: process_medium", oist_text)
         self.assertIn("withLabel: process_high", oist_text)
         self.assertNotIn("def buildSlurmClusterOptions", oist_text)
@@ -113,17 +123,32 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
         self.assertTrue(GWDG_CONFIG.is_file())
         self.assertTrue(shared_gwdg.is_file())
         self.assertIn("includeConfig 'conf/gwdg.config'", config_text)
-        self.assertIn('includeConfig "${projectDir}/external/nf-helper/conf/sites/gwdg.config"', gwdg_text)
+        self.assertIn(
+            'includeConfig "${projectDir}/external/nf-helper/conf/sites/gwdg.config"',
+            gwdg_text,
+        )
         self.assertIn("profiles {", gwdg_text)
         self.assertIn("gwdg {", gwdg_text)
         self.assertIn("withLabel: process_medium", gwdg_text)
         self.assertIn("withLabel: process_high", gwdg_text)
-        self.assertIn("cpus = { Math.min(16 * task.attempt, params.max_cpus as int) }", gwdg_text)
-        self.assertIn("memory = { [50.GB * task.attempt, params.max_memory].min() }", gwdg_text)
-        self.assertIn("time = { [6.h * task.attempt, params.max_time].min() }", gwdg_text)
-        self.assertIn("cpus = { Math.min(64 * task.attempt, params.max_cpus as int) }", gwdg_text)
-        self.assertIn("memory = { [200.GB * task.attempt, params.max_memory].min() }", gwdg_text)
-        self.assertIn("time = { [1.d * task.attempt, params.max_time].min() }", gwdg_text)
+        self.assertIn(
+            "cpus = { Math.min(16 * task.attempt, params.max_cpus as int) }", gwdg_text
+        )
+        self.assertIn(
+            "memory = { [50.GB * task.attempt, params.max_memory].min() }", gwdg_text
+        )
+        self.assertIn(
+            "time = { [6.h * task.attempt, params.max_time].min() }", gwdg_text
+        )
+        self.assertIn(
+            "cpus = { Math.min(64 * task.attempt, params.max_cpus as int) }", gwdg_text
+        )
+        self.assertIn(
+            "memory = { [200.GB * task.attempt, params.max_memory].min() }", gwdg_text
+        )
+        self.assertIn(
+            "time = { [1.d * task.attempt, params.max_time].min() }", gwdg_text
+        )
         self.assertIn("withName: PROKKA", gwdg_text)
         self.assertIn("container = { params.prokka_container }", gwdg_text)
         self.assertIn("withName: CALCULATE_ASSEMBLY_STATS", gwdg_text)
@@ -136,12 +161,17 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
         """Expose Marmic as a reusable shared site profile."""
         config_text = NEXTFLOW_CONFIG.read_text(encoding="utf-8")
         marmic_text = MARMIC_CONFIG.read_text(encoding="utf-8")
-        shared_marmic = ROOT / "external" / "nf-helper" / "conf" / "sites" / "marmic.config"
+        shared_marmic = (
+            ROOT / "external" / "nf-helper" / "conf" / "sites" / "marmic.config"
+        )
 
         self.assertTrue(MARMIC_CONFIG.is_file())
         self.assertTrue(shared_marmic.is_file())
         self.assertIn("includeConfig 'conf/marmic.config'", config_text)
-        self.assertIn('includeConfig "${projectDir}/external/nf-helper/conf/sites/marmic.config"', marmic_text)
+        self.assertIn(
+            'includeConfig "${projectDir}/external/nf-helper/conf/sites/marmic.config"',
+            marmic_text,
+        )
         self.assertNotIn("assembly", marmic_text)
         self.assertNotIn("trace {", marmic_text)
 
@@ -149,7 +179,9 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
         """Keep Viper site defaults shared and all internet selectors explicit."""
         config_text = NEXTFLOW_CONFIG.read_text(encoding="utf-8")
         viper_text = VIPER_CPU_CONFIG.read_text(encoding="utf-8")
-        shared_viper = ROOT / "external" / "nf-helper" / "conf" / "sites" / "viper-cpu.config"
+        shared_viper = (
+            ROOT / "external" / "nf-helper" / "conf" / "sites" / "viper-cpu.config"
+        )
 
         self.assertTrue(VIPER_CPU_CONFIG.is_file())
         self.assertTrue(shared_viper.is_file())
@@ -204,10 +236,16 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
         """Use the cleaned CRISPRCasFinder image tag by default."""
         config_text = NEXTFLOW_CONFIG.read_text(encoding="utf-8")
 
-        self.assertIn("ccfinder_container = 'quay.io/asuq1617/ccfinder:4.2.30'", config_text)
-        self.assertNotIn("ccfinder_container = 'quay.io/asuq1617/ccfinder:4.3.2'", config_text)
+        self.assertIn(
+            "ccfinder_container = 'quay.io/asuq1617/ccfinder:4.2.30'", config_text
+        )
+        self.assertNotIn(
+            "ccfinder_container = 'quay.io/asuq1617/ccfinder:4.3.2'", config_text
+        )
 
-    def test_native_annotation_containers_use_published_immutable_references(self) -> None:
+    def test_native_annotation_containers_use_published_immutable_references(
+        self,
+    ) -> None:
         text = NEXTFLOW_CONFIG.read_text()
         for tool in ("eggnog", "cogclassifier", "pfam", "kofam", "padloc"):
             self.assertRegex(
@@ -219,7 +257,9 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
         """Use the fixed Prokka image tag by default."""
         config_text = NEXTFLOW_CONFIG.read_text(encoding="utf-8")
 
-        self.assertIn("prokka_container = 'quay.io/asuq1617/prokka:1.15.6'", config_text)
+        self.assertIn(
+            "prokka_container = 'quay.io/asuq1617/prokka:1.15.6'", config_text
+        )
         self.assertNotIn(
             "prokka_container = 'quay.io/biocontainers/prokka:1.15.6--pl5321hdfd78af_0'",
             config_text,
@@ -261,18 +301,35 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
             "maxRetries = { Math.max((params.task_attempts as int) - 1, 0) }",
             config_text,
         )
-        self.assertIn("withName: CLUSTER_ANI {\n        container = { params.python_container }", config_text)
-        self.assertIn("withName: SUMMARISE_16S {\n        container = { params.python_container }", config_text)
-        self.assertIn("withName: WRITE_SAMPLE_STATUS {\n        container = { params.python_container }", config_text)
+        self.assertIn(
+            "withName: CLUSTER_ANI {\n        container = { params.python_container }",
+            config_text,
+        )
+        self.assertIn(
+            "withName: SUMMARISE_16S {\n        container = { params.python_container }",
+            config_text,
+        )
+        self.assertIn(
+            "withName: WRITE_SAMPLE_STATUS {\n        container = { params.python_container }",
+            config_text,
+        )
 
     def test_seqtk_helper_processes_are_pinned_explicitly(self) -> None:
         """Keep seqtk-backed helper processes on the shared seqtk image."""
         config_text = BASE_CONFIG.read_text(encoding="utf-8")
 
-        self.assertIn("withName: STAGE_INPUTS {\n        container = { params.seqtk_container }", config_text)
-        self.assertIn("withName: CALCULATE_ASSEMBLY_STATS {\n        container = { params.seqtk_container }", config_text)
+        self.assertIn(
+            "withName: STAGE_INPUTS {\n        container = { params.seqtk_container }",
+            config_text,
+        )
+        self.assertIn(
+            "withName: CALCULATE_ASSEMBLY_STATS {\n        container = { params.seqtk_container }",
+            config_text,
+        )
 
-    def test_runtime_database_prep_processes_use_the_dedicated_helper_image(self) -> None:
+    def test_runtime_database_prep_processes_use_the_dedicated_helper_image(
+        self,
+    ) -> None:
         """Keep the prep entry point on the dedicated runtime DB helper image."""
         root_config_text = NEXTFLOW_CONFIG.read_text(encoding="utf-8")
         config_text = BASE_CONFIG.read_text(encoding="utf-8")
@@ -286,12 +343,16 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
             "maxRetries = { Math.max((params.db_download_attempts as int) - 1, 0) }",
             config_text,
         )
-        self.assertIn("withName: DOWNLOAD_BUSCO_DATASET {\n        errorStrategy = {", config_text)
+        self.assertIn(
+            "withName: DOWNLOAD_BUSCO_DATASET {\n        errorStrategy = {", config_text
+        )
         self.assertIn(
             "withName: DOWNLOAD_BUSCO_DATASET {\n        errorStrategy = {\n            task.attempt <= Math.max((params.db_download_attempts as int) - 1, 0)",
             config_text,
         )
-        self.assertIn("withLabel: prep_taxdump_database {\n        errorStrategy = {", config_text)
+        self.assertIn(
+            "withLabel: prep_taxdump_database {\n        errorStrategy = {", config_text
+        )
         self.assertIn(
             "withLabel: prep_codetta_database {\n        errorStrategy = {",
             config_text,
@@ -329,7 +390,7 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
         prep_text = PREP_WORKFLOW.read_text(encoding="utf-8")
 
         self.assertIn("if (!params.codetta_db) {", main_text)
-        self.assertIn("error \"params.codetta_db is required.\"", main_text)
+        self.assertIn('error "params.codetta_db is required."', main_text)
         self.assertIn("destinations.codetta", prep_text)
         self.assertIn("codettaRequest", prep_text)
 
@@ -349,8 +410,12 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
         self.assertNotIn("def buildSlurmClusterOptions", slurm_text)
         self.assertIn("process.clusterOptions = {", slurm_text)
         self.assertIn("params.slurm_cluster_options instanceof Boolean", slurm_text)
-        self.assertIn("Use --slurm_qos 2h or --slurm_cluster_options='--qos=2h'.", slurm_text)
-        self.assertIn('params.slurm_qos ? "--qos=${params.slurm_qos}" : null', slurm_text)
+        self.assertIn(
+            "Use --slurm_qos 2h or --slurm_cluster_options='--qos=2h'.", slurm_text
+        )
+        self.assertIn(
+            'params.slurm_qos ? "--qos=${params.slurm_qos}" : null', slurm_text
+        )
         self.assertIn("params.slurm_cluster_options ?: null", slurm_text)
         self.assertNotIn("errorStrategy", slurm_text)
 
@@ -366,12 +431,26 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
         """Allow resumed local runs to rewrite pipeline info artefacts safely."""
         config_text = BASE_CONFIG.read_text(encoding="utf-8")
 
-        self.assertIn("timeline {\n    enabled = true\n    file = \"${params.outdir}/pipeline_info/timeline.html\"\n    overwrite = true", config_text)
-        self.assertIn("report {\n    enabled = true\n    file = \"${params.outdir}/pipeline_info/report.html\"\n    overwrite = true", config_text)
-        self.assertIn("trace {\n    enabled = true\n    file = \"${params.outdir}/pipeline_info/trace.tsv\"\n    overwrite = true", config_text)
-        self.assertIn("dag {\n    enabled = true\n    file = \"${params.outdir}/pipeline_info/dag.html\"\n    overwrite = true", config_text)
+        self.assertIn(
+            'timeline {\n    enabled = true\n    file = "${params.outdir}/pipeline_info/timeline.html"\n    overwrite = true',
+            config_text,
+        )
+        self.assertIn(
+            'report {\n    enabled = true\n    file = "${params.outdir}/pipeline_info/report.html"\n    overwrite = true',
+            config_text,
+        )
+        self.assertIn(
+            'trace {\n    enabled = true\n    file = "${params.outdir}/pipeline_info/trace.tsv"\n    overwrite = true',
+            config_text,
+        )
+        self.assertIn(
+            'dag {\n    enabled = true\n    file = "${params.outdir}/pipeline_info/dag.html"\n    overwrite = true',
+            config_text,
+        )
 
-    def test_prepare_workflow_registers_shared_process_names_without_global_suppression(self) -> None:
+    def test_prepare_workflow_registers_shared_process_names_without_global_suppression(
+        self,
+    ) -> None:
         """Keep prep-only selector handling out of the main workflow entry point."""
         prep_text = PREP_WORKFLOW.read_text(encoding="utf-8")
         main_text = MAIN_WORKFLOW.read_text(encoding="utf-8")
@@ -384,8 +463,12 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
             "include { PER_SAMPLE_ANNOTATION as UNUSED_PER_SAMPLE_ANNOTATION }",
             prep_text,
         )
-        self.assertNotIn("nextflow.enable.configProcessNamesValidation = false", prep_text)
-        self.assertNotIn("nextflow.enable.configProcessNamesValidation = false", main_text)
+        self.assertNotIn(
+            "nextflow.enable.configProcessNamesValidation = false", prep_text
+        )
+        self.assertNotIn(
+            "nextflow.enable.configProcessNamesValidation = false", main_text
+        )
 
 
 if __name__ == "__main__":

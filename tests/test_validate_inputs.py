@@ -33,10 +33,20 @@ class ValidateInputsTestCase(unittest.TestCase):
             (launch / "genome.fna").write_text(">contig\nACGT\n")
             rows, _ = validate_inputs.validate_samples(
                 validate_inputs.REQUIRED_SAMPLE_COLUMNS,
-                [dict(accession="A", is_new="true", assembly_level="Scaffold",
-                      genome_fasta="genome.fna")], {}, genome_base_dir=launch,
+                [
+                    dict(
+                        accession="A",
+                        is_new="true",
+                        assembly_level="Scaffold",
+                        genome_fasta="genome.fna",
+                    )
+                ],
+                {},
+                genome_base_dir=launch,
             )
-            self.assertEqual(rows[0].values["genome_fasta"], str((launch / "genome.fna").resolve()))
+            self.assertEqual(
+                rows[0].values["genome_fasta"], str((launch / "genome.fna").resolve())
+            )
 
     def test_empty_manifest_is_rejected(self) -> None:
         with self.assertRaisesRegex(validate_inputs.ValidationError, "at least one"):
@@ -101,10 +111,16 @@ class ValidateInputsTestCase(unittest.TestCase):
             self.assertEqual(validated_rows[1]["is_new"], "true")
             self.assertEqual(validated_rows[0]["assembly_level"], "NA")
             self.assertEqual(validated_rows[1]["assembly_level"], "Scaffold")
-            self.assertEqual(validated_rows[0]["genome_fasta"], str(fasta_one.resolve()))
-            self.assertEqual(validated_rows[1]["genome_fasta"], str(fasta_two.resolve()))
+            self.assertEqual(
+                validated_rows[0]["genome_fasta"], str(fasta_one.resolve())
+            )
+            self.assertEqual(
+                validated_rows[1]["genome_fasta"], str(fasta_two.resolve())
+            )
 
-            internal_ids = {row["accession"]: row["internal_id"] for row in accession_map_rows}
+            internal_ids = {
+                row["accession"]: row["internal_id"] for row in accession_map_rows
+            }
             self.assertEqual(len(set(internal_ids.values())), 2)
             self.assertTrue(internal_ids["ACC-1"].startswith("ACC_1_"))
             self.assertTrue(internal_ids["ACC 1"].startswith("ACC_1_"))
@@ -161,9 +177,15 @@ class ValidateInputsTestCase(unittest.TestCase):
         """Canonicalise sample-manifest assembly levels before staging outputs."""
         with tempfile.TemporaryDirectory() as tmpdir_name:
             tmpdir = Path(tmpdir_name)
-            fasta_one = self.write_text_file(tmpdir / "genomes" / "one.fna", ">a\nACGT\n")
-            fasta_two = self.write_text_file(tmpdir / "genomes" / "two.fna", ">b\nTGCA\n")
-            fasta_three = self.write_text_file(tmpdir / "genomes" / "three.fna", ">c\nGATC\n")
+            fasta_one = self.write_text_file(
+                tmpdir / "genomes" / "one.fna", ">a\nACGT\n"
+            )
+            fasta_two = self.write_text_file(
+                tmpdir / "genomes" / "two.fna", ">b\nTGCA\n"
+            )
+            fasta_three = self.write_text_file(
+                tmpdir / "genomes" / "three.fna", ">c\nGATC\n"
+            )
             sample_csv = self.write_text_file(
                 tmpdir / "samples.csv",
                 "\n".join(
@@ -201,7 +223,8 @@ class ValidateInputsTestCase(unittest.TestCase):
 
             self.assertEqual(exit_code, 0)
             validated_rows = {
-                row["accession"]: row for row in read_tsv(outdir / "validated_samples.tsv")
+                row["accession"]: row
+                for row in read_tsv(outdir / "validated_samples.tsv")
             }
             accession_map_rows = {
                 row["accession"]: row for row in read_tsv(outdir / "accession_map.tsv")
@@ -217,7 +240,9 @@ class ValidateInputsTestCase(unittest.TestCase):
         """Allow one valid sample-status contract file to be provided explicitly."""
         with tempfile.TemporaryDirectory() as tmpdir_name:
             tmpdir = Path(tmpdir_name)
-            fasta_path = self.write_text_file(tmpdir / "genomes" / "a.fna", ">a\nACGT\n")
+            fasta_path = self.write_text_file(
+                tmpdir / "genomes" / "a.fna", ">a\nACGT\n"
+            )
             sample_csv = self.write_text_file(
                 tmpdir / "samples.csv",
                 "\n".join(
@@ -269,7 +294,9 @@ class ValidateInputsTestCase(unittest.TestCase):
         """Seed BUSCO status columns directly from configured lineage names."""
         with tempfile.TemporaryDirectory() as tmpdir_name:
             tmpdir = Path(tmpdir_name)
-            fasta_path = self.write_text_file(tmpdir / "genomes" / "a.fna", ">a\nACGT\n")
+            fasta_path = self.write_text_file(
+                tmpdir / "genomes" / "a.fna", ">a\nACGT\n"
+            )
             sample_csv = self.write_text_file(
                 tmpdir / "samples.csv",
                 "accession,is_new,assembly_level,genome_fasta\n"
@@ -676,7 +703,9 @@ class ValidateInputsTestCase(unittest.TestCase):
 
             self.assertEqual(exit_code, 0)
             validated_rows = read_tsv(outdir / "validated_samples.tsv")
-            self.assertEqual(validated_rows[0]["genome_fasta"], str(missing_fasta_path.resolve()))
+            self.assertEqual(
+                validated_rows[0]["genome_fasta"], str(missing_fasta_path.resolve())
+            )
 
     def test_main_rejects_accessions_that_sanitise_to_empty_ids(self) -> None:
         """Fail when sanitisation removes every character from the accession."""
@@ -756,7 +785,9 @@ class ValidateInputsTestCase(unittest.TestCase):
         self.assertEqual(validate_inputs.sanitise_accession("A-B C"), "A_B_C")
         self.assertEqual(validate_inputs.sanitise_accession("A__B"), "A_B")
         self.assertEqual(validate_inputs.sanitise_accession("__A--B__"), "A_B")
-        self.assertEqual(validate_inputs.sanitise_accession("Acc\u00e9ssion"), "Acc_ssion")
+        self.assertEqual(
+            validate_inputs.sanitise_accession("Acc\u00e9ssion"), "Acc_ssion"
+        )
 
     def test_add_collision_suffixes_is_deterministic(self) -> None:
         """Assign the same collision suffixes regardless of input ordering."""

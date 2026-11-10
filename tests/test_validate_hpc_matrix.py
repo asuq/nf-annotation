@@ -163,11 +163,7 @@ class ValidateHpcMatrixTestCase(unittest.TestCase):
             outdir = root / "out"
             write_text(
                 outdir / "tables" / "master_table.tsv",
-                (
-                    "Accession\tphylum\n"
-                    "ACC1\tMycoplasmatota\n"
-                    "ACC2\tBacillota\n"
-                ),
+                ("Accession\tphylum\nACC1\tMycoplasmatota\nACC2\tBacillota\n"),
             )
             write_text(
                 outdir / "tables" / "sample_status.tsv",
@@ -207,11 +203,7 @@ class ValidateHpcMatrixTestCase(unittest.TestCase):
             outdir = root / "out"
             write_text(
                 outdir / "tables" / "master_table.tsv",
-                (
-                    "Accession\tphylum\n"
-                    "ACC1\tMycoplasmatota\n"
-                    "ACC2\tBacillota\n"
-                ),
+                ("Accession\tphylum\nACC1\tMycoplasmatota\nACC2\tBacillota\n"),
             )
             write_text(
                 outdir / "tables" / "sample_status.tsv",
@@ -251,18 +243,16 @@ class ValidateHpcMatrixTestCase(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("unexpected medium sample-status failures", result.stderr)
 
-    def test_medium_run_validation_accepts_isolated_secondary_busco_failure(self) -> None:
+    def test_medium_run_validation_accepts_isolated_secondary_busco_failure(
+        self,
+    ) -> None:
         """Allow one medium run where only the non-primary BUSCO lineage failed."""
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             outdir = root / "out"
             write_text(
                 outdir / "tables" / "master_table.tsv",
-                (
-                    "Accession\tphylum\n"
-                    "ACC1\tMycoplasmatota\n"
-                    "ACC2\tBacillota\n"
-                ),
+                ("Accession\tphylum\nACC1\tMycoplasmatota\nACC2\tBacillota\n"),
             )
             write_text(
                 outdir / "tables" / "sample_status.tsv",
@@ -359,7 +349,10 @@ class ValidateHpcMatrixTestCase(unittest.TestCase):
                 missing_metadata_case_accessions=set(),
             )
 
-        self.assertIn("Observed unexpected phylum=NA rows in medium run: ACC_BAD", str(context.exception))
+        self.assertIn(
+            "Observed unexpected phylum=NA rows in medium run: ACC_BAD",
+            str(context.exception),
+        )
 
     def test_medium_status_helper_rejects_second_failed_status(self) -> None:
         """Reject one medium row when any second failed status appears."""
@@ -373,7 +366,9 @@ class ValidateHpcMatrixTestCase(unittest.TestCase):
                 ),
             )
 
-            with self.assertRaises(validate_hpc_matrix.ValidateHpcMatrixError) as context:
+            with self.assertRaises(
+                validate_hpc_matrix.ValidateHpcMatrixError
+            ) as context:
                 validate_hpc_matrix.assert_medium_statuses_allowed(status_path)
 
             self.assertIn(
@@ -393,7 +388,9 @@ class ValidateHpcMatrixTestCase(unittest.TestCase):
                 ),
             )
 
-            with self.assertRaises(validate_hpc_matrix.ValidateHpcMatrixError) as context:
+            with self.assertRaises(
+                validate_hpc_matrix.ValidateHpcMatrixError
+            ) as context:
                 validate_hpc_matrix.assert_medium_statuses_allowed(status_path)
 
             self.assertIn(
@@ -413,7 +410,9 @@ class ValidateHpcMatrixTestCase(unittest.TestCase):
                 ),
             )
 
-            with self.assertRaises(validate_hpc_matrix.ValidateHpcMatrixError) as context:
+            with self.assertRaises(
+                validate_hpc_matrix.ValidateHpcMatrixError
+            ) as context:
                 validate_hpc_matrix.assert_medium_statuses_allowed(status_path)
 
             self.assertIn(
@@ -421,7 +420,9 @@ class ValidateHpcMatrixTestCase(unittest.TestCase):
                 str(context.exception),
             )
 
-    def test_medium_status_helper_rejects_secondary_busco_failure_without_expected_warning(self) -> None:
+    def test_medium_status_helper_rejects_secondary_busco_failure_without_expected_warning(
+        self,
+    ) -> None:
         """Reject one medium row when a secondary BUSCO failure lacks the expected warning."""
         with tempfile.TemporaryDirectory() as tmpdir:
             status_path = Path(tmpdir) / "sample_status.tsv"
@@ -433,7 +434,9 @@ class ValidateHpcMatrixTestCase(unittest.TestCase):
                 ),
             )
 
-            with self.assertRaises(validate_hpc_matrix.ValidateHpcMatrixError) as context:
+            with self.assertRaises(
+                validate_hpc_matrix.ValidateHpcMatrixError
+            ) as context:
                 validate_hpc_matrix.assert_medium_statuses_allowed(status_path)
 
             self.assertIn(
@@ -447,16 +450,17 @@ class ValidateHpcMatrixTestCase(unittest.TestCase):
             status_path = Path(tmpdir) / "sample_status.tsv"
             write_text(
                 status_path,
-                (
-                    "accession\tgcode_status\twarnings\n"
-                    "ACC1\tfailed\tgcode_na\n"
-                ),
+                ("accession\tgcode_status\twarnings\nACC1\tfailed\tgcode_na\n"),
             )
 
-            with self.assertRaises(validate_hpc_matrix.ValidateHpcMatrixError) as context:
+            with self.assertRaises(
+                validate_hpc_matrix.ValidateHpcMatrixError
+            ) as context:
                 validate_hpc_matrix.assert_no_failed_statuses(status_path)
 
-            self.assertIn("Found failed sample-status rows: ACC1", str(context.exception))
+            self.assertIn(
+                "Found failed sample-status rows: ACC1", str(context.exception)
+            )
 
 
 if __name__ == "__main__":

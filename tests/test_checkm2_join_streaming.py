@@ -56,7 +56,9 @@ class Checkm2JoinStreamingTestCase(unittest.TestCase):
         )
         return path
 
-    def run_workflow(self, workflow_path: Path, run_dir: Path) -> subprocess.CompletedProcess[str]:
+    def run_workflow(
+        self, workflow_path: Path, run_dir: Path
+    ) -> subprocess.CompletedProcess[str]:
         """Run one temporary Nextflow workflow with local state isolated to the tempdir."""
         environment = os.environ.copy()
         environment["NXF_ANSI_LOG"] = "false"
@@ -81,7 +83,9 @@ class Checkm2JoinStreamingTestCase(unittest.TestCase):
             emissions.append((accession, int(elapsed_millis)))
         return emissions
 
-    @unittest.skipUnless(NEXTFLOW is not None, "nextflow is required for join-streaming tests.")
+    @unittest.skipUnless(
+        NEXTFLOW is not None, "nextflow is required for join-streaming tests."
+    )
     def test_join_emits_early_pair_before_late_pair_finishes(self) -> None:
         """Emit the first accession well before the slow second pair completes."""
         with tempfile.TemporaryDirectory() as tmpdir_name:
