@@ -8,13 +8,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 BIN_DIR = ROOT / "bin"
 if str(BIN_DIR) not in sys.path:
     sys.path.insert(0, str(BIN_DIR))
 
-import select_ani_representatives  # noqa: E402
+import select_ani_representatives
 
 
 def read_tsv_rows(path: Path) -> tuple[list[str], list[dict[str, str]]]:
@@ -22,7 +21,7 @@ def read_tsv_rows(path: Path) -> tuple[list[str], list[dict[str, str]]]:
     with path.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle, delimiter="\t")
         assert reader.fieldnames is not None
-        return reader.fieldnames, list(reader)
+        return list(reader.fieldnames or []), list(reader)
 
 
 class SelectAniRepresentativesTestCase(unittest.TestCase):
@@ -40,35 +39,25 @@ class SelectAniRepresentativesTestCase(unittest.TestCase):
             tmpdir = Path(tmpdir_name)
             ani_clusters = self.write_text_file(
                 tmpdir / "cluster.tsv",
-                "\n".join(
-                    [
-                        "Accession\tCluster_ID\tMatrix_Name",
-                        "ACC1\tC000001\tfastani_inputs/ACC1.fasta",
-                        "ACC2\tC000001\tfastani_inputs/ACC2.fasta",
-                    ]
+                (
+                    "Accession\tCluster_ID\tMatrix_Name\n"
+                    "ACC1\tC000001\tfastani_inputs/ACC1.fasta\n"
+                    "ACC2\tC000001\tfastani_inputs/ACC2.fasta"
                 )
                 + "\n",
             )
             ani_metadata = self.write_text_file(
                 tmpdir / "ani_metadata.tsv",
-                "\n".join(
-                    [
-                        "accession\tmatrix_name\tpath\tassembly_level\tgcode\tcheckm2_completeness\tcheckm2_contamination\tn50\tscaffolds\tgenome_size\torganism_name\tBUSCO_bacillota_odb12",
-                        "ACC1\tfastani_inputs/ACC1.fasta\tfastani_inputs/ACC1.fasta\tComplete Genome\t11\t97\t1\t100000\t1\t900000\tOne\tC:98.0%[S:98.0%,D:0.0%],F:1.0%,M:1.0%,n:200",
-                        "ACC2\tfastani_inputs/ACC2.fasta\tfastani_inputs/ACC2.fasta\tScaffold\t11\t93\t2\t50000\t5\t850000\tTwo\tC:96.0%[S:96.0%,D:0.0%],F:2.0%,M:2.0%,n:200",
-                    ]
+                (
+                    "accession\tmatrix_name\tpath\tassembly_level\tgcode\tcheckm2_completeness\tcheckm2_contamination\tn50\tscaffolds\tgenome_size\torganism_name\tBUSCO_bacillota_odb12\n"
+                    "ACC1\tfastani_inputs/ACC1.fasta\tfastani_inputs/ACC1.fasta\tComplete Genome\t11\t97\t1\t100000\t1\t900000\tOne\tC:98.0%[S:98.0%,D:0.0%],F:1.0%,M:1.0%,n:200\n"
+                    "ACC2\tfastani_inputs/ACC2.fasta\tfastani_inputs/ACC2.fasta\tScaffold\t11\t93\t2\t50000\t5\t850000\tTwo\tC:96.0%[S:96.0%,D:0.0%],F:2.0%,M:2.0%,n:200"
                 )
                 + "\n",
             )
             ani_matrix = self.write_text_file(
                 tmpdir / "fastani.matrix",
-                "\n".join(
-                    [
-                        "2",
-                        "fastani_inputs/ACC1.fasta",
-                        "fastani_inputs/ACC2.fasta 97.2500",
-                    ]
-                )
+                "2\nfastani_inputs/ACC1.fasta\nfastani_inputs/ACC2.fasta 97.2500"
                 + "\n",
             )
             ani_summary = tmpdir / "ani_summary.tsv"
@@ -143,35 +132,20 @@ class SelectAniRepresentativesTestCase(unittest.TestCase):
             tmpdir = Path(tmpdir_name)
             ani_clusters = self.write_text_file(
                 tmpdir / "cluster.tsv",
-                "\n".join(
-                    [
-                        "Accession\tCluster_ID",
-                        "ACC1\tC000001",
-                        "ACC2\tC000001",
-                    ]
-                )
-                + "\n",
+                "Accession\tCluster_ID\nACC1\tC000001\nACC2\tC000001" + "\n",
             )
             ani_metadata = self.write_text_file(
                 tmpdir / "ani_metadata.tsv",
-                "\n".join(
-                    [
-                        "accession\tmatrix_name\tpath\tassembly_level\tgcode\tcheckm2_completeness\tcheckm2_contamination\tn50\tscaffolds\tgenome_size\torganism_name\tBUSCO_bacillota_odb12",
-                        "ACC2\tfastani_inputs/ACC2.fasta\tfastani_inputs/ACC2.fasta\tScaffold\t11\t95\t1\t50000\t4\t900000\tTwo\tC:97.0%[S:97.0%,D:0.0%],F:2.0%,M:1.0%,n:200",
-                        "ACC1\tfastani_inputs/ACC1.fasta\tfastani_inputs/ACC1.fasta\tScaffold\t11\t95\t1\t50000\t4\t900000\tOne\tC:97.0%[S:97.0%,D:0.0%],F:2.0%,M:1.0%,n:200",
-                    ]
+                (
+                    "accession\tmatrix_name\tpath\tassembly_level\tgcode\tcheckm2_completeness\tcheckm2_contamination\tn50\tscaffolds\tgenome_size\torganism_name\tBUSCO_bacillota_odb12\n"
+                    "ACC2\tfastani_inputs/ACC2.fasta\tfastani_inputs/ACC2.fasta\tScaffold\t11\t95\t1\t50000\t4\t900000\tTwo\tC:97.0%[S:97.0%,D:0.0%],F:2.0%,M:1.0%,n:200\n"
+                    "ACC1\tfastani_inputs/ACC1.fasta\tfastani_inputs/ACC1.fasta\tScaffold\t11\t95\t1\t50000\t4\t900000\tOne\tC:97.0%[S:97.0%,D:0.0%],F:2.0%,M:1.0%,n:200"
                 )
                 + "\n",
             )
             ani_matrix = self.write_text_file(
                 tmpdir / "fastani.matrix",
-                "\n".join(
-                    [
-                        "2",
-                        "fastani_inputs/ACC1.fasta",
-                        "fastani_inputs/ACC2.fasta 99.9000",
-                    ]
-                )
+                "2\nfastani_inputs/ACC1.fasta\nfastani_inputs/ACC2.fasta 99.9000"
                 + "\n",
             )
             ani_summary = tmpdir / "ani_summary.tsv"
@@ -206,23 +180,15 @@ class SelectAniRepresentativesTestCase(unittest.TestCase):
             )
             ani_metadata = self.write_text_file(
                 tmpdir / "ani_metadata.tsv",
-                "\n".join(
-                    [
-                        "accession\tmatrix_name\tpath\tassembly_level\tgcode\tcheckm2_completeness\tcheckm2_contamination\tn50\tscaffolds\tgenome_size\torganism_name\tBUSCO_bacillota_odb12",
-                        "ACC1\tfastani_inputs/ACC1.fasta\tfastani_inputs/ACC1.fasta\tScaffold\t11\t95\t1\t50000\t4\t900000\tOne\tC:97.0%[S:97.0%,D:0.0%],F:2.0%,M:1.0%,n:200",
-                    ]
+                (
+                    "accession\tmatrix_name\tpath\tassembly_level\tgcode\tcheckm2_completeness\tcheckm2_contamination\tn50\tscaffolds\tgenome_size\torganism_name\tBUSCO_bacillota_odb12\n"
+                    "ACC1\tfastani_inputs/ACC1.fasta\tfastani_inputs/ACC1.fasta\tScaffold\t11\t95\t1\t50000\t4\t900000\tOne\tC:97.0%[S:97.0%,D:0.0%],F:2.0%,M:1.0%,n:200"
                 )
                 + "\n",
             )
             ani_matrix = self.write_text_file(
                 tmpdir / "fastani.matrix",
-                "\n".join(
-                    [
-                        "1",
-                        "fastani_inputs/ACC1.fasta",
-                    ]
-                )
-                + "\n",
+                "1\nfastani_inputs/ACC1.fasta" + "\n",
             )
 
             exit_code = select_ani_representatives.main(
@@ -252,23 +218,15 @@ class SelectAniRepresentativesTestCase(unittest.TestCase):
             )
             ani_metadata = self.write_text_file(
                 tmpdir / "ani_metadata.tsv",
-                "\n".join(
-                    [
-                        "accession\tmatrix_name\tpath\tassembly_level\tgcode\tcheckm2_completeness\tcheckm2_contamination\tn50\tscaffolds\tgenome_size\torganism_name\tBUSCO_bacillota_odb12",
-                        "ACC1\tfastani_inputs/ACC1.fasta\tfastani_inputs/ACC1.fasta\tScaffold\t11\t95\t1\t50000\t4\t900000\tOne\tC:97.0%[S:97.0%,D:0.0%],F:2.0%,M:1.0%,n:200",
-                    ]
+                (
+                    "accession\tmatrix_name\tpath\tassembly_level\tgcode\tcheckm2_completeness\tcheckm2_contamination\tn50\tscaffolds\tgenome_size\torganism_name\tBUSCO_bacillota_odb12\n"
+                    "ACC1\tfastani_inputs/ACC1.fasta\tfastani_inputs/ACC1.fasta\tScaffold\t11\t95\t1\t50000\t4\t900000\tOne\tC:97.0%[S:97.0%,D:0.0%],F:2.0%,M:1.0%,n:200"
                 )
                 + "\n",
             )
             ani_matrix = self.write_text_file(
                 tmpdir / "fastani.matrix",
-                "\n".join(
-                    [
-                        "2",
-                        "fastani_inputs/ACC1.fasta",
-                        "fastani_inputs/ACC2.fasta 97.0000",
-                    ]
-                )
+                "2\nfastani_inputs/ACC1.fasta\nfastani_inputs/ACC2.fasta 97.0000"
                 + "\n",
             )
 

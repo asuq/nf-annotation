@@ -4,6 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
 from annotation_common import read_json, write_json
@@ -15,13 +16,13 @@ def prepare(request):
     runtime = Path("stub_runtime.json")
     write_json(
         runtime,
-        dict(
-            upstream_commit="stub",
-            hmm_sha256="stub",
-            pyhmmer="stub",
-            numpy="stub",
-            environment_sha256="stub",
-        ),
+        {
+            "upstream_commit": "stub",
+            "hmm_sha256": "stub",
+            "pyhmmer": "stub",
+            "numpy": "stub",
+            "environment_sha256": "stub",
+        },
     )
     prepare_aai.RUNTIME = runtime
 
@@ -47,7 +48,6 @@ def prepare(request):
         def map(self, unused, jobs):
             return map(extract, jobs)
 
-    prepare_aai.concurrent.futures.ProcessPoolExecutor = Pool
     for key in ("records", "bundles", "sources"):
         path = Path(key + ".json")
         write_json(path, request[key])
@@ -58,7 +58,8 @@ def prepare(request):
             for k, v in request.items()
         }
     )
-    prepare_aai.prepare(args)
+    with patch.object(prepare_aai.concurrent.futures, "ProcessPoolExecutor", Pool):
+        prepare_aai.prepare(args)
 
 
 def compare(records, domain):
@@ -76,10 +77,10 @@ def compare(records, domain):
     for array in arrays.values():
         if hasattr(array, "flush"):
             array.flush()
-    write_json(output / "records.json", dict(domain=domain, samples=records))
+    write_json(output / "records.json", {"domain": domain, "samples": records})
     write_json(
         output / "comparison.json",
-        dict(runtime="stub", accessions=[r["accession"] for r in ready]),
+        {"runtime": "stub", "accessions": [r["accession"] for r in ready]},
     )
     (output / "native.log").write_text(
         "Synthetic workflow control; FastAAI was not executed.\n"

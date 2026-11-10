@@ -11,10 +11,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "bin"))
 
-import ani_common  # noqa: E402
-import build_fastani_inputs  # noqa: E402
-import cluster_ani  # noqa: E402
-import select_ani_representatives  # noqa: E402
+import ani_common
+import build_fastani_inputs
+import cluster_ani
+import select_ani_representatives
 
 
 class EmptyAniTestCase(unittest.TestCase):

@@ -3,8 +3,9 @@
 import sys
 import tempfile
 import unittest
-import numpy as np
 from pathlib import Path
+
+import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
 from aai_common import aai_estimate, jaccard_cutoff
@@ -12,26 +13,26 @@ from cluster_aai import cluster_domain
 
 
 def record(name, **overrides):
-    row = dict(
-        accession=name,
-        domain="Bacteria",
-        status="ready",
-        reason="NA",
-        marker_count=70,
-        profile=name,
-        quality=dict(
-            path="proteins.faa",
-            gcode="11",
-            checkm2_completeness="95",
-            checkm2_contamination="1",
-            assembly_level="Complete Genome",
-            n50="1000000",
-            scaffolds="1",
-            genome_size="1000000",
-            busco="C:98.0%[S:98.0%,D:0.0%],F:1.0%,M:1.0%,n:200",
-            organism_name=name,
-        ),
-    )
+    row = {
+        "accession": name,
+        "domain": "Bacteria",
+        "status": "ready",
+        "reason": "NA",
+        "marker_count": 70,
+        "profile": name,
+        "quality": {
+            "path": "proteins.faa",
+            "gcode": "11",
+            "checkm2_completeness": "95",
+            "checkm2_contamination": "1",
+            "assembly_level": "Complete Genome",
+            "n50": "1000000",
+            "scaffolds": "1",
+            "genome_size": "1000000",
+            "busco": "C:98.0%[S:98.0%,D:0.0%],F:1.0%,M:1.0%,n:200",
+            "organism_name": name,
+        },
+    }
     row.update(overrides)
     return row
 
@@ -52,6 +53,7 @@ class AaiClusteringTests(unittest.TestCase):
 
     def test_ani_scores_match_frozen_v048_for_every_profile(self):
         import json
+
         from ani_common import Genome
         from ani_representatives import select_representative_for_indices
 
@@ -88,7 +90,7 @@ class AaiClusteringTests(unittest.TestCase):
         self.assertEqual(aai_estimate(0), "<30%")
 
     def test_complete_linkage_does_not_join_a_chain(self):
-        rows, reps, members, _ = self.run_case(
+        rows, reps, _members, _ = self.run_case(
             [record("A"), record("B"), record("C")],
             {
                 ("A", "B"): jaccard_cutoff(0.7),

@@ -114,7 +114,6 @@ class RelocatableReferenceTests(unittest.TestCase):
         validate_source(second)
 
     def test_reference_graph_cycle_fails_before_following_payloads(self):
-        from publication_references import REFERENCE_CONTRACT
 
         view = self.case.publish(self.case.source, "view")
         record = copy.deepcopy(read_json(view / REFERENCE_FILE))

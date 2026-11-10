@@ -1,9 +1,9 @@
 """Shared providers get one semantic validation per fresh source-group pass."""
 
 import os
-import sys
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -63,7 +63,7 @@ class ValidationSharingTests(unittest.TestCase):
             reuse_source_validation.validate(roots, records)
 
     @unittest.skipUnless(
-        shutil.which("nextflow"), "Nextflow required for code-stamp agreement"
+        (shutil.which("nextflow") or ""), "Nextflow required for code-stamp agreement"
     )
     def test_code_identity_covers_nested_helpers_and_matches_nextflow(self):
         with tempfile.TemporaryDirectory(dir="/tmp") as directory:
@@ -90,7 +90,7 @@ class ValidationSharingTests(unittest.TestCase):
             )
             result = subprocess.run(
                 [
-                    shutil.which("nextflow"),
+                    (shutil.which("nextflow") or ""),
                     "run",
                     str(root / "main.nf"),
                     "--project",

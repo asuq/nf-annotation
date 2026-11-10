@@ -114,8 +114,9 @@ class CohortValidationPoolTests(unittest.TestCase):
 
 class CohortValidationEquivalenceTests(unittest.TestCase):
     def test_shared_genome_is_read_once_and_distinct_candidates_are_checked(self):
-        import prepare_cohort_update as update
         from unittest.mock import patch
+
+        import prepare_cohort_update as update
 
         with tempfile.TemporaryDirectory(dir="/tmp") as name:
             root = Path(name)
@@ -126,16 +127,16 @@ class CohortValidationEquivalenceTests(unittest.TestCase):
             shared.symlink_to(staged)
             copied = root / "copied.fasta"
             copied.write_bytes(staged.read_bytes())
-            job = dict(
-                sample={"accession": "A"},
-                source={"internal_id": "A"},
-                native=root,
-                stage="clustering",
-                status={},
-                master={},
-                lineages=[],
-                gcode_rule="mean_gene_length_ratio",
-            )
+            job = {
+                "sample": {"accession": "A"},
+                "source": {"internal_id": "A"},
+                "native": root,
+                "stage": "clustering",
+                "status": {},
+                "master": {},
+                "lineages": [],
+                "gcode_rule": "mean_gene_length_ratio",
+            }
             fingerprint = update.genome_fingerprint(staged)
             with patch.object(
                 update,

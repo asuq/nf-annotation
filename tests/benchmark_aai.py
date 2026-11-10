@@ -2,6 +2,7 @@
 """Engineering timings for native profile reuse and condensed AAI clustering."""
 
 from __future__ import annotations
+
 import argparse
 import gzip
 import json
@@ -11,7 +12,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
-from annotation_common import digest, read_json, write_json, write_tsv, read_tsv
+from annotation_common import digest, read_json, read_tsv, write_json, write_tsv
 
 
 def rss_bytes(usage):
@@ -19,8 +20,9 @@ def rss_bytes(usage):
 
 
 def native_cache(fixtures, output):
-    import prepare_aai
     from types import SimpleNamespace
+
+    import prepare_aai
 
     output.mkdir(parents=True)
     bundle = output / "bundle"
@@ -29,11 +31,11 @@ def native_cache(fixtures, output):
         (bundle / "proteins.faa").write_bytes(src.read())
     write_json(
         bundle / "bundle.json",
-        dict(
-            accession="GCF_000027325.1",
-            status="success",
-            files={"proteins.faa": digest(bundle / "proteins.faa")},
-        ),
+        {
+            "accession": "GCF_000027325.1",
+            "status": "success",
+            "files": {"proteins.faa": digest(bundle / "proteins.faa")},
+        },
     )
     acc = "GCF_000027325.1"
     args = SimpleNamespace(
@@ -57,12 +59,13 @@ def native_cache(fixtures, output):
     )
     args.destination.mkdir()
     write_json(
-        args.records, [dict(accession=acc, is_new="false", assembly_level="Scaffold")]
+        args.records,
+        [{"accession": acc, "is_new": "false", "assembly_level": "Scaffold"}],
     )
     write_tsv(
         args.metadata,
         ("accession", "Assembly_Level"),
-        [dict(accession=acc, Assembly_Level="Scaffold")],
+        [{"accession": acc, "Assembly_Level": "Scaffold"}],
     )
     write_tsv(
         args.checkm2,
@@ -74,31 +77,33 @@ def native_cache(fixtures, output):
             "Contamination_gcode4",
         ),
         [
-            dict(
-                accession=acc,
-                Gcode="4",
-                Low_quality="false",
-                Completeness_gcode4="95",
-                Contamination_gcode4="1",
-            )
+            {
+                "accession": acc,
+                "Gcode": "4",
+                "Low_quality": "false",
+                "Completeness_gcode4": "95",
+                "Contamination_gcode4": "1",
+            }
         ],
     )
     write_tsv(
         args.stats,
         ("accession", "n50", "scaffolds", "genome_size", "gc_content"),
         [
-            dict(
-                accession=acc,
-                n50="1000",
-                scaffolds="1",
-                genome_size="1000",
-                gc_content="30",
-            )
+            {
+                "accession": acc,
+                "n50": "1000",
+                "scaffolds": "1",
+                "genome_size": "1000",
+                "gc_content": "30",
+            }
         ],
     )
     busco = output / "busco.tsv"
     write_tsv(
-        busco, ("accession", "BUSCO_fixture"), [dict(accession=acc, BUSCO_fixture="NA")]
+        busco,
+        ("accession", "BUSCO_fixture"),
+        [{"accession": acc, "BUSCO_fixture": "NA"}],
     )
     write_json(args.busco, [str(busco)])
     write_json(args.bundles, [str(bundle)])
@@ -117,18 +122,20 @@ def native_cache(fixtures, output):
         and runs[1]["extracted"] == 0
         and runs[1]["reused"] == 1
     )
-    result = dict(
-        native_protein_input=True,
-        synthetic_QC_metadata=True,
-        runs=runs,
-        input_protein_bytes=(bundle / "proteins.faa").stat().st_size,
-        profile_bytes=sum(
+    result = {
+        "native_protein_input": True,
+        "synthetic_QC_metadata": True,
+        "runs": runs,
+        "input_protein_bytes": (bundle / "proteins.faa").stat().st_size,
+        "profile_bytes": sum(
             p.stat().st_size
             for p in (args.destination / "cohort/fastaai/profiles").rglob("*")
             if p.is_file()
         ),
-        peak_worker_rss_bytes=rss_bytes(resource.getrusage(resource.RUSAGE_CHILDREN)),
-    )
+        "peak_worker_rss_bytes": rss_bytes(
+            resource.getrusage(resource.RUSAGE_CHILDREN)
+        ),
+    }
     write_json(output / "benchmark.json", result)
     print(json.dumps(result, indent=2))
 
@@ -155,15 +162,15 @@ def synthetic_clustering(samples, output):
     rows, reps, members, _ = cluster_domain(records, pairs, 0.65, "default", "Bacteria")
     elapsed = time.monotonic() - start
     assert len(rows) == samples and len(reps) == 1 and len(members) == samples
-    result = dict(
-        synthetic=True,
-        samples=samples,
-        pairs=samples * (samples - 1) // 2,
-        seconds=elapsed,
-        pair_file_bytes=sum(p.stat().st_size for p in pairs.iterdir()),
-        condensed_vector_bytes=samples * (samples - 1) // 2 * 8,
-        process_peak_rss_bytes=rss_bytes(resource.getrusage(resource.RUSAGE_SELF)),
-    )
+    result = {
+        "synthetic": True,
+        "samples": samples,
+        "pairs": samples * (samples - 1) // 2,
+        "seconds": elapsed,
+        "pair_file_bytes": sum(p.stat().st_size for p in pairs.iterdir()),
+        "condensed_vector_bytes": samples * (samples - 1) // 2 * 8,
+        "process_peak_rss_bytes": rss_bytes(resource.getrusage(resource.RUSAGE_SELF)),
+    }
     write_json(output / "benchmark.json", result)
     print(json.dumps(result, indent=2))
 

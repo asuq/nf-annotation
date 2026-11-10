@@ -88,23 +88,23 @@ def generate(root: Path, samples: int, genes: int) -> None:
     write_tsv(
         root / "status.tsv", ("accession",), [{"accession": a} for a in accessions]
     )
-    plan = dict(
-        schema_version=1,
-        accessions=accessions,
-        enabled_tools=[],
-        tasks=[
-            dict(
-                accession=a,
-                tool=t,
-                action="skip",
-                status="skipped_disabled",
-                reason="tool_disabled",
-                input_proteins=genes,
-            )
+    plan = {
+        "schema_version": 1,
+        "accessions": accessions,
+        "enabled_tools": [],
+        "tasks": [
+            {
+                "accession": a,
+                "tool": t,
+                "action": "skip",
+                "status": "skipped_disabled",
+                "reason": "tool_disabled",
+                "input_proteins": genes,
+            }
             for a in accessions
             for t in TOOLS
         ],
-    )
+    }
     plan["plan_id"] = identity(plan)
     write_json(root / "plan.json", plan)
 
@@ -141,14 +141,14 @@ def worker(args):
     usage = resource.getrusage(resource.RUSAGE_SELF)
     print(
         json.dumps(
-            dict(
-                seconds=time.monotonic() - start,
-                maxrss=usage.ru_maxrss,
-                user_seconds=usage.ru_utime,
-                system_seconds=usage.ru_stime,
-                inblock=usage.ru_inblock,
-                oublock=usage.ru_oublock,
-            )
+            {
+                "seconds": time.monotonic() - start,
+                "maxrss": usage.ru_maxrss,
+                "user_seconds": usage.ru_utime,
+                "system_seconds": usage.ru_stime,
+                "inblock": usage.ru_inblock,
+                "oublock": usage.ru_oublock,
+            }
         )
     )
 
@@ -225,17 +225,17 @@ def main():
                 args.fixture / "v047" / table
             ):
                 raise AssertionError(f"Output changed: {name}/{table}")
-    result = dict(
-        samples=args.samples,
-        genes_per_sample=args.genes,
-        proteins=args.samples * args.genes,
-        synthetic=True,
-        platform=sys.platform,
-        python=sys.version.split()[0],
-        runs=runs,
-        shared_tables_identical=True,
-        limits="Local storage, warm/uncontrolled OS caches; no native searches or HPC production run.",
-    )
+    result = {
+        "samples": args.samples,
+        "genes_per_sample": args.genes,
+        "proteins": args.samples * args.genes,
+        "synthetic": True,
+        "platform": sys.platform,
+        "python": sys.version.split()[0],
+        "runs": runs,
+        "shared_tables_identical": True,
+        "limits": "Local storage, warm/uncontrolled OS caches; no native searches or HPC production run.",
+    }
     write_json(args.fixture / "benchmark.json", result)
     print(json.dumps(result, indent=2))
 

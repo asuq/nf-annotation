@@ -1,6 +1,7 @@
 """Eligibility and portable marker caches do not repeat native preprocessing."""
 
 from __future__ import annotations
+
 import sys
 import tempfile
 import unittest
@@ -14,9 +15,9 @@ from annotation_common import (
     AnnotationError,
     digest,
     read_json,
+    read_tsv,
     write_json,
     write_tsv,
-    read_tsv,
 )
 
 
@@ -28,13 +29,13 @@ class AaiProfileTests(unittest.TestCase):
         runtime = self.root / "runtime.json"
         write_json(
             runtime,
-            dict(
-                upstream_commit="fixture",
-                hmm_sha256="fixture",
-                pyhmmer="fixture",
-                numpy="fixture",
-                environment_sha256="fixture",
-            ),
+            {
+                "upstream_commit": "fixture",
+                "hmm_sha256": "fixture",
+                "pyhmmer": "fixture",
+                "numpy": "fixture",
+                "environment_sha256": "fixture",
+            },
         )
         self.patch = patch.object(prepare_aai, "RUNTIME", runtime)
         self.patch.start()
@@ -44,11 +45,11 @@ class AaiProfileTests(unittest.TestCase):
         (self.bundle / "proteins.faa").write_text(">g\nMWA\n")
         write_json(
             self.bundle / "bundle.json",
-            dict(
-                accession="A",
-                status="success",
-                files={"proteins.faa": digest(self.bundle / "proteins.faa")},
-            ),
+            {
+                "accession": "A",
+                "status": "success",
+                "files": {"proteins.faa": digest(self.bundle / "proteins.faa")},
+            },
         )
         self.args = SimpleNamespace(
             **{
@@ -72,7 +73,7 @@ class AaiProfileTests(unittest.TestCase):
         self.args.destination.mkdir()
         write_json(
             self.args.records,
-            [dict(accession="A", is_new="false", assembly_level="Scaffold")],
+            [{"accession": "A", "is_new": "false", "assembly_level": "Scaffold"}],
         )
         write_tsv(
             self.args.metadata,
@@ -96,33 +97,33 @@ class AaiProfileTests(unittest.TestCase):
                 "Contamination_gcode4",
             ),
             [
-                dict(
-                    accession="A",
-                    Gcode="4",
-                    Low_quality="false",
-                    Completeness_gcode4="95",
-                    Contamination_gcode4="1",
-                )
+                {
+                    "accession": "A",
+                    "Gcode": "4",
+                    "Low_quality": "false",
+                    "Completeness_gcode4": "95",
+                    "Contamination_gcode4": "1",
+                }
             ],
         )
         write_tsv(
             self.args.stats,
             ("accession", "n50", "scaffolds", "genome_size", "gc_content"),
             [
-                dict(
-                    accession="A",
-                    n50="NA",
-                    scaffolds="1",
-                    genome_size="1200",
-                    gc_content="50",
-                )
+                {
+                    "accession": "A",
+                    "n50": "NA",
+                    "scaffolds": "1",
+                    "genome_size": "1200",
+                    "gc_content": "50",
+                }
             ],
         )
         busco = self.root / "busco.tsv"
         write_tsv(
             busco,
             ("accession", "BUSCO_fixture"),
-            [dict(accession="A", BUSCO_fixture="NA")],
+            [{"accession": "A", "BUSCO_fixture": "NA"}],
         )
         write_json(self.args.busco, [str(busco)])
         write_json(self.args.bundles, [str(self.bundle)])
@@ -197,11 +198,13 @@ class AaiProfileTests(unittest.TestCase):
         self.args.destination = self.root / "successor"
         self.args.destination.mkdir()
         write_json(self.args.sources, [str(source)])
-        with patch.object(
-            prepare_aai, "copy_independent", side_effect=OSError("interrupted copy")
+        with (
+            patch.object(
+                prepare_aai, "copy_independent", side_effect=OSError("interrupted copy")
+            ),
+            self.assertRaisesRegex(OSError, "interrupted copy"),
         ):
-            with self.assertRaisesRegex(OSError, "interrupted copy"):
-                prepare_aai.prepare(self.args)
+            prepare_aai.prepare(self.args)
         profile_root = self.args.destination / "cohort/fastaai/profiles"
         self.assertEqual(list(profile_root.iterdir()), [])
         prepare_aai.prepare(self.args)

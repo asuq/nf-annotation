@@ -14,7 +14,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-NEXTFLOW = shutil.which("nextflow")
+NEXTFLOW = shutil.which("nextflow") or ""
 TOOLS = {
     "barrnap",
     "checkm2",
@@ -166,7 +166,7 @@ class CohortUpdateIntegrationTestCase(unittest.TestCase):
         accessions: list[str],
         *,
         source: Path | list[Path] | None = None,
-        extra: list[str] = (),
+        extra: list[str] | tuple[str, ...] = (),
         resume: bool = False,
         expected_code: int = 0,
         domain: str | None = "bacteria",

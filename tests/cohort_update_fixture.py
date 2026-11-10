@@ -19,7 +19,7 @@ from Bio.SeqFeature import SeqFeature, SimpleLocation
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "bin"))
-import summarise_codetta  # noqa: E402
+import summarise_codetta
 
 
 def write(path: str | Path, content: str) -> None:
@@ -48,7 +48,7 @@ def ccfinder_zero(genome: Path, output: Path) -> None:
     )
     native = {
         "Sequences": [
-            dict(Id=row["tool_id"], Length=row["length"], Crisprs=[], Cas=[])
+            {"Id": row["tool_id"], "Length": row["length"], "Crisprs": [], "Cas": []}
             for row in json.loads(mapping.read_text())["contigs"]
         ]
     }

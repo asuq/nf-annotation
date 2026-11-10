@@ -42,6 +42,7 @@ def main():
             )
         )
         spec = importlib.util.spec_from_file_location("baseline_cohort", baseline)
+        assert spec is not None and spec.loader is not None
         old = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(old)
         expected = None

@@ -1,7 +1,10 @@
 """Synthetic, exact-output comparison of ANI post-processing implementations."""
 
+import argparse
+import json
+import subprocess
+import sys
 from pathlib import Path
-import argparse, json, subprocess, sys
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--baseline", type=Path, required=True)

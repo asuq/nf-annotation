@@ -15,11 +15,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "bin"))
 
-import build_master_table  # noqa: E402
-import collect_versions  # noqa: E402
-import master_table_contract  # noqa: E402
-import prepare_cohort_update as update  # noqa: E402
-import validate_inputs  # noqa: E402
+import build_master_table
+import collect_versions
+import master_table_contract
+import prepare_cohort_update as update
+import validate_inputs
 from annotation_workflow_fixture import publish_disabled, refresh_tables
 from cohort_update_fixture import ccfinder_zero
 

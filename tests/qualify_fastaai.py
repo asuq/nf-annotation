@@ -2,6 +2,7 @@
 """Native parity against unmodified pinned FastAAI on frozen public proteomes."""
 
 from __future__ import annotations
+
 import argparse
 import csv
 import gzip
@@ -11,6 +12,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
 import prepare_aai
@@ -25,7 +27,7 @@ EXPECTED = {
 
 
 def run(fixtures, output):
-    import fastaai.fastaai as native
+    import fastaai.fastaai as native  # ty: ignore[unresolved-import]  # Provided by the pinned native image.
 
     output.mkdir(parents=True)
     for name, sha in EXPECTED.items():
@@ -48,7 +50,7 @@ def run(fixtures, output):
     counts = {}
     times = {}
     profiles = []
-    records = []
+    records: list[dict[str, Any]] = []
     method = json.loads(prepare_aai.RUNTIME.read_text())
     inputs = output / "inputs"
     inputs.mkdir()
@@ -92,19 +94,19 @@ def run(fixtures, output):
         for filename in ("markers.faa", "markers.hmm"):
             shutil.copyfile(crystal / filename, work / filename)
         write_json(
-            work / "profile.json", dict(profile_id=work.name, marker_count=count)
+            work / "profile.json", {"profile_id": work.name, "marker_count": count}
         )
         profiles.append(work)
         counts[alias] = count
         records.append(
-            dict(
-                accession=alias,
-                domain=domain,
-                status="ready",
-                profile=str(work),
-                marker_count=count,
-                gcode=code,
-            )
+            {
+                "accession": alias,
+                "domain": domain,
+                "status": "ready",
+                "profile": str(work),
+                "marker_count": count,
+                "gcode": code,
+            }
         )
     short = inputs / "empty.faa"
     short.write_text(">short\nMWA\n")
@@ -182,18 +184,18 @@ def run(fixtures, output):
                     <= 0.0050001
                 )
             compared += 1
-    report = dict(
-        runtime=method,
-        proteome_sha256=EXPECTED,
-        genetic_codes=[4, 11],
-        domains=["Bacteria", "Archaea"],
-        markers=counts,
-        native_pairs_compared=compared,
-        no_markers_passed=True,
-        gene_prediction_called=False,
-        readable_ids_match_original=True,
-        seconds=times,
-    )
+    report = {
+        "runtime": method,
+        "proteome_sha256": EXPECTED,
+        "genetic_codes": [4, 11],
+        "domains": ["Bacteria", "Archaea"],
+        "markers": counts,
+        "native_pairs_compared": compared,
+        "no_markers_passed": True,
+        "gene_prediction_called": False,
+        "readable_ids_match_original": True,
+        "seconds": times,
+    }
     write_json(output / "qualification.json", report)
     print(json.dumps(report, indent=2))
 

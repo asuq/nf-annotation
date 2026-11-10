@@ -87,8 +87,9 @@ class AniBatchImportTests(unittest.TestCase):
         bundle_proteins(target / "annotation/bundle")
 
     def test_import_resume_consumes_fresh_scan_checksums_without_source_rereads(self):
-        from fingerprinting.source_fingerprint import FingerprintScanner, load_checksums
         import hashlib
+
+        from fingerprinting.source_fingerprint import FingerprintScanner, load_checksums
 
         original = hashlib.file_digest
         with FingerprintScanner(2) as scanner:

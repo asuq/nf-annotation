@@ -94,9 +94,11 @@ class AniMatrixTests(unittest.TestCase):
 
     def test_impossible_dimensions_fail_before_allocation(self):
         self.path.write_text("1000000000\nfirst\n")
-        with mock.patch.object(np, "full", side_effect=AssertionError("allocated")):
-            with self.assertRaises(AniInputError):
-                load_matrix(self.path)
+        with (
+            mock.patch.object(np, "full", side_effect=AssertionError("allocated")),
+            self.assertRaises(AniInputError),
+        ):
+            load_matrix(self.path)
 
     def test_mutation_during_single_pass_is_rejected(self):
         original = "3\nA\nB 96\nC NA 97\n"
@@ -104,7 +106,7 @@ class AniMatrixTests(unittest.TestCase):
         for replace in (False, True):
             self.path.write_text(original)
 
-            def mutate(lines, count):
+            def mutate(lines, count, replace=replace):
                 for index, item in enumerate(rows(lines, count)):
                     if index == 0:
                         info = self.path.stat()
@@ -117,9 +119,11 @@ class AniMatrixTests(unittest.TestCase):
                             os.utime(self.path, ns=(info.st_atime_ns, info.st_mtime_ns))
                     yield item
 
-            with mock.patch.object(ani_common, "_matrix_rows", side_effect=mutate):
-                with self.assertRaisesRegex(AniInputError, "changed while reading"):
-                    load_matrix(self.path)
+            with (
+                mock.patch.object(ani_common, "_matrix_rows", side_effect=mutate),
+                self.assertRaisesRegex(AniInputError, "changed while reading"),
+            ):
+                load_matrix(self.path)
 
     def test_threshold_adjacent_values_keep_complete_linkage_membership(self):
         self.path.write_text("4\nB\nA 95.0000000001\nC 94.9999999999 95\nD NA NA NA\n")

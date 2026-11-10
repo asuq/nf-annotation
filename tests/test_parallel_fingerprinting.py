@@ -189,4 +189,4 @@ class ParallelFingerprintTests(unittest.TestCase):
         self.assertNotEqual(before[0]["sha256"], after[0]["sha256"])
         for workers in (0, 9, -1, True, 1.5, "4"):
             with self.subTest(workers=workers), self.assertRaises(AnnotationError):
-                fingerprint_sources(self.sources, workers=workers)
+                fingerprint_sources(self.sources, workers=workers)  # ty: ignore[invalid-argument-type]  # Deliberately malformed input.

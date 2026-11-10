@@ -7,15 +7,15 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
-from annotation_workflow_fixture import aggregate_fixture
 import annotation_common
 import report_genomes
+import test_annotation_aggregation_scaling as aggregation_fixture
+import test_annotation_source as source_fixture
+import test_parallel_fingerprinting as fingerprint_fixture
 from annotation_common import AnnotationError, read_json, write_json
+from annotation_workflow_fixture import aggregate_fixture
 from fingerprinting.source_fingerprint import FingerprintScanner, checked_digest
 from reuse_source_validation import validate, validate_or_reuse
-import test_annotation_aggregation_scaling as aggregation_fixture
-import test_parallel_fingerprinting as fingerprint_fixture
-import test_annotation_source as source_fixture
 
 
 class StreamliningTests(unittest.TestCase):
@@ -117,14 +117,16 @@ class StreamliningTests(unittest.TestCase):
                         completed.set()
             return checked_digest(path, before)
 
-        with patch(
-            "fingerprinting.source_fingerprint.checked_digest", side_effect=reader
+        with (
+            patch(
+                "fingerprinting.source_fingerprint.checked_digest", side_effect=reader
+            ),
+            FingerprintScanner(2) as scanner,
         ):
-            with FingerprintScanner(2) as scanner:
-                scanner.metrics.update(current_files_hashed=0, current_bytes_hashed=0)
-                observed = list(scanner.hashes([(p, p.stat()) for p in paths]))
-                self.assertEqual([p for p, _, _ in observed], paths)
-                self.assertLessEqual(scanner.metrics["peak_pending_reads"], 4)
+            scanner.metrics.update(current_files_hashed=0, current_bytes_hashed=0)
+            observed = list(scanner.hashes([(p, p.stat()) for p in paths]))
+            self.assertEqual([p for p, _, _ in observed], paths)
+            self.assertLessEqual(scanner.metrics["peak_pending_reads"], 4)
 
 
 if __name__ == "__main__":

@@ -9,13 +9,12 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-
 ROOT = Path(__file__).resolve().parents[1]
 BIN_DIR = ROOT / "bin"
 if str(BIN_DIR) not in sys.path:
     sys.path.insert(0, str(BIN_DIR))
 
-import build_fastani_inputs  # noqa: E402
+import build_fastani_inputs
 
 
 def read_tsv(path: Path) -> list[dict[str, str]]:
@@ -48,8 +47,10 @@ class BuildFastAniInputsTestCase(unittest.TestCase):
         ]
         staged_manifest_lines = ["accession\tinternal_id\tstaged_filename"]
         checkm2_lines = [
-            "accession\tCompleteness_gcode4\tCompleteness_gcode11\t"
-            "Contamination_gcode4\tContamination_gcode11\tGcode\tLow_quality"
+            (
+                "accession\tCompleteness_gcode4\tCompleteness_gcode11\t"
+                "Contamination_gcode4\tContamination_gcode11\tGcode\tLow_quality"
+            )
         ]
         sixteen_s_lines = ["accession\t16S\tbest_16S_header\tbest_16S_length\twarnings"]
         busco_lines = [
@@ -122,66 +123,46 @@ class BuildFastAniInputsTestCase(unittest.TestCase):
             )
             metadata = self.write_text_file(
                 tmpdir / "metadata.tsv",
-                "\n".join(
-                    [
-                        "Accession\tOrganism_Name\tAssembly_Level\tN50\tScaffolds\tGenome_Size\tAtypical_Warnings",
-                        "ACC1\tGenome One\tChromosome\t50000\t2\t800000\tNA",
-                        "ACC2\tGenome Two\tContig\t40000\t5\t700000\tUnverified source organism",
-                    ]
+                (
+                    "Accession\tOrganism_Name\tAssembly_Level\tN50\tScaffolds\tGenome_Size\tAtypical_Warnings\n"
+                    "ACC1\tGenome One\tChromosome\t50000\t2\t800000\tNA\n"
+                    "ACC2\tGenome Two\tContig\t40000\t5\t700000\tUnverified source organism"
                 )
                 + "\n",
             )
             staged_manifest = self.write_text_file(
                 tmpdir / "staged_manifest.tsv",
-                "\n".join(
-                    [
-                        "accession\tinternal_id\tstaged_filename",
-                        "ACC1\tACC1\tACC1.fasta",
-                        "ACC2\tACC2\tACC2.fasta",
-                    ]
-                )
+                "accession\tinternal_id\tstaged_filename\nACC1\tACC1\tACC1.fasta\nACC2\tACC2\tACC2.fasta"
                 + "\n",
             )
             checkm2 = self.write_text_file(
                 tmpdir / "checkm2.tsv",
-                "\n".join(
-                    [
-                        "accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tGcode\tLow_quality",
-                        "ACC1\tNA\t95\tNA\t1\t11\tfalse",
-                        "ACC2\t90\tNA\t2\tNA\t4\tfalse",
-                    ]
+                (
+                    "accession\tCompleteness_gcode4\tCompleteness_gcode11\tContamination_gcode4\tContamination_gcode11\tGcode\tLow_quality\n"
+                    "ACC1\tNA\t95\tNA\t1\t11\tfalse\n"
+                    "ACC2\t90\tNA\t2\tNA\t4\tfalse"
                 )
                 + "\n",
             )
             sixteen_s = self.write_text_file(
                 tmpdir / "16s.tsv",
-                "\n".join(
-                    [
-                        "accession\t16S\tbest_16S_header\tbest_16S_length\twarnings",
-                        "ACC1\tYes\th1\t1500\t",
-                        "ACC2\tYes\th2\t1490\t",
-                    ]
-                )
+                "accession\t16S\tbest_16S_header\tbest_16S_length\twarnings\nACC1\tYes\th1\t1500\t\nACC2\tYes\th2\t1490\t"
                 + "\n",
             )
             busco = self.write_text_file(
                 tmpdir / "busco_bacillota.tsv",
-                "\n".join(
-                    [
-                        "accession\tlineage\tBUSCO_bacillota_odb12\tbusco_status\twarnings",
-                        "ACC1\tbacillota_odb12\tC:98.0%[S:98.0%,D:0.0%],F:1.0%,M:1.0%,n:200\tdone\t",
-                        "ACC2\tbacillota_odb12\tC:96.0%[S:96.0%,D:0.0%],F:2.0%,M:2.0%,n:200\tdone\t",
-                    ]
+                (
+                    "accession\tlineage\tBUSCO_bacillota_odb12\tbusco_status\twarnings\n"
+                    "ACC1\tbacillota_odb12\tC:98.0%[S:98.0%,D:0.0%],F:1.0%,M:1.0%,n:200\tdone\t\n"
+                    "ACC2\tbacillota_odb12\tC:96.0%[S:96.0%,D:0.0%],F:2.0%,M:2.0%,n:200\tdone\t"
                 )
                 + "\n",
             )
             busco_mycoplasmatota = self.write_text_file(
                 tmpdir / "busco_mycoplasmatota.tsv",
-                "\n".join(
-                    [
-                        "accession\tlineage\tBUSCO_mycoplasmatota_odb12\tbusco_status\twarnings",
-                        "ACC1\tmycoplasmatota_odb12\tC:97.0%[S:97.0%,D:0.0%],F:2.0%,M:1.0%,n:180\tdone\t",
-                    ]
+                (
+                    "accession\tlineage\tBUSCO_mycoplasmatota_odb12\tbusco_status\twarnings\n"
+                    "ACC1\tmycoplasmatota_odb12\tC:97.0%[S:97.0%,D:0.0%],F:2.0%,M:1.0%,n:180\tdone\t"
                 )
                 + "\n",
             )
@@ -264,11 +245,9 @@ class BuildFastAniInputsTestCase(unittest.TestCase):
             )
             metadata = self.write_text_file(
                 tmpdir / "metadata.tsv",
-                "\n".join(
-                    [
-                        "Accession\tOrganism_Name\tAssembly_Level\tN50\tScaffolds\tGenome_Size\tAtypical_Warnings",
-                        "ACC_MIXED\tGenome Mixed\tScaffold\t50000\t2\t800000\tgenome length too small, unverified source organism",
-                    ]
+                (
+                    "Accession\tOrganism_Name\tAssembly_Level\tN50\tScaffolds\tGenome_Size\tAtypical_Warnings\n"
+                    "ACC_MIXED\tGenome Mixed\tScaffold\t50000\t2\t800000\tgenome length too small, unverified source organism"
                 )
                 + "\n",
             )

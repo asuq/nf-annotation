@@ -1,13 +1,13 @@
 """Both clustering methods share QC while AAI eligibility and native reuse stay independent."""
 
 import shutil
+import sys
 import unittest
 from pathlib import Path
-import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bin"))
 import test_cohort_update_integration as fixture
-from annotation_common import read_json, digest
+from annotation_common import digest, read_json
 
 
 @unittest.skipUnless(fixture.NEXTFLOW, "Nextflow required")

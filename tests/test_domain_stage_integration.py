@@ -3,6 +3,7 @@
 import json
 import shutil
 import unittest
+from unittest.mock import patch
 
 import test_cohort_update_integration as fixture
 
@@ -374,23 +375,28 @@ class DomainStageIntegrationTests(unittest.TestCase):
     def test_changed_policy_code_is_revalidated_on_resume(self):
         self.run_stage("policy-resume", ["A"], "qc")
         manifest = self.case.inputs / "policy-resume.csv"
-        old_method = self.case.manifest
         helper = self.case.project / "bin/sample_policy.py"
         original = helper.read_text()
         try:
-            self.case.manifest = lambda name, accessions: manifest
             # Change only the imported helper; inputs and the invoking CLI stay fixed.
             helper.write_text(
                 original
-                + "\n_original_resolve = resolve_sample\ndef resolve_sample(*args, **kwargs):\n    raise ValueError('changed policy control')\n"
+                + (
+                    "\n"
+                    "_original_resolve = resolve_sample\n"
+                    "def resolve_sample(*args, **kwargs):\n"
+                    "    raise ValueError('changed policy control')\n"
+                )
             )
-            self.run_stage("policy-resume", ["A"], "qc", resume=True, expected_code=1)
+            with patch.object(self.case, "manifest", return_value=manifest):
+                self.run_stage(
+                    "policy-resume", ["A"], "qc", resume=True, expected_code=1
+                )
             self.assertIn(
                 "changed policy control",
                 (self.root / "launch-policy-resume/captured.log").read_text(),
             )
         finally:
-            self.case.manifest = old_method
             helper.write_text(original)
 
 

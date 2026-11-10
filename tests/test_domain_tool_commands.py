@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-NEXTFLOW = shutil.which("nextflow")
+NEXTFLOW = shutil.which("nextflow") or ""
 
 
 @unittest.skipUnless(NEXTFLOW, "Nextflow is required")

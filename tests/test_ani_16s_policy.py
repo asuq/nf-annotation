@@ -21,7 +21,7 @@ class Ani16sPolicyTests(unittest.TestCase):
                 self.subTest(policy=policy),
                 self.assertRaisesRegex(ValueError, "policy"),
             ):
-                derive_sixteen_s_ani_exclusion_reason("Yes", policy=policy)
+                derive_sixteen_s_ani_exclusion_reason("Yes", policy=policy)  # ty: ignore[invalid-argument-type]  # Deliberately malformed input.
         with self.assertRaisesRegex(ValueError, "status"):
             derive_sixteen_s_ani_exclusion_reason("corrupt", policy="ignore")
         for absent in (None, "", "NA"):
@@ -30,7 +30,7 @@ class Ani16sPolicyTests(unittest.TestCase):
             )
             self.assertEqual(derive_sixteen_s_ani_exclusion_reason(absent), "16s_na")
 
-    @unittest.skipUnless(shutil.which("nextflow"), "Nextflow is required")
+    @unittest.skipUnless((shutil.which("nextflow") or ""), "Nextflow is required")
     def test_removed_flag_and_unknown_policy_fail_before_analysis(self):
         cases = (
             (["--ani_allow_incomplete_16s"], "has been removed; use --ani_16s_policy"),
@@ -46,7 +46,7 @@ class Ani16sPolicyTests(unittest.TestCase):
             ):
                 result = subprocess.run(
                     [
-                        shutil.which("nextflow"),
+                        (shutil.which("nextflow") or ""),
                         "run",
                         str(ROOT / "main.nf"),
                         "-profile",
