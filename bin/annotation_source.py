@@ -1,4 +1,4 @@
-"""Validate native published v0.4 results without a Nextflow work directory."""
+"""Validate native published annotation results without a Nextflow work directory."""
 
 from __future__ import annotations
 

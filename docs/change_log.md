@@ -13,8 +13,13 @@
 
 ### Validation
 
-- Release qualification is in progress; publication requires the fresh ten-genome
-  native pilot and the remaining regression checks to pass.
+- All five ten-genome Slurm pilot cases passed, covering full-stage annotation,
+  ANI/AAI, resume, reuse and reannotation; all 366 workers completed with exit zero.
+- Regression, native controls, Linux helper, Ruff/ty and Viper checks passed;
+  see the [qualification record](development/v0.5.2_qualification.md).
+
+Use fresh QC publications. Pinned tool images and prepared databases are unchanged.
+No full-cohort analysis was restarted.
 
 ## v0.5.1 - 2026-11-08
 

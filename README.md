@@ -10,6 +10,11 @@ v0.5.1 adds eggNOG recovery and local database staging, with preparation receipt
 to avoid repeated resource scans. Prepare the new database and SIF receipts before
 upgrading; see the [annotation guide](docs/functional_annotation.md).
 
+v0.5.2 fixes source-contig mapping and adds explicit
+[reviewed genetic-code choices](docs/reviewed_codes.md), with repository-wide
+[Ruff and ty checks](docs/development/code_quality.md). Start fresh QC publications;
+see the [qualification record](docs/development/v0.5.2_qualification.md).
+
 [![Nextflow](https://img.shields.io/badge/version-26.04.0-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
 [![run with docker](https://img.shields.io/badge/run%20with-docker-0db7ed?labelColor=000000&logo=docker)](https://www.docker.com/)
 [![run with singularity](https://img.shields.io/badge/run%20with-singularity-1d355c.svg?labelColor=000000)](https://sylabs.io/docs/)
