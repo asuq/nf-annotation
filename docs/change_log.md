@@ -1,5 +1,17 @@
 # Change Log
 
+## v0.5.3 - 2026-11-14
+
+### Changes
+
+- Allow reference mode to use valid self-contained full-run and cohort-update
+  providers, including those containing FastANI outputs. Keep existing integrity
+  checks; add no options or validation passes.
+
+### Validation
+
+- Release qualification is in progress.
+
 ## v0.5.2 - 2026-11-11
 
 ### Changes
