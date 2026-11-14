@@ -15,6 +15,10 @@ v0.5.2 fixes source-contig mapping and adds explicit
 [Ruff and ty checks](docs/development/code_quality.md). Start fresh QC publications;
 see the [qualification record](docs/development/v0.5.2_qualification.md).
 
+v0.5.3 allows reference mode to use valid self-contained full-run and cohort-update
+providers, including those with FastANI outputs. See
+[publication and storage](docs/ani_performance.md#publication-and-storage).
+
 [![Nextflow](https://img.shields.io/badge/version-26.04.0-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
 [![run with docker](https://img.shields.io/badge/run%20with-docker-0db7ed?labelColor=000000&logo=docker)](https://www.docker.com/)
 [![run with singularity](https://img.shields.io/badge/run%20with-singularity-1d355c.svg?labelColor=000000)](https://sylabs.io/docs/)

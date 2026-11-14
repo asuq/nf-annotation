@@ -10,7 +10,13 @@
 
 ### Validation
 
-- Release qualification is in progress.
+- Reference, relocation, materialisation and reannotation tests passed on macOS
+  and Linux, with seven Nextflow workflow runs.
+- A three-genome native reference test passed with zero per-sample copies/clones;
+  all 26 workers completed successfully. See the
+  [qualification record](development/v0.5.3_qualification.md).
+
+Production was not restarted. Existing releases, images and resources are unchanged.
 
 ## v0.5.2 - 2026-11-11
 
