@@ -30,6 +30,12 @@ class RelocatableReferenceTests(unittest.TestCase):
         write_json(view / "annotation_results.json", manifest)
 
     def test_move_collection_then_reuse_materialise_and_import(self):
+        cohort = self.case.source / "cohort/fastani"
+        cohort.mkdir(parents=True)
+        (cohort / "fastani.matrix").write_text("0\n")
+        write_json(
+            self.case.source / "tables/cohort_update_run.json", {"fixture": True}
+        )
         view = self.case.publish(self.case.source, "view")
         before = fingerprint(view, workers=1)
         links = {
@@ -147,7 +153,7 @@ class RelocatableReferenceTests(unittest.TestCase):
         with self.assertRaisesRegex(AnnotationError, "Invalid bundle"):
             Publication(view)
 
-    def test_wrong_boundary_and_derived_provider_are_rejected(self):
+    def test_wrong_boundary_is_rejected(self):
         from annotation_common import read_tsv
         from import_ani_batch import run
 
@@ -170,9 +176,44 @@ class RelocatableReferenceTests(unittest.TestCase):
                 qc_root=boundary,
                 fingerprints=[fingerprint(self.case.source)],
             )
-        (self.case.source / "cohort/fastani").mkdir(parents=True)
-        with self.assertRaises(AnnotationError):
-            self.case.publish(self.case.source, "derived")
+
+    def test_self_contained_provider_accepts_cohort_outputs_without_copying_samples(
+        self,
+    ):
+        for name, fastani, history in (
+            ("fastani", True, False),
+            ("updated", False, True),
+            ("both", True, True),
+        ):
+            with self.subTest(provider=name):
+                cohort = self.case.source / "cohort/fastani"
+                if fastani:
+                    cohort.mkdir(parents=True, exist_ok=True)
+                    (cohort / "fastani.matrix").write_text("0\n")
+                elif cohort.exists():
+                    shutil.rmtree(cohort)
+                update = self.case.source / "tables/cohort_update_run.json"
+                if history:
+                    write_json(update, {"fixture": True})
+                else:
+                    update.unlink(missing_ok=True)
+                before = fingerprint(self.case.source)
+                view = self.case.publish(self.case.source, name)
+                audit = read_json(self.case.root / f"{name}.json")
+                self.assertTrue(
+                    all(
+                        row["files_copied"] == row["files_cloned"] == 0
+                        for row in audit["samples"]
+                    )
+                )
+                self.assertEqual(before, fingerprint(self.case.source))
+                self.assertTrue(
+                    all(
+                        not key.startswith("cohort/") for key in Publication(view).links
+                    )
+                )
+                self.assertFalse((view / "cohort/fastani").exists())
+                shutil.rmtree(view)
 
     def test_v04_absolute_view_is_rejected_without_migration(self):
         view = self.case.publish(self.case.source, "legacy")

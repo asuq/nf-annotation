@@ -51,9 +51,14 @@ clones where supported and ordinary copies otherwise. FastANI staging also uses
 independent clones/copies, never writable hard links to QC files.
 
 `--publication_mode reference` requires `--qc_publication_root`. Providers
-must be original QC publications inside this declared permanent root. References
-record relative locations in `cohort_references.json` and flatten successor
-dependencies to those providers.
+must be valid, self-contained publications inside this declared permanent root.
+Full runs and self-contained cohort updates are eligible even when they contain
+FastANI outputs or cohort-update history. Those cohort-level files do not become
+per-sample reference links; the new cohort retains its own clustering evidence.
+References record relative locations in `cohort_references.json` and flatten
+successor dependencies to their physical providers. Existing content, ownership,
+boundary and link checks still apply. Bucket storage must expose the same POSIX
+paths and symlink support to the controller and task nodes.
 Moving the entire collection preserves its layout; moving just the view does not.
 Materialisation and reannotation produce independent payloads.
 

@@ -26,7 +26,7 @@ class ReferenceStageIntegrationTests(unittest.TestCase):
     def tearDownClass(cls):
         fixture.CohortUpdateIntegrationTestCase.tearDownClass()
 
-    def ani(self, name, source, mode):
+    def ani(self, name, source, mode, provider=None):
         return self.case.run_pipeline(
             name,
             ["A", "LOW", "NOGCODE"],
@@ -39,15 +39,23 @@ class ReferenceStageIntegrationTests(unittest.TestCase):
                 "--publication_mode",
                 mode,
                 "--qc_publication_root",
-                str(self.root / "results-ref-source"),
+                str(provider or self.root / "results-ref-source"),
             ],
         )
 
     def test_reference_views_reuse_and_materialise_without_changing_science(self):
         source = self.case.run_pipeline(
-            "ref-source", ["A", "LOW", "NOGCODE"], extra=["--pipeline_stage", "qc"]
+            "ref-source", ["A", "LOW", "NOGCODE"], extra=["--pipeline_stage", "full"]
         )
+        self.assertTrue((source / "cohort/fastani/fastani.matrix").is_file())
+        source_bytes = fixture.fingerprints(source)
         portable = self.ani("copy-view", source, "self_contained")
+        self.assertTrue((portable / "tables/cohort_update_run.json").is_file())
+        updated_reference = self.ani(
+            "updated-provider-view", portable, "reference", provider=portable
+        )
+        validate_source(updated_reference)
+        self.assertFalse(self.case.heavy_tasks(updated_reference))
         reference = self.ani("reference-view", source, "reference")
         self.assertEqual(
             read_json(reference / "annotation_results.json")["pipeline_contract"],
@@ -144,6 +152,7 @@ class ReferenceStageIntegrationTests(unittest.TestCase):
                 (chained / relative).read_bytes(),
                 (reannotation / relative).read_bytes(),
             )
+        self.assertEqual(source_bytes, fixture.fingerprints(source))
         shutil.rmtree(chained)
         shutil.rmtree(source)
         for output in (portable, materialised, reannotation):

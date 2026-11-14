@@ -195,7 +195,7 @@ The most important implementation-level parameters are:
 | `prepare_busco_datasets` | `main.nf` | Switches BUSCO lineage resolution from reuse to download. |
 | `source_fingerprint_workers` | Initial/final source checks, including reannotation | Concurrent content readers: 4 by default, 1-8 allowed, capped by task CPUs; execution-only. |
 | `cohort_validation_workers` | `main.nf` source reuse | Per-sample validation processes: default 4, range 1-8, capped by task CPUs; execution-only. |
-| `qc_publication_root` | Reference-mode ANI output | Required permanent QC provider tree, disjoint from the output. Recorded relatively in the v2 manifest. |
+| `qc_publication_root` | Reference-mode clustering output | Required permanent provider tree, disjoint from the output. Accepts valid self-contained QC, full-run and cohort-update publications; recorded relatively in the reference manifest. |
 | `publication_mode` | `main.nf` clustering reuse | `self_contained` (default) or opt-in `reference`; reference views require their declared QC providers. |
 | `import_batches` | `main.nf` clustering reuse | Maximum import allocations, default 8; accepts 1-64. |
 | `import_max_forks` | reuse bookkeeping | Concurrent cohort import batches, default 2; accepts 1-64. |

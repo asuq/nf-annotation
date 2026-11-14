@@ -75,14 +75,9 @@ def qc_boundary(root: Path, destination: Path) -> Path:
 
 
 def require_qc_provider(provider, boundary: Path) -> None:
-    if (
-        provider.reference
-        or not provider.root.is_relative_to(boundary)
-        or (provider.root / "cohort/fastani").exists()
-        or (provider.root / "tables/cohort_update_run.json").exists()
-    ):
+    if provider.reference or not provider.root.is_relative_to(boundary):
         raise AnnotationError(
-            "Reference providers must be permanent original QC publications inside --qc_publication_root"
+            "Reference providers must be self-contained publications inside --qc_publication_root"
         )
     relative_location(boundary, provider.root.relative_to(boundary).as_posix())
 

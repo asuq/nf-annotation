@@ -22,10 +22,8 @@ class ReferenceInputs {
                 providers = refs.sources.collect { anchor.resolve(it.path).toFile().canonicalFile.toPath() }
             }
             providers.each { provider ->
-                if (!provider.startsWith(boundary) || manifest(provider).pipeline_contract != 'nf-annotation-v0.5'
-                    || provider.resolve('cohort/fastani').toFile().exists()
-                    || provider.resolve('tables/cohort_update_run.json').toFile().exists()) {
-                    throw new IllegalArgumentException('Reference providers must be original v0.5 QC publications inside --qc_publication_root')
+                if (!provider.startsWith(boundary) || manifest(provider).pipeline_contract != 'nf-annotation-v0.5') {
+                    throw new IllegalArgumentException('Reference providers must be self-contained v0.5 publications inside --qc_publication_root')
                 }
             }
         }
