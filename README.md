@@ -19,6 +19,11 @@ v0.5.3 allows reference mode to use valid self-contained full-run and cohort-upd
 providers, including those with FastANI outputs. See
 [publication and storage](docs/ani_performance.md#publication-and-storage).
 
+v0.5.4 distinguishes masked prediction failures from verified zero-CDS results.
+Prokka 1.15.6 remains unchanged, including its mode-selection bug. Follow the
+[uniform tool-option policy](docs/tool_option_policy.md) and use fresh QC
+publications for the [prediction-outcome contract](docs/prokka_prediction.md).
+
 [![Nextflow](https://img.shields.io/badge/version-26.04.0-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
 [![run with docker](https://img.shields.io/badge/run%20with-docker-0db7ed?labelColor=000000&logo=docker)](https://www.docker.com/)
 [![run with singularity](https://img.shields.io/badge/run%20with-singularity-1d355c.svg?labelColor=000000)](https://sylabs.io/docs/)

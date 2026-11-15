@@ -1,5 +1,24 @@
 # Change Log
 
+## v0.5.4 - 2026-11-15
+
+### Changes
+
+- Detect masked Prodigal failures and distinguish verified zero-CDS results in
+  bundles, status, reporting and reuse.
+- Preserve Codetta summaries when resuming cached tasks.
+- Document uniform tool options. Keep released Prokka 1.15.6 unchanged, including
+  its mode-selection bug; add no QC gate or metagenome flag.
+
+### Validation
+
+- Native failure, positive and zero-CDS controls passed with identical Prokka
+  options. Regression, Linux helper, Ruff/ty and Viper checks passed. See the
+  [qualification record](development/v0.5.4_qualification.md).
+
+Fresh QC publications are required for the new prediction-outcome records.
+Production was not restarted. Existing releases and tool image contents are unchanged.
+
 ## v0.5.3 - 2026-11-14
 
 ### Changes
