@@ -895,7 +895,7 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         self.assertNotIn("filename == 'busco_${lineage}'", busco_text)
 
         self.assertIn(
-            "filename in ['prokka.gff', 'prokka.faa', 'prokka.gbk', 'prokka.log', 'prokka_storage.json']",
+            "filename in ['prokka.gff', 'prokka.faa', 'prokka.gbk', 'prokka.log', 'prokka_execution.json', 'prokka_storage.json']",
             prokka_text,
         )
         self.assertNotIn("filename == 'versions.yml' ? null : filename", prokka_text)
@@ -910,7 +910,7 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         )
         self.assertIn('cp "\\${prokka_gbk}" prokka.gbk', prokka_text)
         self.assertIn(
-            'if [[ "\\${exit_code}" -eq 0 && -s prokka.gff && -s prokka.faa && -s prokka.gbk ]]; then',
+            'if [[ "\\${exit_code}" -eq 0 && -s prokka.gff && -f prokka.faa && -s prokka.gbk ]]; then',
             prokka_text,
         )
         self.assertIn("cp prokka.gbk prokka/", prokka_text)
@@ -977,8 +977,8 @@ class NextflowModuleSyntaxTestCase(unittest.TestCase):
         workflow_path = ROOT / "subworkflows" / "local" / "final_outputs.nf"
         workflow_text = workflow_path.read_text(encoding="utf-8")
 
-        self.assertIn("extractExitCode.call(log)", workflow_text)
-        self.assertNotIn("extractExitCode(log)", workflow_text)
+        self.assertIn("prokkaFields.call(log)", workflow_text)
+        self.assertNotIn("prokkaFields(log)", workflow_text)
 
     def test_merge_runtime_database_reports_uses_path_python_lookup(self) -> None:
         """Require merge helper execution to use PATH-resolved Python and helper binaries."""

@@ -252,12 +252,13 @@ class NextflowConfigContractsTestCase(unittest.TestCase):
                 rf"{tool}_container = 'quay\.io/asuq1617/nf-annotation-{tool}@sha256:[a-f0-9]{{64}}'",
             )
 
-    def test_prokka_container_points_at_the_fixed_runtime_tag(self) -> None:
-        """Use the fixed Prokka image tag by default."""
+    def test_prokka_container_pins_the_unchanged_released_runtime(self) -> None:
+        """Pin the existing Prokka runtime without rebuilding its software."""
         config_text = NEXTFLOW_CONFIG.read_text(encoding="utf-8")
 
         self.assertIn(
-            "prokka_container = 'quay.io/asuq1617/prokka:1.15.6'", config_text
+            "prokka_container = 'quay.io/asuq1617/prokka@sha256:d9ff718c4ea19621a16a78b9d21dc1d1073bcaadeef2348afa38c5544ed4564d'",
+            config_text,
         )
         self.assertNotIn(
             "prokka_container = 'quay.io/biocontainers/prokka:1.15.6--pl5321hdfd78af_0'",
