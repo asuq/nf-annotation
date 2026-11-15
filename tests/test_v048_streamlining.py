@@ -12,7 +12,7 @@ import report_genomes
 import test_annotation_aggregation_scaling as aggregation_fixture
 import test_annotation_source as source_fixture
 import test_parallel_fingerprinting as fingerprint_fixture
-from annotation_common import AnnotationError, read_json, write_json
+from annotation_common import AnnotationError, read_json, read_tsv, write_json
 from annotation_workflow_fixture import aggregate_fixture
 from fingerprinting.source_fingerprint import FingerprintScanner, checked_digest
 from reuse_source_validation import validate, validate_or_reuse
@@ -50,6 +50,30 @@ class StreamliningTests(unittest.TestCase):
         self.assertEqual(
             read_json(ani / "annotation_results.json")["report_scope"], "genome"
         )
+
+    def test_reports_preserve_zero_and_unknown_protein_counts(self):
+        case = aggregation_fixture.AnnotationAggregationScalingTests()
+        case.setUp()
+        self.addCleanup(case.doCleanups)
+        args = case.cohort(["ZERO", "FAILED"], tools=())
+        for bundle, status, reason, count in (
+            (args[3][0], "incompatible_input", "no_cds", 0),
+            (args[3][1], "upstream_failed", "prediction failed", None),
+        ):
+            metadata = read_json(bundle / "bundle.json")
+            metadata.update(status=status, reason=reason, protein_count=count)
+            write_json(bundle / "bundle.json", metadata)
+        full, genome = case.root / "full", case.root / "genome"
+        aggregate_fixture(*args, full)
+        report_genomes.report(*args[:3], [p / "bundle.json" for p in args[3]], genome)
+        for output in (full, genome):
+            rows = read_tsv(output / "tables/master_table.tsv")
+            self.assertEqual(
+                [row["annotation_input_proteins"] for row in rows], ["0", "NA"]
+            )
+            self.assertTrue(
+                read_json(output / "annotation_acceptance.json")["complete"]
+            )
 
     def test_scan_digests_supply_semantic_validation_without_second_payload_reads(self):
         case = source_fixture.AnnotationSourceTests()

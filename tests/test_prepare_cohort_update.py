@@ -185,7 +185,10 @@ class PrepareCohortUpdateTestCase(unittest.TestCase):
                 write(
                     sample / f"prokka/prokka.{extension}", "" if failed else "fixture\n"
                 )
-            write(sample / "prokka/prokka.log", f"exit_code={1 if failed else 0}\n")
+            write(
+                sample / "prokka/prokka.log",
+                f"NF_PROKKA_PREDICTION_V1\tsingle\t1\nexit_code={1 if failed else 0}\n",
+            )
             status = {
                 column: "done" if column.endswith("_status") else ""
                 for column in master_table_contract.build_sample_status_columns(
@@ -464,6 +467,31 @@ class PrepareCohortUpdateTestCase(unittest.TestCase):
         _, rows = update.read_table(args.outdir / "reused_samples.tsv")
         self.assertEqual(rows[0]["source_gcode"], "4")
         self.assertNotIn("source_eggnog_status", rows[0])
+
+    def test_verified_zero_cds_status_is_reusable_but_masked_failure_is_not(
+        self,
+    ) -> None:
+        self.published_cohort(["A"])
+        args = self.arguments(["A"])
+        prokka = self.source / "samples/A/prokka"
+        (prokka / "prokka.faa").write_text("")
+        (prokka / "prokka.log").write_text(
+            "NF_PROKKA_PREDICTION_V1\tsingle\t0\nexit_code=0\n"
+        )
+        status = self.source / "tables/sample_status.tsv"
+        header, rows = update.read_table(status)
+        rows[0]["prokka_status"] = "no_cds"
+        table(status, header, rows)
+        refresh_tables(self.source)
+        update.run_prepare(args)
+        (prokka / "prokka.log").write_text(
+            "Found 0 CDS\nError: training failed\nexit_code=0\n"
+        )
+        args.outdir = self.root / "masked-reuse"
+        with self.assertRaisesRegex(
+            update.CohortUpdateError, "prokka_status disagrees"
+        ):
+            update.run_prepare(args)
 
     def test_source_summary_must_agree_with_published_status(self) -> None:
         self.published_cohort(["A"])

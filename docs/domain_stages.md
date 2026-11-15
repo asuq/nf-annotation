@@ -108,6 +108,8 @@ lineage search or implicit database update is introduced.
 The QC and clustering stages disable the separate functional callers even when
 `annotation_tools` is configured. Prokka retains its existing annotation flags,
 including `--rfam` and `--compliant`; QC does not rewrite its native output IDs.
+The [Prokka prediction contract](prokka_prediction.md) distinguishes successful
+zero-CDS predictions from execution failures and unavailable protein bundles.
 Protein and coordinate mapping tables continue to connect genes to accessions.
 CRISPR was not requested for new QC-stage samples, so their status is `na` and
 their CRISPR evidence remains `NA`. `QC_Scope` records that scope in the master

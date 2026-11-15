@@ -26,6 +26,7 @@ import summarise_checkm2
 import validate_inputs
 from annotation_common import AnnotationError
 from annotation_source import source_roots, validate_source
+from prokka_prediction import read_prediction, status_from_manifest
 from publication_references import Publication
 from reviewed_codes import recorded_candidates
 
@@ -450,16 +451,21 @@ def validate_annotations(
                     ) from error
             summaries.append(ccfinder)
         exit_code = read_exit_code(root / "prokka/prokka.log")
-        present = all(
-            (root / "prokka" / name).stat().st_size > 0
-            for name in ("prokka.gff", "prokka.faa")
+        try:
+            prediction = read_prediction(root / "prokka/prokka.log")
+            mode, count = prediction.mode, str(prediction.cds_count)
+        except AnnotationError:
+            mode, count = "NA", "NA"
+        expected, _ = status_from_manifest(
+            {
+                "exit_code": exit_code,
+                "gff_size": str((root / "prokka/prokka.gff").stat().st_size),
+                "faa_size": str((root / "prokka/prokka.faa").stat().st_size),
+                "prodigal_mode": mode,
+                "cds_count": count,
+            }
         )
-        check_status(
-            status,
-            "prokka_status",
-            "done" if exit_code == "0" and present else "failed",
-            accession,
-        )
+        check_status(status, "prokka_status", expected, accession)
     return summaries
 
 

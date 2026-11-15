@@ -49,13 +49,16 @@ workflow FINAL_OUTPUTS {
     ccfinder_seed = Channel.value(file("${projectDir}/assets/tables/headers/ccfinder_strains.tsv"))
     finalOutputsCollectDir = file("${workflow.workDir}/collect/${workflow.sessionId}/final_outputs")
 
-    extractExitCode = { logFile ->
-        def file = logFile.toFile()
-        if (!file.exists()) {
-            return 'NA'
-        }
-        def matches = file.readLines().findAll { line -> line.startsWith('exit_code=') }
-        return matches ? matches[-1].split('=', 2)[1].trim() : 'NA'
+    prokkaFields = { logFile ->
+        def source = logFile.toFile()
+        if (!source.exists()) { return ['NA', 'NA', 'NA'] }
+        def lines = source.readLines()
+        def exits = lines.findAll { it.startsWith('exit_code=') }
+        def exit = exits.size() == 1 ? exits[0].split('=', 2)[1].trim() : 'NA'
+        def start = lines.findLastIndexOf { it.startsWith('attempt=') }
+        def records = lines.drop(Math.max(start, 0)).findAll { it.startsWith('NF_PROKKA_PREDICTION_V1\t') }
+        def fields = records.size() == 1 ? records[0].split('\t', -1) : []
+        [exit, fields.size() == 3 ? fields[1] : 'NA', fields.size() == 3 ? fields[2] : 'NA']
     }
 
     unpackTuple = { item, channelName, expectedSize ->
@@ -126,7 +129,7 @@ workflow FINAL_OUTPUTS {
     collected_busco = busco_summaries
 
     prokkaManifest = Channel
-        .of('accession\texit_code\tgff_size\tfaa_size')
+        .of('accession\texit_code\tgff_size\tfaa_size\tprodigal_mode\tcds_count')
         .concat(
             prokka_results.map { item ->
                 def values = unpackTuple.call(item, 'prokka_results', 6)
@@ -134,7 +137,8 @@ workflow FINAL_OUTPUTS {
                 def gff = values[2]
                 def faa = values[3]
                 def log = values[5]
-                "${meta.accession}\t${extractExitCode.call(log)}\t${gff.toFile().length()}\t${faa.toFile().length()}"
+                def prediction = prokkaFields.call(log)
+                "${meta.accession}\t${prediction[0]}\t${gff.toFile().length()}\t${faa.toFile().length()}\t${prediction[1]}\t${prediction[2]}"
             }
         )
         .collectFile(

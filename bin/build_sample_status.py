@@ -17,9 +17,16 @@ import sample_policy
 import validate_inputs
 from ani_common import ANI_16S_POLICIES, derive_sixteen_s_ani_exclusion_reason
 from atypical_warnings import classify_atypical_warnings
+from prokka_prediction import status_from_manifest
 
 LOGGER = logging.getLogger(__name__)
-PROKKA_MANIFEST_COLUMNS = ("exit_code", "gff_size", "faa_size")
+PROKKA_MANIFEST_COLUMNS = (
+    "exit_code",
+    "gff_size",
+    "faa_size",
+    "prodigal_mode",
+    "cds_count",
+)
 CODETTA_SUMMARY_COLUMNS = (
     "Codetta_Genetic_Code",
     "Codetta_NCBI_Table_Candidates",
@@ -532,59 +539,20 @@ def derive_ani_decision(
     raise SampleStatusError(f"ANI summary is missing eligible accession {accession!r}.")
 
 
-def derive_annotation_status(
+def derive_prokka_status(
     accession: str,
-    *,
     manifest_index: dict[str, dict[str, str]],
-    manifest_requested: bool,
-    gcode_value: str,
-    table_name: str,
-    failed_warning: str,
-    missing_warning: str,
-    has_outputs,
-    missing_outputs_warning: str | None = None,
+    requested: bool,
+    gcode: str,
 ) -> tuple[str, list[str]]:
-    """Return one annotation-tool status from its per-sample manifest."""
-    if not manifest_requested:
+    if not requested:
         return "na", []
-    if gcode_value == "NA":
+    if gcode == "NA":
         return "skipped", []
-
     row = manifest_index.get(accession)
     if row is None:
-        return "failed", [missing_warning]
-
-    exit_code = parse_nonnegative_int(
-        row.get("exit_code"),
-        table_name=table_name,
-        accession=accession,
-        column_name="exit_code",
-    )
-    if exit_code != 0:
-        return "failed", [failed_warning]
-
-    if not has_outputs(row, accession):
-        warning = missing_outputs_warning or failed_warning
-        return "failed", [warning]
-
-    return "done", []
-
-
-def prokka_outputs_present(row: dict[str, str], accession: str) -> bool:
-    """Return True when Prokka emitted non-empty GFF and FAA outputs."""
-    gff_size = parse_nonnegative_int(
-        row.get("gff_size"),
-        table_name="Prokka manifest",
-        accession=accession,
-        column_name="gff_size",
-    )
-    faa_size = parse_nonnegative_int(
-        row.get("faa_size"),
-        table_name="Prokka manifest",
-        accession=accession,
-        column_name="faa_size",
-    )
-    return gff_size > 0 and faa_size > 0
+        return "failed", ["missing_prokka_result"]
+    return status_from_manifest(row)
 
 
 def build_status_row(
@@ -699,16 +667,8 @@ def build_status_row(
     row["ccfinder_status"] = ccfinder_status
     warnings.extend(ccfinder_warnings)
 
-    prokka_status, prokka_warnings = derive_annotation_status(
-        accession,
-        manifest_index=prokka_index,
-        manifest_requested=prokka_requested,
-        gcode_value=gcode_value,
-        table_name="Prokka manifest",
-        failed_warning="prokka_failed",
-        missing_warning="missing_prokka_result",
-        has_outputs=prokka_outputs_present,
-        missing_outputs_warning="missing_prokka_outputs",
+    prokka_status, prokka_warnings = derive_prokka_status(
+        accession, prokka_index, prokka_requested, gcode_value
     )
     row["prokka_status"] = prokka_status
     warnings.extend(prokka_warnings)

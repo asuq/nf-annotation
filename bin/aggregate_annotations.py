@@ -504,7 +504,12 @@ def aggregate_samples(
             for tool, record in group.items()
             if tool in plan["enabled_tools"]
         )
-        master_row.update(genome_summary(group, len(proteins) or None, complete))
+        input_count = (
+            0
+            if metadata and metadata.get("reason") == "no_cds"
+            else len(proteins) or None
+        )
+        master_row.update(genome_summary(group, input_count, complete))
         status_index[accession]["annotation_complete"] = str(complete).lower()
         spool.add_rows("status", record_rows(group), order)
         spool.add_rows("provenance", provenance_rows(group), order)

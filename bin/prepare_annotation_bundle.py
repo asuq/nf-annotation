@@ -11,6 +11,7 @@ import re
 import shutil
 import sys
 from collections import defaultdict
+from dataclasses import asdict
 from io import StringIO
 from pathlib import Path
 from typing import cast
@@ -31,6 +32,7 @@ from annotation_common import (
 )
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
+from prokka_prediction import read_prediction
 
 LOGGER = logging.getLogger(__name__)
 
@@ -170,6 +172,8 @@ def validate_genbank(
         for feature in record.features:
             if feature.type != "CDS":
                 continue
+            if not proteins:
+                raise AnnotationError("GenBank CDS contradicts an empty protein FASTA")
             translations = feature.qualifiers.get("translation", [])
             loci = feature.qualifiers.get("locus_tag", [])
             if not translations and not set(loci) & protein_sequences.keys():
@@ -280,7 +284,10 @@ def build_bundle(
         raise AnnotationError(
             "Bundle requires a valid accession and genetic code 4 or 11"
         )
-    proteins = fasta_records(faa.read_text(), "protein input")
+    protein_text = faa.read_text()
+    proteins = (
+        fasta_records(protein_text, "protein input") if protein_text.strip() else []
+    )
     for protein in proteins:
         if set(str(protein.seq)) - set("ACDEFGHIKLMNPQRSTVWYBXZJUO"):
             raise AnnotationError(f"Invalid amino-acid symbols in {protein.id}")
@@ -472,7 +479,7 @@ def build_bundle(
     manifest = {
         "schema_version": SCHEMA_VERSION,
         "accession": accession,
-        "status": "success",
+        "status": "success" if rows else "incompatible_input",
         "genetic_code": gcode,
         "protein_count": len(rows),
         "files": files,
@@ -504,6 +511,8 @@ def build_bundle(
             Path(__file__).with_name("annotation_common.py")
         ),
     }
+    if not rows:
+        manifest["reason"] = "no_cds"
     write_json(output / "bundle.json", manifest)
     return manifest
 
@@ -521,15 +530,7 @@ def main() -> int:
     if any(args.outdir.iterdir()):
         parser.error("Bundle output must be a new empty directory")
     try:
-        codes = [
-            line.split("=", 1)[1]
-            for line in args.prokka_log.read_text().splitlines()
-            if line.startswith("exit_code=")
-        ]
-        if len(codes) != 1 or codes[0] != "0":
-            raise AnnotationError(
-                "upstream_failed: Prokka did not complete successfully"
-            )
+        prediction = read_prediction(args.prokka_log)
         manifest = build_bundle(
             args.accession,
             args.gcode,
@@ -539,6 +540,11 @@ def main() -> int:
             args.gbk,
             args.outdir,
         )
+        if manifest["protein_count"] != prediction.cds_count:
+            raise AnnotationError(
+                "Native Prokka CDS count disagrees with validated proteins"
+            )
+        manifest["prediction"] = asdict(prediction)
         manifest["prokka_log_sha256"] = digest(args.prokka_log)
         write_json(args.outdir / "bundle.json", manifest)
     except (AnnotationError, OSError, UnicodeError) as exc:

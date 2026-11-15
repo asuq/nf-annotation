@@ -5,6 +5,10 @@ BioContainers do not cover a required runtime.
 
 Current repo-owned images:
 
+- `docker/prokka/Dockerfile`: the pinned Prokka 1.15.6 runtime with the existing
+  minced launcher fix; upstream Prokka is unchanged. See the workflow-level
+  [prediction contract](../docs/prokka_prediction.md)
+
 - `docker/fastaai/Dockerfile`: FastAAI, bundled universal marker models and full-precision native Jaccard export
 
 - `docker/ccfinder/Dockerfile`: CRISPRCasFinder runtime

@@ -333,7 +333,84 @@ class AnnotationBundleTests(unittest.TestCase):
 
     def test_empty_protein_input_fails(self):
         self.faa.write_text("")
-        with self.assertRaisesRegex(AnnotationError, "empty_proteome"):
+        with self.assertRaises(AnnotationError):
+            self.build()
+
+    def test_consistent_zero_cds_is_unavailable_not_a_successful_protein_bundle(self):
+        self.faa.write_text("")
+        self.gff.write_text("##gff-version 3\n##FASTA\n>renamed\nATGTGAGCTTAA\n")
+        record = SeqIO.read(self.gbk, "genbank")
+        record.features = []
+        SeqIO.write(record, self.gbk, "genbank")
+        output = self.build()
+        manifest = json.loads((output / "bundle.json").read_text())
+        self.assertEqual(manifest["status"], "incompatible_input")
+        self.assertEqual(manifest["reason"], "no_cds")
+        self.assertEqual(manifest["protein_count"], 0)
+        with self.assertRaises(AnnotationError):
+            bundle_proteins(output)
+
+    def test_cli_preserves_verified_zero_and_rejects_masked_failure(self):
+        self.faa.write_text("")
+        self.gff.write_text("##gff-version 3\n##FASTA\n>renamed\nATGTGAGCTTAA\n")
+        record = SeqIO.read(self.gbk, "genbank")
+        record.features = []
+        SeqIO.write(record, self.gbk, "genbank")
+        for case, log, expected, count in (
+            (
+                "zero",
+                "NF_PROKKA_PREDICTION_V1\tsingle\t0\nexit_code=0\n",
+                "incompatible_input",
+                0,
+            ),
+            (
+                "masked",
+                "Error: prediction failed\nFound 0 CDS\nexit_code=0\n",
+                "upstream_failed",
+                None,
+            ),
+            (
+                "mismatch",
+                "NF_PROKKA_PREDICTION_V1\tsingle\t1\nexit_code=0\n",
+                "incompatible_input",
+                None,
+            ),
+        ):
+            with self.subTest(case=case):
+                log_path = self.root / "prokka.log"
+                log_path.write_text(log)
+                output = self.root / case
+                command = [
+                    sys.executable,
+                    str(
+                        Path(__file__).resolve().parents[1]
+                        / "bin/prepare_annotation_bundle.py"
+                    ),
+                    "--accession",
+                    "A",
+                    "--gcode",
+                    "4",
+                    "--outdir",
+                    str(output),
+                    "--prokka-log",
+                    str(log_path),
+                ]
+                for name in ("genome", "faa", "gff", "gbk"):
+                    command.extend(["--" + name, str(getattr(self, name))])
+                result = subprocess.run(
+                    command, capture_output=True, text=True, check=False
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                manifest = json.loads((output / "bundle.json").read_text())
+                self.assertEqual(manifest["status"], expected)
+                self.assertEqual(manifest.get("protein_count"), count)
+                if case == "zero":
+                    self.assertEqual(manifest["reason"], "no_cds")
+
+    def test_zero_faa_cannot_hide_genbank_cds(self):
+        self.faa.write_text("")
+        self.gff.write_text("##gff-version 3\n##FASTA\n>renamed\nATGTGAGCTTAA\n")
+        with self.assertRaises(AnnotationError):
             self.build()
 
     def test_invalid_sequence_symbols_and_embedded_whitespace_fail(self):

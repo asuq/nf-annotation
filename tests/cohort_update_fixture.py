@@ -256,7 +256,10 @@ def make_stub(args: argparse.Namespace) -> None:
             write("prokka.gbk", "")
         else:
             SeqIO.write(record, "prokka.gbk", "genbank")
-        write("prokka.log", f"exit_code={1 if failed else 0}\n")
+        write(
+            "prokka.log",
+            f"NF_PROKKA_PREDICTION_V1\tsingle\t1\nexit_code={1 if failed else 0}\n",
+        )
     elif tool == "ccfinder":
         Path("ccfinder").mkdir()
         ccfinder_zero(Path(args.genome), Path("."))

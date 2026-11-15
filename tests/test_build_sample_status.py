@@ -271,7 +271,7 @@ class BuildSampleStatusTestCase(unittest.TestCase):
             )
             prokka_manifest = self.write_text_file(
                 tmpdir / "prokka_manifest.tsv",
-                "accession\texit_code\tgff_size\tfaa_size\nACC1\t0\t100\t50\n",
+                "accession\texit_code\tgff_size\tfaa_size\tprodigal_mode\tcds_count\nACC1\t0\t100\t50\tsingle\t1\n",
             )
             ani = self.write_text_file(
                 tmpdir / "ani.tsv",
@@ -511,7 +511,7 @@ class BuildSampleStatusTestCase(unittest.TestCase):
             )
             prokka_manifest = self.write_text_file(
                 tmpdir / "prokka_manifest.tsv",
-                "accession\texit_code\tgff_size\tfaa_size\n",
+                "accession\texit_code\tgff_size\tfaa_size\tprodigal_mode\tcds_count\n",
             )
             output = tmpdir / "sample_status.tsv"
 
@@ -597,7 +597,7 @@ class BuildSampleStatusTestCase(unittest.TestCase):
             )
             prokka_manifest = self.write_text_file(
                 tmpdir / "prokka_manifest.tsv",
-                "accession\texit_code\tgff_size\tfaa_size\nACC1\t0\t0\t50\n",
+                "accession\texit_code\tgff_size\tfaa_size\tprodigal_mode\tcds_count\nACC1\t0\t0\t50\tsingle\t1\n",
             )
             output = tmpdir / "sample_status.tsv"
 
@@ -718,7 +718,7 @@ class BuildSampleStatusTestCase(unittest.TestCase):
             )
             prokka_manifest = self.write_text_file(
                 tmpdir / "prokka_manifest.tsv",
-                "accession\texit_code\tgff_size\tfaa_size\nACC1\t0\t100\t50\nACC2\t0\t100\t50\n",
+                "accession\texit_code\tgff_size\tfaa_size\tprodigal_mode\tcds_count\nACC1\t0\t100\t50\tsingle\t1\nACC2\t0\t100\t50\tsingle\t1\n",
             )
             ani = self.write_text_file(
                 tmpdir / "ani.tsv",

@@ -74,7 +74,7 @@ def report(
         if accession not in status_index or accession in records:
             raise AnnotationError("Duplicate or foreign genome bundle")
         records[accession] = {
-            key: metadata.get(key) for key in ("status", "protein_count")
+            key: metadata.get(key) for key in ("status", "reason", "protein_count")
         }
         bundle_manifest[accession] = {
             "path": f"samples/{accession}/annotation/bundle",
@@ -100,6 +100,7 @@ def report(
                 group,
                 metadata.get("protein_count")
                 if metadata.get("status") == "success"
+                or metadata.get("reason") == "no_cds"
                 else None,
                 True,
             )
