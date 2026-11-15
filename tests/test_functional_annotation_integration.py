@@ -803,15 +803,21 @@ exit """
                     self.assertEqual((task / name).exists(), case != "success", name)
 
     def test_prokka_uses_task_temporary_storage_and_preserves_curated_files(self):
+        prodigal = self.project / "bin/prodigal"
+        prodigal.write_text("#!/bin/sh\nexit 0\n")
+        prodigal.chmod(0o755)
         executable = self.project / "bin/prokka"
         executable.write_text(
             f"#!{sys.executable}\n"
             + """import os
+import subprocess
 import sys
 from pathlib import Path
 if sys.argv[1:] == ['--version']:
     print('prokka synthetic control')
     sys.exit(0)
+subprocess.run(['prodigal', '-i', sys.argv[1], '-g', '4', '-p', 'single'], check=True)
+print('[12:00:00] Found 1 CDS')
 tag = sys.argv[sys.argv.index('--locustag') + 1]
 records = sum(line.startswith('>') for line in Path(sys.argv[1]).read_text().splitlines())
 assert len(tag + '_' + str(records)) <= 16

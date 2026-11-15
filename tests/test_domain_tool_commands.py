@@ -24,12 +24,16 @@ class DomainToolCommandTests(unittest.TestCase):
             shutil.copy2(
                 ROOT / "bin/annotation_storage.sh", root / "bin/annotation_storage.sh"
             )
+            shutil.copy2(ROOT / "bin/run_prokka.py", root / "bin/run_prokka.py")
+            (root / "bin/prodigal").write_text("#!/bin/sh\nexit 0\n")
+            (root / "bin/prodigal").chmod(0o755)
             code = (
                 "#!"
                 + sys.executable
                 + "\n"
                 + r"""
 import json
+import subprocess
 import sys
 from pathlib import Path
 if sys.argv[1:] == ['--version']:
@@ -45,9 +49,15 @@ if tool == 'prokka':
     genetic_code = args[args.index('--gcode') + 1]
     assert (kingdom, genetic_code) == (expected[0], expected[2])
     assert '--rfam' in args and '--compliant' in args
+    assert '--meta' not in args and '--metagenome' not in args
+    subprocess.run(['prodigal', '-i', args[0], '-g', genetic_code, '-p', 'single'], check=True)
+    print('[12:00:00] Found ' + ('0' if identifier.startswith('A') else '1') + ' CDS')
     target = Path(args[args.index('--outdir') + 1]); target.mkdir()
     for suffix in ('gff','faa','gbk'):
-        (target / (identifier + '.' + suffix)).write_text(json.dumps([kingdom,genetic_code]) + '\n')
+        if suffix == 'faa' and identifier == 'A11':
+            continue
+        content = '' if suffix == 'faa' and identifier == 'A4' else json.dumps([kingdom,genetic_code]) + '\n'
+        (target / (identifier + '.' + suffix)).write_text(content)
 else:
     assert kingdom == expected[1]
     Path(args[args.index('--outseq') + 1]).write_text('>control\nACGT\n')
@@ -101,3 +111,10 @@ else:
                 self.assertEqual(
                     (sample / "barrnap/rrna.gff").read_text().strip(), barrnap
                 )
+                expected_exit = 1 if accession == "A11" else 0
+                self.assertIn(
+                    f"exit_code={expected_exit}\n",
+                    (sample / "prokka/prokka.log").read_text(),
+                )
+                if accession == "A4":
+                    self.assertEqual((sample / "prokka/prokka.faa").stat().st_size, 0)

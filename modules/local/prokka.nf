@@ -10,7 +10,7 @@ process PROKKA {
         mode: 'copy',
         overwrite: true,
         saveAs: { filename ->
-            filename in ['prokka.gff', 'prokka.faa', 'prokka.gbk', 'prokka.log', 'prokka_storage.json']
+            filename in ['prokka.gff', 'prokka.faa', 'prokka.gbk', 'prokka.log', 'prokka_execution.json', 'prokka_storage.json']
                 ? filename
                 : null
         },
@@ -24,6 +24,7 @@ process PROKKA {
     tuple val(meta), path(genome), val(gcode), path('prokka.faa'), path('prokka.gff'), path('prokka.gbk'), path('prokka.log'), emit: bundle_inputs
     path 'versions.yml', emit: versions
     path 'prokka_storage.json', optional: true, emit: storage
+    path 'prokka_execution.json', optional: true, emit: execution
 
     script:
     def kingdom = (meta.prokka_kingdom ?: 'Bacteria').toString().trim().toLowerCase(java.util.Locale.ROOT).capitalize()
@@ -64,7 +65,7 @@ process PROKKA {
         printf 'attempt=%s/%s\n' "\${attempt}" "\${max_attempts}" >> prokka.log
         rm -rf prokka
         set +e
-        prokka "${genome}" \
+        python3 "\$(command -v run_prokka.py)" "${genome}" \
             --outdir prokka \
             --prefix "${internalId}" \
             --locustag "\${locustag}" \
@@ -110,7 +111,13 @@ process PROKKA {
         : > prokka.gbk
     fi
 
-    if [[ "\${exit_code}" -eq 0 && -s prokka.gff && -s prokka.faa && -s prokka.gbk ]]; then
+    # A missing native output is not an observed empty protein FASTA.
+    if [[ "\${exit_code}" -eq 0 && ( -z "\${prokka_gff}" || -z "\${prokka_faa}" || -z "\${prokka_gbk}" ) ]]; then
+        echo 'missing_prokka_outputs' >> prokka.log
+        exit_code=1
+    fi
+
+    if [[ "\${exit_code}" -eq 0 && -s prokka.gff && -f prokka.faa && -s prokka.gbk ]]; then
         rm -rf prokka
         mkdir -p prokka
         cp prokka.gff prokka/
@@ -157,7 +164,7 @@ process PROKKA {
     cp prokka.gff prokka/prokka.gff
     cp prokka.faa prokka/prokka.faa
     cp prokka.gbk prokka/prokka.gbk
-    printf 'exit_code=0\\n' > prokka.log
+    printf 'NF_PROKKA_PREDICTION_V1\\tsingle\\t1\\nexit_code=0\\n' > prokka.log
     cat <<'EOF' > versions.yml
     "${task.process}":
       prokka: "stub"
