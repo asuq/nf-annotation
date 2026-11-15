@@ -184,3 +184,8 @@ and reuse checked BUSCO summaries. Disabled functional tools use one cohort
 plan. The [performance guide](ani_performance.md) describes source integrity,
 resume behaviour, self-contained publication and optional resource settings.
 The domain and scientific policies above are unchanged.
+
+Codetta publishes native files individually into its sample directory. Resuming
+a cached native task must preserve `codetta_summary.tsv`, which is owned by the
+separate summarisation task; publishing a whole directory can otherwise replace
+that summary and break subsequent cohort reuse. Tool arguments are unchanged.

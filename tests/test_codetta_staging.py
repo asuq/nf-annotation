@@ -40,6 +40,8 @@ import json
 import sys
 from pathlib import Path
 args = sys.argv[1:]
+Path('codetta/nested').mkdir(exist_ok=True)
+Path('codetta/nested/evidence.txt').write_text('nested evidence\n')
 resource = Path(args[args.index('--resource_directory') + 1])
 assert (resource / 'Pfam-A_enone.hmm').read_text() == 'reference\n'
 assert (resource / 'bad_pfams.txt').read_text() == 'resource\n'
@@ -121,6 +123,39 @@ if '--inference_output' in args:
                     len((output / "calls.jsonl").read_text().splitlines()), 3
                 )
                 self.assertIn("exit_code=0", (output / "codetta.log").read_text())
+                self.assertEqual(
+                    (output / "nested/evidence.txt").read_text(), "nested evidence\n"
+                )
+                summary = output / "codetta_summary.tsv"
+                summary.write_text("summary owned by a separate process\n")
+                resumed = subprocess.run(
+                    [
+                        NEXTFLOW,
+                        "run",
+                        str(project / "main.nf"),
+                        "-work-dir",
+                        str(root / "work"),
+                        "-resume",
+                    ],
+                    cwd=project,
+                    env=dict(
+                        os.environ,
+                        CODETTA_HOME=str(home),
+                        NXF_ANSI_LOG="false",
+                        NXF_DISABLE_CHECK_LATEST="true",
+                    ),
+                    capture_output=True,
+                    text=True,
+                    timeout=180,
+                    check=False,
+                )
+                self.assertEqual(resumed.returncode, 0, resumed.stdout + resumed.stderr)
+                self.assertEqual(
+                    summary.read_text(), "summary owned by a separate process\n"
+                )
+                self.assertEqual(
+                    len((output / "calls.jsonl").read_text().splitlines()), 3
+                )
 
     def test_database_named_codetta_is_separate_from_output(self):
         self.exercise()

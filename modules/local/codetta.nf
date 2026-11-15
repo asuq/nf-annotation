@@ -8,6 +8,7 @@ process CODETTA {
         { "${params.outdir}/samples/${meta.accession}" },
         mode: 'copy',
         overwrite: true,
+        // Preserve summaries owned by other tasks when republishing cached output.
         saveAs: { filename -> filename == 'versions.yml' ? null : filename },
     )
 
@@ -15,8 +16,8 @@ process CODETTA {
     tuple val(meta), path(genome), path(codetta_db, name: 'codetta_db')
 
     output:
-    tuple val(meta), path('codetta'), emit: results
-    tuple val(meta), path('codetta'), emit: summary_input
+    tuple val(meta), path('codetta/*'), emit: results
+    tuple val(meta), path('codetta/*'), emit: summary_input
     path 'versions.yml', emit: versions
 
     script:

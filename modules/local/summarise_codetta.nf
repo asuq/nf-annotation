@@ -12,7 +12,7 @@ process SUMMARISE_CODETTA {
     )
 
     input:
-    tuple val(meta), path(codetta_dir)
+    tuple val(meta), path(codetta_files, stageAs: 'codetta/*')
 
     output:
     tuple val(meta), path('codetta_summary.tsv'), emit: summary
@@ -23,7 +23,7 @@ process SUMMARISE_CODETTA {
     script_path="\$(command -v summarise_codetta.py)"
     python3 "\${script_path}" \
         --accession=${Shell.quote(meta.accession)} \
-        --codetta-dir "${codetta_dir}" \
+        --codetta-dir codetta \
         --output codetta_summary.tsv
 
     python_version="\$(python3 --version 2>&1 | sed 's/^Python //')"
