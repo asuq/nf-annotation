@@ -13,6 +13,7 @@ from pathlib import Path
 
 import master_table_contract
 import sample_policy
+from assembly_eligibility import master_fields
 
 LOGGER = logging.getLogger(__name__)
 
@@ -706,6 +707,12 @@ def run_build(args: argparse.Namespace) -> None:
         )
 
     policy_columns = []
+    if "Assembly_Bases" in validated_samples[0]:
+        policy_columns += [
+            "Assembly_Bases",
+            "Assembly_Exclusion_Reason",
+            "CheckM2_Low_quality",
+        ]
     if any("annotation_domain" in row for row in validated_samples):
         policy_columns += list(sample_policy.PROVENANCE_COLUMNS[:4])
     if any("qc_scope" in row for row in validated_samples):
@@ -742,6 +749,8 @@ def run_build(args: argparse.Namespace) -> None:
             )
         if "QC_Scope" in policy_columns:
             master_row["QC_Scope"] = sample_policy.qc_scope(sample_row)
+        if "Assembly_Bases" in sample_row:
+            master_row.update(master_fields(sample_row, master_row["Low_quality"]))
         rows.append(master_row)
 
     output_header = [*metadata_header, *append_columns, *policy_columns]

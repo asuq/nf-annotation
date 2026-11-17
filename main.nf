@@ -163,23 +163,12 @@ workflow {
     allGcodeQc = PER_SAMPLE_QC.out.gcode_qc.mix(INPUT_VALIDATION_AND_STAGING.out.reused_gcode_qc)
     allSixteenS = PER_SAMPLE_QC.out.sixteen_s_summaries.mix(INPUT_VALIDATION_AND_STAGING.out.reused_sixteen_s)
     allBusco = PER_SAMPLE_QC.out.busco_summaries.mix(INPUT_VALIDATION_AND_STAGING.out.reused_busco_summaries)
-    COHORT_16S(
-        allSixteenS,
-        PER_SAMPLE_QC.out.gcode_qc_for_cohort_16s.mix(INPUT_VALIDATION_AND_STAGING.out.reused_gcode_qc_for_cohort_16s),
-        metadata,
-    )
     PER_SAMPLE_ANNOTATION(
         INPUT_VALIDATION_AND_STAGING.out.new_staged_genomes,
         PER_SAMPLE_QC.out.gcode_qc,
         codettaDb,
     )
     allBundles = PER_SAMPLE_ANNOTATION.out.bundles.mix(INPUT_VALIDATION_AND_STAGING.out.reused_bundles)
-    FUNCTIONAL_ANNOTATION(
-        INPUT_VALIDATION_AND_STAGING.out.validated_samples,
-        allBundles,
-        ANNOTATION_RESOURCES.out.receipt,
-        Channel.value(params.update_from ? PublishedSources.paths(params.update_from) : []),
-    )
     COHORT_ANI(
         INPUT_VALIDATION_AND_STAGING.out.validated_samples,
         metadata,
@@ -192,13 +181,25 @@ workflow {
         Channel.value(primaryBuscoColumn),
         Channel.value(params.ani_16s_policy),
     )
+    COHORT_16S(
+        allSixteenS,
+        PER_SAMPLE_QC.out.gcode_qc_for_cohort_16s.mix(INPUT_VALIDATION_AND_STAGING.out.reused_gcode_qc_for_cohort_16s),
+        metadata,
+        COHORT_ANI.out.classified_samples,
+    )
+    FUNCTIONAL_ANNOTATION(
+        COHORT_ANI.out.classified_samples,
+        allBundles,
+        ANNOTATION_RESOURCES.out.receipt,
+        Channel.value(params.update_from ? PublishedSources.paths(params.update_from) : []),
+    )
     COHORT_AAI(
-        INPUT_VALIDATION_AND_STAGING.out.validated_samples, metadata,
+        COHORT_ANI.out.classified_samples, metadata,
         allGcodeQc, COHORT_ANI.out.parsed_busco, COHORT_ANI.out.assembly_stats,
         allBundles, Channel.value(primaryBuscoColumn),
     )
     FINAL_OUTPUTS(
-        INPUT_VALIDATION_AND_STAGING.out.validated_samples,
+        COHORT_ANI.out.classified_samples,
         INPUT_VALIDATION_AND_STAGING.out.sample_status,
         metadata,
         COHORT_TAXONOMY.out.taxonomy,

@@ -1,3 +1,4 @@
+include { ASSEMBLY_ELIGIBILITY } from '../../modules/local/assembly_eligibility'
 include { SUMMARISE_BUSCO } from '../../modules/local/summarise_busco'
 include { CALCULATE_ASSEMBLY_STATS } from '../../modules/local/calculate_assembly_stats'
 include { BUILD_FASTANI_INPUTS } from '../../modules/local/build_fastani_inputs'
@@ -118,6 +119,7 @@ workflow COHORT_ANI {
         assemblyVersions = CALCULATE_ASSEMBLY_STATS.out.versions
     }
 
+    ASSEMBLY_ELIGIBILITY(validated_samples, assemblyStats)
     if (SamplePolicy.stage(params) == 'qc') {
         preparedInputs = Channel.empty()
         preparedPaths = Channel.empty()
@@ -132,7 +134,7 @@ workflow COHORT_ANI {
         aniVersions = Channel.empty()
     } else {
         BUILD_FASTANI_INPUTS(
-            validated_samples,
+            ASSEMBLY_ELIGIBILITY.out.samples,
             metadata,
             staged_manifest,
             staged_fasta_files,
@@ -173,6 +175,7 @@ workflow COHORT_ANI {
             .mix(representatives.map { tuple('cohort/ani_clusters/ani_representatives.tsv', it) })
     }
     emit:
+    classified_samples = ASSEMBLY_ELIGIBILITY.out.samples
     evidence = evidence
     checkm2_table = combined_checkm2
     parsed_busco = busco_tables

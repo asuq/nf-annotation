@@ -27,7 +27,11 @@ OUTPUTS = {
 
 
 def build(
-    status_paths: list[Path], qc_directory: Path, metadata: Path | None, output: Path
+    status_paths: list[Path],
+    qc_directory: Path,
+    metadata: Path | None,
+    output: Path,
+    excluded: frozenset[str] = frozenset(),
 ) -> None:
     """Retain supplied shell-glob order, sample IDs, inclusion rules and output bytes."""
     if len(status_paths) != len(set(status_paths)):
@@ -63,6 +67,8 @@ def build(
                     f"Duplicate or mismatched 16S/QC accession: {accession}"
                 )
             observed.add(accession)
+            if accession in excluded:
+                continue
             for kind, handle in handles.items():
                 if should_include_in_cohort(status, qc, kind, atypical):
                     append_fasta_content(handle, fasta, internal_id=internal_id.strip())
@@ -82,6 +88,7 @@ def main() -> int:
         help="NUL-delimited paths in the original glob order",
     )
     parser.add_argument("--qc-dir", type=Path, required=True)
+    parser.add_argument("--samples", type=Path)
     parser.add_argument("--metadata", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
@@ -91,7 +98,19 @@ def main() -> int:
             for value in args.statuses.read_bytes().split(b"\0")
             if value
         ]
-        build(paths, args.qc_dir, args.metadata, args.output)
+        from annotation_common import read_tsv
+        from assembly_eligibility import SHORT
+
+        excluded = (
+            frozenset(
+                r["accession"]
+                for r in read_tsv(args.samples, ["Assembly_Exclusion_Reason"])
+                if r["Assembly_Exclusion_Reason"] == SHORT
+            )
+            if args.samples
+            else frozenset()
+        )
+        build(paths, args.qc_dir, args.metadata, args.output, excluded)
     except (Cohort16SError, OSError, UnicodeError) as error:
         parser.exit(1, str(error) + "\n")
     return 0

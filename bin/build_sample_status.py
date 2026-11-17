@@ -16,6 +16,7 @@ import master_table_contract
 import sample_policy
 import validate_inputs
 from ani_common import ANI_16S_POLICIES, derive_sixteen_s_ani_exclusion_reason
+from assembly_eligibility import SHORT
 from atypical_warnings import classify_atypical_warnings
 from prokka_prediction import status_from_manifest
 
@@ -478,6 +479,7 @@ def derive_ani_decision(
     *,
     gcode_value: str,
     low_quality_value: str,
+    assembly_reason: str = "NA",
     sixteen_s_value: str,
     assembly_level_value: str,
     metadata_row: dict[str, str],
@@ -491,7 +493,7 @@ def derive_ani_decision(
     if not ani_requested:
         return "na", ""
 
-    exclusion_reasons: list[str] = []
+    exclusion_reasons: list[str] = [SHORT] if assembly_reason == SHORT else []
     atypical_value = table_helpers.detect_metadata_value(
         metadata_row, "Atypical_Warnings"
     )
@@ -629,6 +631,9 @@ def build_status_row(
         checkm2_requested=checkm2_requested,
     )
     row["gcode"] = gcode_value
+    if sample_row.get("Assembly_Exclusion_Reason") == SHORT:
+        low_quality_value = "true"
+        warnings.append(SHORT)
     row["low_quality"] = low_quality_value
     warnings.extend(checkm2_warnings)
 
@@ -703,6 +708,7 @@ def build_status_row(
         accession,
         gcode_value=gcode_value,
         low_quality_value=low_quality_value,
+        assembly_reason=sample_row.get("Assembly_Exclusion_Reason", "NA"),
         sixteen_s_value=sixteen_s_value,
         assembly_level_value=assembly_level_value,
         metadata_row=metadata_row,

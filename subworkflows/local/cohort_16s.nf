@@ -9,6 +9,7 @@ workflow COHORT_16S {
     sixteen_s_summaries
     gcode_qc
     metadata
+    classified_samples
 
     main:
     unpackTuple = { item, channelName, expectedSize ->
@@ -54,6 +55,7 @@ workflow COHORT_16S {
         collected_status_tables,
         collected_qc_tables,
         metadata,
+        classified_samples,
     )
 
     emit:

@@ -12,6 +12,7 @@ from pathlib import Path
 
 import sample_policy
 from ani_common import ANI_16S_POLICIES, derive_sixteen_s_ani_exclusion_reason
+from assembly_eligibility import SHORT
 from atypical_warnings import classify_atypical_warnings
 from build_master_table import (
     choose_assembly_level,
@@ -352,6 +353,8 @@ def run_build_fastani_inputs(
         assembly_stats_row = assembly_stats_index.get(accession)
 
         reasons: list[str] = []
+        if sample_row.get("Assembly_Exclusion_Reason") == SHORT:
+            reasons.append(SHORT)
         gcode, checkm2_completeness, checkm2_contamination = choose_checkm2_fields(
             checkm2_row
         )

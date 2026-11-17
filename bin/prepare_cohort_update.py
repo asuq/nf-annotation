@@ -288,7 +288,6 @@ def validate_qc(
     ):
         check_status(status, column, value, accession)
     check_status(status, "gcode", qc["Gcode"], accession)
-    check_status(status, "low_quality", qc["Low_quality"], accession)
     native_reports: dict[int, summarise_checkm2.ParsedCheckM2Report] = {}
     for code in (4, 11):
         if status[f"checkm2_gcode{code}_status"] == "done":
@@ -515,7 +514,22 @@ def validate_sample_outputs(
     )
     sixteen_s = validate_sixteen_s(root, accession, status)
     qc = validate_qc(root, sample, status, gcode_rule)
-    master_summaries = [qc, sixteen_s]
+    reported_qc = dict(qc)
+    if "Assembly_Bases" in master:
+        from assembly_eligibility import SHORT, exclusion
+
+        reason = exclusion(int(master["Assembly_Bases"]))
+        if (
+            master.get("CheckM2_Low_quality") != qc["Low_quality"]
+            or master.get("Assembly_Exclusion_Reason") != reason
+        ):
+            raise CohortUpdateError(
+                f"Published length or native QC decision disagrees for {accession}"
+            )
+        if reason == SHORT:
+            reported_qc["Low_quality"] = "true"
+    check_status(status, "low_quality", reported_qc["Low_quality"], accession)
+    master_summaries = [reported_qc, sixteen_s]
     selected_lineages = sample_policy.sample_lineages(sample, lineages)
     master_summaries.extend(validate_busco(root, accession, status, selected_lineages))
     if "annotation_domain" in sample:
@@ -871,7 +885,9 @@ def run_prepare(args: argparse.Namespace) -> None:
             raise CohortUpdateError(
                 f"Duplicate accessions across published sources: {sorted(overlap)}"
             )
-        if stage == "clustering":
+        if stage == "clustering" or any(
+            "Assembly_Bases" in row for row in source_masters.values()
+        ):
             stats_path = source / "cohort/assembly_stats/assembly_stats.tsv"
             _, stats = read_table(
                 stats_path,
@@ -882,6 +898,14 @@ def run_prepare(args: argparse.Namespace) -> None:
                 raise CohortUpdateError(
                     "Published assembly statistics differ from source membership"
                 )
+            for accession, row in source_masters.items():
+                if (
+                    "Assembly_Bases" in row
+                    and row["Assembly_Bases"] != stats_index[accession]["genome_size"]
+                ):
+                    raise CohortUpdateError(
+                        f"Published assembly length disagrees with statistics for {accession}"
+                    )
             assembly_rows.update(stats_index)
         source_index.update(source_samples)
         statuses.update(source_statuses)

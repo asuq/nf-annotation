@@ -17,6 +17,7 @@ process BUILD_COHORT_16S {
     path status_tables, stageAs: 'summaries/*'
     path qc_tables, stageAs: 'qc/*'
     path metadata
+    path classified_samples
 
     output:
     path 'all_best_16S.fna', emit: best_fasta
@@ -34,7 +35,7 @@ process BUILD_COHORT_16S {
     shopt -s nullglob
     printf '%s\\0' summaries/*_16S_status.tsv > status_paths.list0
     python3 "\$(command -v build_all_cohort_16s.py)" \
-        --statuses status_paths.list0 --qc-dir qc --metadata "${metadata}" --output .
+        --statuses status_paths.list0 --qc-dir qc --metadata "${metadata}" --samples "${classified_samples}" --output .
 
     python_version="\$(python3 --version 2>&1 | sed 's/^Python //')"
     printf '"%s":\n  python: "%s"\n  script: "%s"\n' \

@@ -15,6 +15,7 @@ from pathlib import Path
 import sample_policy
 from annotation_common import AnnotationError, digest, identity, read_json, write_json
 from annotation_path_lists import read_path_list
+from assembly_eligibility import SHORT
 from atypical_warnings import classify_atypical_warnings
 from build_fastani_inputs import (
     choose_checkm2_fields,
@@ -150,6 +151,8 @@ def prepare(args):
             m = metadata.get(acc, {})
             bundle_path, bundle = bundles.get(acc, (None, {}))
             reasons = []
+            if sample.get("Assembly_Exclusion_Reason") == SHORT:
+                reasons.append(SHORT)
             if gcode not in ("4", "11"):
                 reasons.append("gcode_na")
             if q.get("Low_quality") == "true":
