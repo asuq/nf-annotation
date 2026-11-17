@@ -67,9 +67,9 @@ workflow FUNCTIONAL_ANNOTATION {
 
     main:
     def recoverySource = params.eggnog_recovery_from ? AnnotationRecovery.source(params.eggnog_recovery_from, params.outdir) : null
-    // This list is available from the manifest before sample jobs run.
+    // Retain all bundles for provenance, including those excluded from searches.
     declaredAccessions = samples.splitCsv(header: true, sep: '\t').toList().map { rows ->
-        rows.collect { it.accession.toString() } as Set
+        rows.collectEntries { [(it.accession.toString()): it.Assembly_Exclusion_Reason] }
     }
     seenBundles = [] as Set
     checkedBundles = bundles.combine(declaredAccessions).map { item ->
@@ -77,7 +77,7 @@ workflow FUNCTIONAL_ANNOTATION {
         if (!(accession in item[2]) || !seenBundles.add(accession)) {
             error "Duplicate or foreign protein bundle: ${accession}"
         }
-        tuple(item[0], item[1])
+        tuple(item[0] + [assemblyExclusion: item[2][accession]], item[1])
     }
     // Collection is now only for final reporting, never for launching searches.
     collectedBundles = checkedBundles.toList().map { items ->
@@ -105,7 +105,8 @@ workflow FUNCTIONAL_ANNOTATION {
                 file("${it.resource_path}/annotation_resource.json", checkIfExists: true)
             }
         }
-        individualInputs = checkedBundles.map { item ->
+        eligibleBundles = checkedBundles.filter { it[0].assemblyExclusion != 'assembly_below_20000_bp' }
+        individualInputs = eligibleBundles.map { item ->
             def accession = item[0].accession.toString()
             tuple([key: accession, scope: 'individual', members: [accessions: [accession]]], [item[1]])
         }
@@ -133,7 +134,7 @@ workflow FUNCTIONAL_ANNOTATION {
                 group.accessions.collect { accession -> [accession, group] }
             }.collectEntries()
         }
-        groupedInputs = checkedBundles.combine(groupIndex)
+        groupedInputs = eligibleBundles.combine(groupIndex)
             .filter { item -> item[2].containsKey(item[0].accession.toString()) }
             .map { item ->
                 def group = item[2][item[0].accession.toString()]

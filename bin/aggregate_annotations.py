@@ -46,6 +46,7 @@ from annotation_summary import (
     feature_counts,
     genome_summary,
 )
+from assembly_eligibility import SHORT
 
 LOGGER = logging.getLogger(__name__)
 
@@ -430,7 +431,10 @@ def aggregate_samples(
         if accession in bundle_index:
             source_order, bundle = bundle_index[accession]
             metadata = read_json(bundle / "bundle.json")
-            if metadata["status"] == "success":
+            if (
+                metadata["status"] == "success"
+                and master_row.get("Assembly_Exclusion_Reason") != SHORT
+            ):
                 metadata, proteins = bundle_proteins(bundle)
                 spool.add_genes(proteins)
                 spool.add_rows("proteins", proteins, order, gene_key="tool_id")
@@ -500,14 +504,15 @@ def aggregate_samples(
                 )
             status_index[accession][f"{tool}_status"] = record["status"]
         complete = all(
-            record["status"] == "success"
+            record["status"] in {"success", "skipped_not_selected"}
             for tool, record in group.items()
             if tool in plan["enabled_tools"]
         )
         input_count = (
-            0
-            if metadata and metadata.get("reason") == "no_cds"
-            else len(proteins) or None
+            metadata.get("protein_count")
+            if metadata
+            and (metadata["status"] == "success" or metadata.get("reason") == "no_cds")
+            else None
         )
         master_row.update(genome_summary(group, input_count, complete))
         status_index[accession]["annotation_complete"] = str(complete).lower()

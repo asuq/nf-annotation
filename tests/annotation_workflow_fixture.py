@@ -5,7 +5,15 @@ import sys
 from pathlib import Path
 
 from aggregate_annotations import aggregate
-from annotation_common import TOOLS, digest, identity, read_json, write_json
+from annotation_common import (
+    TOOLS,
+    digest,
+    identity,
+    read_json,
+    read_tsv,
+    write_json,
+    write_tsv,
+)
 
 
 def install_synthetic_container_engine(project: Path) -> None:
@@ -104,6 +112,20 @@ def refresh_tables(source: Path) -> None:
 
 def publish_disabled(source: Path, accessions: list[str], bundles=()) -> None:
     """Build the actual output contract with all functional tools disabled."""
+    master_path = source / "tables/master_table.tsv"
+    master_rows = read_tsv(master_path)
+    if (
+        "Assembly_Bases" not in master_rows[0]
+        and "Completeness_gcode4" not in master_rows[0]
+    ):
+        # These planner fixtures use synthetic cohort-level QC metadata.
+        for row in master_rows:
+            row.update(
+                Assembly_Bases="20000",
+                Assembly_Exclusion_Reason="NA",
+                CheckM2_Low_quality=row.get("Low_quality", "NA"),
+            )
+        write_tsv(master_path, tuple(master_rows[0]), master_rows)
     plan = {
         "schema_version": 1,
         "accessions": accessions,

@@ -18,10 +18,13 @@ from annotation_common import (
     digest,
     identity,
     read_json,
+    read_tsv,
     validate_accession,
+    write_tsv,
 )
 from annotation_result import NativeBatch, native_batch_index, validate_raw_evidence
 from annotation_summary import ANNOTATION_COLUMNS, MATRICES
+from assembly_eligibility import SHORT, exclusion
 from master_table_contract import GCODE_PROVENANCE_COLUMNS
 from publication_references import REFERENCE_CONTRACTS, Publication, strict_path
 from reviewed_codes import validate_published_decision
@@ -252,19 +255,32 @@ def validate_source(
         root / "tables/master_table.tsv", ["Gcode", *ANNOTATION_COLUMNS]
     ) as (header, rows):
         master_key = detect_metadata_key_column(header)
-        masters = [
-            {
+        masters = []
+        for row in rows:
+            native_quality = row.get(
+                "CheckM2_Low_quality", row.get("Low_quality", "NA")
+            )
+            if "Assembly_Bases" in row:
+                reason = exclusion(int(row["Assembly_Bases"]))
+                expected_quality = "true" if reason == SHORT else native_quality
+                if (
+                    row.get("Assembly_Exclusion_Reason") != reason
+                    or row.get("Low_quality", "NA") != expected_quality
+                ):
+                    raise AnnotationError(
+                        "Published master disagrees with its assembly-length decision"
+                    )
+            master = {
                 key: row.get(key, "NA")
                 for key in (
                     master_key,
                     "Gcode",
-                    "Low_quality",
                     *GCODE_PROVENANCE_COLUMNS,
                     *tool_statuses,
                 )
             }
-            for row in rows
-        ]
+            master["Low_quality"] = native_quality
+            masters.append(master)
     if not masters:
         raise AnnotationError("Published master table has no genomes")
     with source_rows(
@@ -473,6 +489,18 @@ def import_source(root: Path, output: Path) -> None:
         ("validated_samples.tsv", "source_samples.tsv"),
     ):
         shutil.copyfile(source_path(root, "tables/" + name), output / destination)
+    samples_path = output / "source_samples.tsv"
+    records = read_tsv(samples_path)
+    with source_rows(output / "upstream_master.tsv", []) as (header, master_rows):
+        if not {"Assembly_Bases", "Assembly_Exclusion_Reason"} <= set(header):
+            raise AnnotationError(
+                "Refresh the source QC publication with the assembly-length policy before reannotation"
+            )
+        key = detect_metadata_key_column(header)
+        decisions = {row[key]: row["Assembly_Exclusion_Reason"] for row in master_rows}
+    for record in records:
+        record["Assembly_Exclusion_Reason"] = decisions[record["accession"]]
+    write_tsv(samples_path, tuple(records[0]), records)
     for path in (root / "tables").iterdir():
         if path.is_file() and f"tables/{path.name}" not in manifest["tables"]:
             source_path(root, "tables/" + path.name)

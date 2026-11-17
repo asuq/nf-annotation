@@ -234,6 +234,43 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
             if row["tool"] == "kofam"
         ]
 
+    def test_short_bundled_sample_skips_search_and_keeps_native_evidence(self):
+        from annotation_workflow_fixture import refresh_tables
+
+        path = self.source / "tables/master_table.tsv"
+        masters = read_tsv(path)
+        for row in masters:
+            row["CheckM2_Low_quality"] = row["Low_quality"] = "false"
+            if row["Accession"] == "B":
+                row.update(
+                    Assembly_Bases="19999",
+                    Assembly_Exclusion_Reason="assembly_below_20000_bp",
+                    Low_quality="true",
+                )
+        write_tsv(path, tuple(masters[0]), masters)
+        refresh_tables(self.source)
+        output = self.run_pipeline("short-member", self.source)
+        tasks = {
+            r["accession"]: r
+            for r in read_tsv(output / "pipeline_info/annotation_plan.tsv")
+            if r["tool"] == "kofam"
+        }
+        self.assertEqual(tasks["B"]["action"], "skip")
+        self.assertEqual(tasks["B"]["reason"], "assembly_below_20000_bp")
+        self.assertEqual(tasks["A"]["action"], "run")
+        for table in (
+            "protein_manifest.tsv",
+            "protein_function_summary.tsv",
+            "gene_coordinates.tsv",
+        ):
+            self.assertEqual(
+                {r["accession"] for r in read_tsv(output / "tables" / table)}, {"A"}
+            )
+        self.assertEqual(
+            (output / "samples/B/annotation/bundle/bundle.json").read_bytes(),
+            (self.source / "samples/B/annotation/bundle/bundle.json").read_bytes(),
+        )
+
     def test_enabled_annotation_accepts_reference_input_and_materialises_output(self):
         from annotation_source import validate_source
         from publication_references import REFERENCE_CONTRACT, REFERENCE_FILE

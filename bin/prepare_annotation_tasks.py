@@ -38,6 +38,7 @@ from annotation_tasks import (
     preflight,
     validate_preflight,
 )
+from assembly_eligibility import SHORT
 from eggnog_batches import prepare_batches
 
 LOGGER = logging.getLogger(__name__)
@@ -81,6 +82,11 @@ def plan(
         raise AnnotationError("Metadata-only planning requires all tools disabled")
     rows = read_tsv(samples, ["accession"])
     accessions = [row["accession"] for row in rows]
+    excluded = {
+        row["accession"]
+        for row in rows
+        if row.get("Assembly_Exclusion_Reason") == SHORT
+    }
     accession_set = set(accessions)
     if not accessions or len(accession_set) != len(accessions):
         raise AnnotationError(
@@ -126,7 +132,7 @@ def plan(
     successful = [
         bundle
         for bundle, record in by_accession.values()
-        if record["status"] == "success"
+        if record["status"] == "success" and record["accession"] not in excluded
     ]
     batches = (
         prepare_batches(
@@ -149,7 +155,11 @@ def plan(
         previous_source = sample_source(roots, accession)
         bundle, bundle_record = by_accession.get(accession, (None, {}))
         proteins = []
-        if bundle_record.get("status") == "success" and not metadata_only:
+        if (
+            bundle_record.get("status") == "success"
+            and not metadata_only
+            and accession not in excluded
+        ):
             assert bundle is not None
             bundle_record, proteins = bundle_proteins(bundle)
             if bundle_record["accession"] != accession:
@@ -168,6 +178,8 @@ def plan(
             )
             if tool not in checked["enabled_tools"]:
                 row.update(status="skipped_disabled", reason="tool_disabled")
+            elif accession in excluded:
+                row.update(status="skipped_not_selected", reason=SHORT)
             elif bundle_record.get("status") in (
                 "incompatible_input",
                 "upstream_failed",
@@ -309,13 +321,18 @@ def execution_groups(
         raise AnnotationError("eggNOG group size must be positive")
     checked = read_json(receipt)
     validate_preflight(checked)
-    accessions = [row["accession"] for row in read_tsv(samples, ["accession"])]
+    sample_rows = read_tsv(samples, ["accession"])
+    accessions = [row["accession"] for row in sample_rows]
     if not accessions or len(set(accessions)) != len(accessions):
         raise AnnotationError("Invalid grouping sample manifest")
     for accession in accessions:
         validate_accession(accession)
     groups: list[dict[str, Any]] = []
-    remaining = set(accessions)
+    remaining = {
+        row["accession"]
+        for row in sample_rows
+        if row.get("Assembly_Exclusion_Reason") != SHORT
+    }
     if "eggnog" in checked["enabled_tools"]:
         previous = validate_sources(source)
         for batch_id, native in sorted(previous.items()):
@@ -385,7 +402,8 @@ def merge_plans(
     """Build the complete cohort accounting after independently scheduled work."""
     checked = read_json(receipt)
     validate_preflight(checked)
-    accessions = [row["accession"] for row in read_tsv(samples, ["accession"])]
+    sample_rows = read_tsv(samples, ["accession"])
+    accessions = [row["accession"] for row in sample_rows]
     if not accessions or len(set(accessions)) != len(accessions):
         raise AnnotationError("Invalid cohort planning manifest")
     accession_set = set(accessions)
@@ -404,6 +422,11 @@ def merge_plans(
                 raise AnnotationError("Duplicate or foreign sample/tool plan entry")
             observed[key] = row
     tasks = []
+    exclusions = {
+        row["accession"]
+        for row in sample_rows
+        if row.get("Assembly_Exclusion_Reason") == SHORT
+    }
     for accession in accessions:
         for tool in TOOLS:
             row = observed.get((accession, tool))
@@ -417,6 +440,12 @@ def merge_plans(
                     status="upstream_failed" if enabled else "skipped_disabled",
                     reason="no_valid_protein_bundle" if enabled else "tool_disabled",
                 )
+            if accession in exclusions and tool in checked["enabled_tools"]:
+                if row["action"] != "skip":
+                    raise AnnotationError(
+                        "Short assembly scheduled for functional search"
+                    )
+                row.update(status="skipped_not_selected", reason=SHORT)
             tasks.append(row)
     record = {
         "schema_version": SCHEMA_VERSION,
