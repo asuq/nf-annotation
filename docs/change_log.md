@@ -1,5 +1,21 @@
 # Change Log
 
+## v0.5.5 - 2026-11-17
+
+### Changes
+
+- Flag assemblies below 20,000 bp as low quality after Prokka. Preserve every
+  master row, the original CheckM2 classification and the native prediction outcome.
+- Exclude those assemblies from cohort 16S, ANI, AAI and functional analyses.
+  All samples use the released tool versions and options.
+
+### Validation
+
+- The 19,999 and 20,000 bp boundary controls passed, including a failed
+  prediction and a passing assembly with a one-base contig.
+- Nextflow 26.04.6 recovered v0.5.4 QC from both the original cache and a
+  published provider. See the [qualification and recovery guide](development/v0.5.5_qualification.md).
+
 ## v0.5.4 - 2026-11-15
 
 ### Changes
