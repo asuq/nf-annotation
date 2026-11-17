@@ -51,3 +51,19 @@ Fresh QC publications are required for reuse under this outcome contract.
 Older Prokka logs lack the recorded child outcome and cannot establish a verified
 zero or successful prediction through this checker. Do not rewrite old logs to
 add receipts.
+
+## Assembly length and downstream eligibility
+
+Prokka runs with the released options for every genome with a resolved code,
+including assemblies below 20,000 bp. Downstream eligibility uses the sum of
+sequence lengths across all contigs in the staged assembly, before Prokka's
+contig filter. The master table preserves input order and records
+`Assembly_Bases`, `CheckM2_Low_quality` and `Assembly_Exclusion_Reason`.
+Below 20,000 bp the reason is `assembly_below_20000_bp` and `Low_quality=true`,
+including when Prokka fails. At exactly 20,000 bp the original QC rules apply.
+The rule excludes short assemblies from ANI, AAI, cohort 16S FASTAs, functional searches and
+cohort protein tables. Per-sample QC and prediction evidence remain available.
+
+Use a QC publication with the saved length decision for reannotation. A v0.5.4
+QC run can refresh its cohort reports from its original Nextflow session or
+provide the input to an update in a fresh destination.
