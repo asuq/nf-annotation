@@ -271,6 +271,24 @@ Path(sys.argv[sys.argv.index('-o') + 1]).write_text(text)
             (self.source / "samples/B/annotation/bundle/bundle.json").read_bytes(),
         )
 
+    def test_all_short_members_publish_an_empty_functional_cohort(self):
+        from annotation_workflow_fixture import refresh_tables
+
+        path = self.source / "tables/master_table.tsv"
+        masters = read_tsv(path)
+        for row in masters:
+            row.update(
+                Assembly_Bases="19999",
+                Assembly_Exclusion_Reason="assembly_below_20000_bp",
+                Low_quality="true",
+            )
+        write_tsv(path, tuple(masters[0]), masters)
+        refresh_tables(self.source)
+        output = self.run_pipeline("empty-functional", self.source)
+        self.assertEqual(self.actions(output), ["skip", "skip"])
+        self.assertEqual(read_tsv(output / "tables/protein_manifest.tsv"), [])
+        self.assertEqual(len(read_tsv(output / "tables/master_table.tsv")), 2)
+
     def test_enabled_annotation_accepts_reference_input_and_materialises_output(self):
         from annotation_source import validate_source
         from publication_references import REFERENCE_CONTRACT, REFERENCE_FILE
