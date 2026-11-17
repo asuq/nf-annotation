@@ -24,6 +24,7 @@ from annotation_workflow_fixture import (
     install_synthetic_container_engine,
     publish_disabled,
 )
+from assembly_eligibility import exclusion, master_fields
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqFeature import SeqFeature, SimpleLocation
@@ -108,12 +109,38 @@ def make_source(root: Path, count: int) -> tuple[Path, list[str], Path]:
             masters[index].update(
                 {key: value for key, value in qc.items() if key in masters[index]}
             )
-            statuses[index]["low_quality"] = "true"
+            masters[index].update(
+                master_fields(
+                    {
+                        "Assembly_Bases": str(len(sequence)),
+                        "Assembly_Exclusion_Reason": exclusion(len(sequence)),
+                    },
+                    qc["Low_quality"],
+                )
+            )
+            statuses[index]["low_quality"] = masters[index]["Low_quality"]
             bundle = sample / "annotation/bundle"
             result = build_bundle(accession, 4, staged, faa, gff, gbk, bundle)
             result["prokka_log_sha256"] = digest(sample / "prokka/prokka.log")
             write_json(bundle / "bundle.json", result)
             bundles.append(bundle)
+        stats = [
+            {
+                "accession": a,
+                "genome_size": str(len(sequence)),
+                "scaffolds": "1",
+                "n50": str(len(sequence)),
+                "gc_content": str(
+                    100 * (sequence.count("G") + sequence.count("C")) / len(sequence)
+                ),
+            }
+            for a in accessions
+        ]
+        table(
+            case.source / "cohort/assembly_stats/assembly_stats.tsv",
+            list(stats[0]),
+            stats,
+        )
         table(master_path, list(masters[0]), masters)
         table(status_path, list(statuses[0]), statuses)
         publish_disabled(case.source, accessions, bundles)
