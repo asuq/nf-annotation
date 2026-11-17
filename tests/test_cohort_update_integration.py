@@ -120,7 +120,9 @@ class CohortUpdateIntegrationTestCase(unittest.TestCase):
         ):
             genome = cls.inputs / f"{accession}.fasta"
             genome.write_text(
-                f">contig_{accession}\n" + "T" * index + ("ACGT" * 5000)[index:] + "\n"
+                f">contig_{accession}\n"
+                + ("T" * index + ("ACGT" * 500)[index:]) * 10
+                + "\n"
             )
             cls.genomes[accession] = genome
         cls.metadata = cls.inputs / "metadata.tsv"
